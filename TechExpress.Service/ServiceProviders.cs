@@ -32,7 +32,7 @@ namespace TechExpress.Service
             CategoryService = new CategoryService(unitOfWork);
             SpecDefinitionService = new SpecDefinitionService(unitOfWork);
             BrandService = new BrandService(unitOfWork);
-            CartService = new CartService(unitOfWork, userContext, cartHubContext);
+            CartService = new CartService(unitOfWork);
         }
     }
 }
