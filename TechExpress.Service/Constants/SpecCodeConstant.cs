@@ -11,6 +11,8 @@ public static class SpecCodeConstant
     public const string CpuTdp = "cpu_tdp";
     public const string CpuMemoryType = "cpu_memory_type";
     public const string CpuIntegratedGpu = "cpu_integrated_gpu";
+    public const string CpuEccSupport = "cpu_ecc_support";
+    public const string CpuPcieLanes = "cpu_pcie_lanes";
 
     // ============= MOTHERBOARD =============
     public const string MbSocket = "mb_socket";
@@ -24,6 +26,10 @@ public static class SpecCodeConstant
     public const string MbPcieX16Slots = "mb_pcie_x16_slots";
     public const string MbSataPorts = "mb_sata_ports";
     public const string MbMaxRamSpeed = "mb_max_ram_speed";
+    public const string MbDualSocket = "mb_dual_socket";
+    public const string MbEccSupport = "mb_ecc_support";
+    public const string MbIpmiSupport = "mb_ipmi_support";
+    public const string MbTotalPcieLanes = "mb_total_pcie_lanes";
 
     // ============= RAM =============
     public const string RamType = "ram_type";
@@ -31,6 +37,8 @@ public static class SpecCodeConstant
     public const string RamCapacity = "ram_capacity";
     public const string RamSticks = "ram_sticks";
     public const string RamLatency = "ram_latency";
+    public const string RamEcc = "ram_ecc";
+    public const string RamRegistered = "ram_registered";
 
     // ============= GPU =============
     public const string GpuVram = "gpu_vram";
@@ -38,12 +46,17 @@ public static class SpecCodeConstant
     public const string GpuLength = "gpu_length";
     public const string GpuPcieSlot = "gpu_pcie_slot";
     public const string GpuPowerConnector = "gpu_power_connector";
+    public const string GpuEccVram = "gpu_ecc_vram";
+    public const string GpuProfessional = "gpu_professional";
+    public const string GpuCudaCores = "gpu_cuda_cores";
+    public const string GpuTensorCores = "gpu_tensor_cores";
 
     // ============= PSU =============
     public const string PsuWattage = "psu_wattage";
     public const string PsuEfficiency = "psu_efficiency";
     public const string PsuModular = "psu_modular";
     public const string PsuFormFactor = "psu_form_factor";
+    public const string PsuRedundant = "psu_redundant";
 
     // ============= STORAGE =============
     public const string StorType = "stor_type";
@@ -52,6 +65,9 @@ public static class SpecCodeConstant
     public const string StorFormFactor = "stor_form_factor";
     public const string StorReadSpeed = "stor_read_speed";
     public const string StorWriteSpeed = "stor_write_speed";
+    public const string StorTbw = "stor_tbw";
+    public const string StorDwpd = "stor_dwpd";
+    public const string StorPowerLossProtection = "stor_power_loss_protection";
 
     // ============= CASE =============
     public const string CaseFormFactor = "case_form_factor";
