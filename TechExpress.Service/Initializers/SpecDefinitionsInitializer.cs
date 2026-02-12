@@ -139,6 +139,24 @@ public static class SpecDefinitionsInitializer
                 CategoryId = mbId, Unit = "", AcceptValueType = SpecAcceptValueType.Text,
                 Description = "Phiên bản PCIe (VD: PCIe 5.0, PCIe 4.0)", IsRequired = false,
             },
+            new()
+            {
+                Id = Guid.NewGuid(), Code = "mb_pcie_x16_slots", Name = "Số khe PCIe x16",
+                CategoryId = mbId, Unit = "slots", AcceptValueType = SpecAcceptValueType.Number,
+                Description = "Số khe cắm PCIe x16 cho card đồ họa", IsRequired = true,
+            },
+            new()
+            {
+                Id = Guid.NewGuid(), Code = "mb_sata_ports", Name = "Số cổng SATA",
+                CategoryId = mbId, Unit = "ports", AcceptValueType = SpecAcceptValueType.Number,
+                Description = "Số cổng SATA cho ổ cứng HDD/SSD 2.5\"", IsRequired = true,
+            },
+            new()
+            {
+                Id = Guid.NewGuid(), Code = "mb_max_ram_speed", Name = "Tốc độ RAM tối đa",
+                CategoryId = mbId, Unit = "MHz", AcceptValueType = SpecAcceptValueType.Number,
+                Description = "Tốc độ RAM tối đa hỗ trợ", IsRequired = false,
+            },
 
             // ============= RAM =============
             new()
@@ -251,6 +269,12 @@ public static class SpecDefinitionsInitializer
             },
             new()
             {
+                Id = Guid.NewGuid(), Code = "stor_form_factor", Name = "Form Factor",
+                CategoryId = storageId, Unit = "", AcceptValueType = SpecAcceptValueType.Text,
+                Description = "Kích thước vật lý (M.2, 2.5\", 3.5\")", IsRequired = true,
+            },
+            new()
+            {
                 Id = Guid.NewGuid(), Code = "stor_read_speed", Name = "Tốc độ đọc",
                 CategoryId = storageId, Unit = "MB/s", AcceptValueType = SpecAcceptValueType.Number,
                 Description = "Tốc độ đọc tuần tự", IsRequired = false,
@@ -298,6 +322,12 @@ public static class SpecDefinitionsInitializer
                 Id = Guid.NewGuid(), Code = "case_drive_bays_35", Name = "Khay 3.5\"",
                 CategoryId = caseId, Unit = "slots", AcceptValueType = SpecAcceptValueType.Number,
                 Description = "Số khay ổ cứng 3.5\" cho HDD", IsRequired = false,
+            },
+            new()
+            {
+                Id = Guid.NewGuid(), Code = "case_max_fan_size", Name = "Kích thước quạt tối đa",
+                CategoryId = caseId, Unit = "mm", AcceptValueType = SpecAcceptValueType.Number,
+                Description = "Kích thước quạt tối đa hỗ trợ (VD: 120, 140)", IsRequired = false,
             },
 
             // ============= CPU COOLER =============
