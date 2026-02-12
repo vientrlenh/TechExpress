@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Security.Authentication;
@@ -583,7 +583,7 @@ namespace TechExpress.Repository.Contexts
                     .HasDatabaseName("idx_computer_component");
                 
                 cc.HasOne(c => c.ComputerProduct)
-                    .WithMany()
+                    .WithMany(p => p.Components)
                     .HasForeignKey(c => c.ComputerProductId)
                     .OnDelete(DeleteBehavior.Cascade);
 

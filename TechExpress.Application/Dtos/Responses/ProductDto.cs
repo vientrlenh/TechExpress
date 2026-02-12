@@ -1,4 +1,4 @@
-﻿using TechExpress.Repository.Enums;
+using TechExpress.Repository.Enums;
 
 namespace TechExpress.Application.Dtos.Responses
 {
@@ -43,5 +43,31 @@ namespace TechExpress.Application.Dtos.Responses
         DateTimeOffset CreatedAt,
         DateTimeOffset UpdatedAt,
         List<ProductSpecValueResponse> SpecValues
+    );
+
+    public record ProductPCComponentResponse(
+        Guid ComponentProductId,
+        string ComponentProductName,
+        string ComponentProductSku,
+        int Quantity
+    );
+
+    public record ProductPCDetailResponse(
+        Guid Id,
+        string Name,
+        string Sku,
+        Guid CategoryId,
+        Guid? BrandId,
+        string CategoryName,
+        decimal Price,
+        int Stock,
+        int WarrantyMonth,
+        ProductStatus Status,
+        string Description,
+        List<string>? ThumbnailUrl,
+        DateTimeOffset CreatedAt,
+        DateTimeOffset UpdatedAt,
+        List<ProductSpecValueResponse> SpecValues,
+        List<ProductPCComponentResponse> Components
     );
 }

@@ -1,6 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using TechExpress.Repository.Contexts;
 using TechExpress.Repository.Enums;
@@ -136,6 +137,19 @@ namespace TechExpress.Repository.Repositories
                 .FirstOrDefaultAsync(p => p.Id == id);
         }
 
+        public async Task<Product?> FindByIdIncludeAllForPCDetailAsync(Guid id)
+        {
+            return await _context.Products
+                .Include(p => p.Category)
+                .Include(p => p.Images)
+                .Include(p => p.SpecValues)
+                    .ThenInclude(sv => sv.SpecDefinition)
+                .Include(p => p.Components)
+                    .ThenInclude(c => c.ComponentProduct)
+                .AsSplitQuery()
+                .FirstOrDefaultAsync(p => p.Id == id);
+        }
+
         public async Task<Product?> FindByIdAsync(Guid id)
         {
             return await _context.Products.FirstOrDefaultAsync(p => p.Id == id);
@@ -152,6 +166,16 @@ namespace TechExpress.Repository.Repositories
         {
             return await _context.Products
                 .FirstOrDefaultAsync(p => p.Id == id);
+        }
+
+        public async Task<List<Product>> FindByIdsWithTrackingAsync(IEnumerable<Guid> ids)
+        {
+            var idList = ids.ToList();
+            if (idList.Count == 0) return [];
+            return await _context.Products
+                .AsTracking()
+                .Where(p => idList.Contains(p.Id))
+                .ToListAsync();
         }
 
 

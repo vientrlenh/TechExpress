@@ -36,4 +36,6 @@ public class Product
     public Category Category { get; set; } = null!;
 
     public Brand? Brand { get; set; }
+
+    public ICollection<ComputerComponent> Components { get; set; } = [];
 }

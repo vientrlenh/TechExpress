@@ -21,6 +21,7 @@ namespace TechExpress.Service
         public SpecDefinitionService SpecDefinitionService { get; }
         public BrandService BrandService { get; }
         public ProductService ProductService { get; }
+        public ProductPCService ProductPCService { get; }
         public CategoryService CategoryService { get; }
         public CartService CartService { get; }
 
@@ -29,6 +30,7 @@ namespace TechExpress.Service
             AuthService = new AuthService(unitOfWork, jwtUtils, userContext, otpUtils, emailSender);
             UserService = new UserService(unitOfWork, userContext, redis);
             ProductService = new ProductService(unitOfWork);
+            ProductPCService = new ProductPCService(unitOfWork, ProductService);
             CategoryService = new CategoryService(unitOfWork);
             SpecDefinitionService = new SpecDefinitionService(unitOfWork);
             BrandService = new BrandService(unitOfWork);
