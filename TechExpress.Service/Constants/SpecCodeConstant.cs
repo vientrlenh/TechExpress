@@ -21,6 +21,9 @@ public static class SpecCodeConstant
     public const string MbMaxMemory = "mb_max_memory";
     public const string MbM2Slots = "mb_m2_slots";
     public const string MbPcieVersion = "mb_pcie_version";
+    public const string MbPcieX16Slots = "mb_pcie_x16_slots";
+    public const string MbSataPorts = "mb_sata_ports";
+    public const string MbMaxRamSpeed = "mb_max_ram_speed";
 
     // ============= RAM =============
     public const string RamType = "ram_type";
@@ -46,6 +49,7 @@ public static class SpecCodeConstant
     public const string StorType = "stor_type";
     public const string StorCapacity = "stor_capacity";
     public const string StorInterface = "stor_interface";
+    public const string StorFormFactor = "stor_form_factor";
     public const string StorReadSpeed = "stor_read_speed";
     public const string StorWriteSpeed = "stor_write_speed";
 
@@ -56,6 +60,7 @@ public static class SpecCodeConstant
     public const string CasePsuFormFactor = "case_psu_form_factor";
     public const string CaseDriveBays25 = "case_drive_bays_25";
     public const string CaseDriveBays35 = "case_drive_bays_35";
+    public const string CaseMaxFanSize = "case_max_fan_size";
 
     // ============= CPU COOLER =============
     public const string CoolerType = "cooler_type";
