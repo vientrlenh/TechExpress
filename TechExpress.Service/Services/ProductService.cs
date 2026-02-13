@@ -499,6 +499,14 @@ namespace TechExpress.Service.Services
                 TotalCount = totalCount
             };
         }
+
+        public async Task<List<Product>> HandleGetTopSellingProductsAsync(int count)
+        {
+            // Giới hạn số lượng sản phẩm trả về để tối ưu hiệu năng
+            if (count <= 0 || count > 50) count = 10;
+
+            return await _unitOfWork.ProductRepository.FindTopSellingProductsAsync(count);
+        }
     }
 
 }

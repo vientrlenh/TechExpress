@@ -169,6 +169,24 @@ namespace TechExpress.Application.Controllers
             return Ok(ApiResponse<Pagination<ProductListResponse>>.OkResponse(response));
         }
 
+
+        /// <summary>
+        /// San pham xuat hiện nhiều nhất trong các đơn hàng
+        /// </summary>
+        /// <param name="count"></param>
+        /// <returns></returns>
+        [HttpGet("top-selling")]
+        public async Task<IActionResult> GetTopSellingProducts([FromQuery] int count = 10)
+        {
+            // Gọi service để lấy danh sách sản phẩm bán chạy
+            var products = await _serviceProvider.ProductService.HandleGetTopSellingProductsAsync(count);
+
+            // Map dữ liệu sang DTO response
+            var response = ResponseMapper.MapToProductListResponsesFromProducts(products);
+
+            return Ok(ApiResponse<List<ProductListResponse>>.OkResponse(response));
+        }
+
     }
 }
 

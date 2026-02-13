@@ -282,5 +282,26 @@ namespace TechExpress.Repository.Repositories
             return query;
         }
 
+
+        public async Task<List<Product>> FindTopSellingProductsAsync(int count)
+        {
+            return await _context.OrderItems
+                .GroupBy(oi => oi.ProductId) // Nhóm theo ProductId
+                .Select(g => new
+                {
+                    ProductId = g.Key,
+                    TotalSold = g.Sum(oi => oi.Quantity) // Tính tổng số lượng bán ra
+                })
+                .OrderByDescending(x => x.TotalSold) // Sắp xếp giảm dần
+                .Take(count)
+                .Join(_context.Products
+                    .Include(p => p.Category) // Bao gồm thông tin danh mục
+                    .Include(p => p.Images)   // Bao gồm hình ảnh
+                    .Where(p => p.Status == ProductStatus.Available), // Chỉ lấy sản phẩm đang kinh doanh
+                    top => top.ProductId,
+                    p => p.Id,
+                    (top, p) => p)
+                .ToListAsync();
+        }
     }
 }
