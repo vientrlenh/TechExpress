@@ -460,6 +460,45 @@ namespace TechExpress.Service.Services
         {
             return await _unitOfWork.ProductRepository.FindAvailableNewProductsIncludeCategoryIncludeImagesIncludeSpecValuesThenIncludeSpecDefinitionWithSplitQueryAsync(number);
         }
+
+        public async Task<Pagination<Product>> HandleGetUiProductList(string? search, Guid? categoryId, int page,
+            int pageSize, ProductSortBy sortBy, SortDirection sortDirection)
+        {
+            var isDescending = sortDirection == SortDirection.Desc;
+
+            List<Guid>? categoryIds = null;
+            if (categoryId.HasValue)
+            {
+                var descendants = await _unitOfWork.CategoryRepository
+                    .GetDescendantCategoryIdsAsync(categoryId.Value);
+
+                categoryIds = new List<Guid>(descendants.Count + 1) { categoryId.Value };
+                categoryIds.AddRange(descendants);
+            }
+
+            var (products, totalCount) = sortBy switch
+            {
+                ProductSortBy.Price => await _unitOfWork.ProductRepository
+                    .FindUiProductsPagedSortByPriceAsync(page, pageSize, isDescending, search, categoryIds),
+
+                ProductSortBy.CreatedAt => await _unitOfWork.ProductRepository
+                    .FindUiProductsPagedSortByCreatedAtAsync(page, pageSize, isDescending, search, categoryIds),
+
+                ProductSortBy.StockQty => await _unitOfWork.ProductRepository
+                    .FindUiProductsPagedSortByStockQtyAsync(page, pageSize, isDescending, search, categoryIds),
+
+                _ => await _unitOfWork.ProductRepository
+                    .FindUiProductsPagedSortByUpdatedAtAsync(page, pageSize, isDescending, search, categoryIds)
+            };
+
+            return new Pagination<Product>
+            {
+                Items = products,
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalCount = totalCount
+            };
+        }
     }
 
 }

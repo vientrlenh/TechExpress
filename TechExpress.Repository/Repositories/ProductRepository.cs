@@ -213,6 +213,74 @@ namespace TechExpress.Repository.Repositories
                 .Take(number)
                 .ToListAsync();
         }
+        
+        public async Task<(List<Product> Products, int TotalCount)> FindUiProductsPagedSortByPriceAsync(
+            int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds)
+        {
+            var query = BuildUiFilteredQuery(search, categoryIds);
+
+            query = isDescending ? query.OrderByDescending(p => p.Price) : query.OrderBy(p => p.Price);
+
+            return await ExecutePagedQueryAsync(query, page, pageSize);
+        }
+
+
+
+
+        public async Task<(List<Product> Products, int TotalCount)> FindUiProductsPagedSortByCreatedAtAsync(
+            int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds)
+        {
+            var query = BuildUiFilteredQuery(search, categoryIds);
+
+            query = isDescending ? query.OrderByDescending(p => p.CreatedAt) : query.OrderBy(p => p.CreatedAt);
+
+            return await ExecutePagedQueryAsync(query, page, pageSize);
+        }
+
+        public async Task<(List<Product> Products, int TotalCount)> FindUiProductsPagedSortByUpdatedAtAsync(
+            int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds)
+        {
+            var query = BuildUiFilteredQuery(search, categoryIds);
+
+            query = isDescending ? query.OrderByDescending(p => p.UpdatedAt) : query.OrderBy(p => p.UpdatedAt);
+
+            return await ExecutePagedQueryAsync(query, page, pageSize);
+        }
+
+        public async Task<(List<Product> Products, int TotalCount)> FindUiProductsPagedSortByStockQtyAsync(
+            int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds)
+        {
+            var query = BuildUiFilteredQuery(search, categoryIds);
+
+            query = isDescending ? query.OrderByDescending(p => p.Stock) : query.OrderBy(p => p.Stock);
+
+            return await ExecutePagedQueryAsync(query, page, pageSize);
+        }
+        
+        private IQueryable<Product> BuildUiFilteredQuery(
+            string? search,
+            List<Guid>? categoryIds)
+        {
+            var query = _context.Products
+                .AsNoTracking()
+                .Include(p => p.Category)
+                .Include(p => p.Images)
+                .Where(p => p.Stock > 0 && p.Status == ProductStatus.Available)
+                .AsQueryable();
+
+            if (categoryIds != null && categoryIds.Count > 0)
+                query = query.Where(p => categoryIds.Contains(p.CategoryId));
+            
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var s = search.Trim().ToLower();
+                query = query.Where(p =>
+                    p.Name.ToLower().Contains(s) ||
+                    p.Sku.ToLower().Contains(s));
+            }
+
+            return query;
+        }
 
     }
 }
