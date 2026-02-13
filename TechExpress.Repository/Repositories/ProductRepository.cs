@@ -286,6 +286,7 @@ namespace TechExpress.Repository.Repositories
         public async Task<List<Product>> FindTopSellingProductsAsync(int count)
         {
             return await _context.OrderItems
+                .Where(oi => oi.Order.Status == OrderStatus.Completed)
                 .GroupBy(oi => oi.ProductId) // Nhóm theo ProductId
                 .Select(g => new
                 {
