@@ -30,7 +30,7 @@ namespace TechExpress.Service.Services
             string? receiverEmail,
             string receiverFullName,
             string? shippingAddress,
-            string trackingPhone,
+            string trackingPhone, // Bắt buộc nhập từ Request
             PaidType paidType,
             string? receiverIdentityCard,
             int? installmentDurationMonth,
@@ -40,6 +40,10 @@ namespace TechExpress.Service.Services
 
             return await strategy.ExecuteAsync(async () =>
             {
+                // KIỂM TRA TRACKING PHONE CHO GUEST: Không được để trống
+                if (string.IsNullOrWhiteSpace(trackingPhone))
+                    throw new BadRequestException("Số điện thoại liên lạc là bắt buộc.");
+
                 using var transaction = await _unitOfWork.BeginTransactionAsync();
                 try
                 {
@@ -55,6 +59,7 @@ namespace TechExpress.Service.Services
                         if (product.Status != ProductStatus.Available)
                             throw new BadRequestException($"Sản phẩm '{product.Name}' hiện không khả dụng.");
 
+                        // --- CÁCH 2: ATOMIC UPDATE (THREAD-SAFE) ---
                         var affectedRows = await _unitOfWork.ProductRepository.DecrementStockAtomicAsync(item.ProductId, item.Quantity);
                         if (affectedRows == 0)
                             throw new BadRequestException($"Sản phẩm '{product.Name}' vừa hết hàng hoặc không đủ tồn kho.");
@@ -63,6 +68,7 @@ namespace TechExpress.Service.Services
                         orderItems.Add(new OrderItem { OrderId = orderId, ProductId = product.Id, Quantity = item.Quantity, UnitPrice = product.Price });
                     }
 
+                    // Ràng buộc chung (Địa chỉ, Trả góp...)
                     ValidateOrderRequirements(deliveryType, shippingAddress, null, paidType, receiverIdentityCard, installmentDurationMonth);
 
                     var order = CreateOrderObject(orderId, null, deliveryType, subTotal, receiverEmail, receiverFullName,
@@ -134,8 +140,10 @@ namespace TechExpress.Service.Services
                     var finalAddress = !string.IsNullOrWhiteSpace(shippingAddress) ? shippingAddress : user.Address;
 
                     string finalPhone;
+                    // KIỂM TRA TRACKING PHONE:
                     if (string.IsNullOrWhiteSpace(user.Phone))
                     {
+                        // Nếu User chưa có phone -> Cập nhật profile từ trackingPhone gửi lên
                         if (string.IsNullOrWhiteSpace(trackingPhone))
                             throw new BadRequestException("Số điện thoại liên lạc là bắt buộc.");
 
@@ -144,6 +152,7 @@ namespace TechExpress.Service.Services
                     }
                     else
                     {
+                        // Nếu User đã có phone -> Nếu nhập thì phải khớp số cũ
                         if (!string.IsNullOrWhiteSpace(trackingPhone) && user.Phone != trackingPhone)
                         {
                             throw new BadRequestException("Số điện thoại không khớp với số điện thoại đã đăng ký tài khoản.");
