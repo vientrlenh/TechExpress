@@ -357,4 +357,36 @@ public class ResponseMapper
             UpdatedAt = cart.UpdatedAt
         };
     }
+
+    //======================= Map Order Response =======================//
+
+    public static OrderResponse MapToOrderResponseFromOrder(Order order)
+    {
+        return new OrderResponse
+        {
+            Id = order.Id,
+            OrderDate = order.OrderDate,
+            Status = order.Status,
+            SubTotal = order.SubTotal,
+            ShippingCost = order.ShippingCost,
+            Tax = order.Tax,
+            TotalPrice = order.TotalPrice,
+            DeliveryType = order.DeliveryType,
+            PaidType = order.PaidType,
+            ReceiverFullName = order.ReceiverFullName,
+            ReceiverEmail = order.ReceiverEmail,
+            ShippingAddress = order.ShippingAddress,
+            TrackingPhone = order.TrackingPhone,
+            Notes = order.Notes,
+            Items = order.Items.Select(oi => new OrderItemResponse
+            {
+                Id = oi.Id,
+                ProductId = oi.ProductId,
+                // Lưu ý: Nếu Model OrderItem có Include Product, bạn có thể lấy tên ở đây
+                ProductName = oi.Product?.Name ?? "Sản phẩm không xác định",
+                Quantity = oi.Quantity,
+                UnitPrice = oi.UnitPrice
+            }).ToList()
+        };
+    }
 }

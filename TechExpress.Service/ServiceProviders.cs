@@ -24,6 +24,10 @@ namespace TechExpress.Service
         public CategoryService CategoryService { get; }
         public CartService CartService { get; }
 
+        public OrderService OrderService { get; }
+
+        public UserContext UserContext { get; }
+
         public ServiceProviders(UnitOfWork unitOfWork, SmtpEmailSender emailSender, JwtUtils jwtUtils, UserContext userContext, OtpUtils otpUtils, IConnectionMultiplexer redis, IHubContext<CartHub> cartHubContext)
         {
             AuthService = new AuthService(unitOfWork, jwtUtils, userContext, otpUtils, emailSender);
@@ -33,6 +37,8 @@ namespace TechExpress.Service
             SpecDefinitionService = new SpecDefinitionService(unitOfWork);
             BrandService = new BrandService(unitOfWork);
             CartService = new CartService(unitOfWork);
+            OrderService = new OrderService(unitOfWork, userContext);
+            UserContext = userContext;
         }
     }
 }
