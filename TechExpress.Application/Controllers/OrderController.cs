@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using TechExpress.Application.Common;
 using TechExpress.Application.DTOs.Requests;
 using TechExpress.Application.DTOs.Responses;
@@ -29,27 +30,42 @@ namespace TechExpress.Application.Controllers
         [HttpPost("guest-checkout")]
         public async Task<IActionResult> GuestCheckout([FromBody] GuestCheckoutRequest request)
         {
-            var items = request.Items
-                .Select(i => (i.ProductId, i.Quantity))
-                .ToList();
+            // 1. CHẶN NGƯỜI DÙNG ĐÀ AUTHEN (Fix lỗi logic Guest)
+            if (User.Identity?.IsAuthenticated == true)
+            {
+                return BadRequest(new ApiResponse<string>
+                {
+                    StatusCode = 400,
+                    Value = "API này chỉ dành cho khách chưa đăng nhập."
+                });
+            }
 
-            var order = await _serviceProvider.OrderService.HandleGuestCheckoutAsync(
-                items,
-                request.DeliveryType,
-                request.ReceiverEmail,
-                request.ReceiverFullName,
-                request.ShippingAddress,
-                request.TrackingPhone,
-                request.PaidType,
-                request.ReceiverIdentityCard,
-                request.InstallmentDurationMonth,
-                request.Notes
-            );
+            try
+            {
+                var items = request.Items.Select(i => (i.ProductId, i.Quantity)).ToList();
+                var order = await _serviceProvider.OrderService.HandleGuestCheckoutAsync(
+                    items,
+                    request.DeliveryType,
+                    request.ReceiverEmail,
+                    request.ReceiverFullName,
+                    request.ShippingAddress,
+                    request.TrackingPhone,
+                    request.PaidType,
+                    request.ReceiverIdentityCard,
+                    request.InstallmentDurationMonth,
+                    request.Notes
+                );
 
-            // Chuyển đổi sang Response DTO trước khi trả về
-            var response = ResponseMapper.MapToOrderResponseFromOrder(order);
-
-            return Ok(ApiResponse<OrderResponse>.OkResponse(response));
+                return Ok(ApiResponse<OrderResponse>.OkResponse(ResponseMapper.MapToOrderResponseFromOrder(order)));
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                return Conflict(new ApiResponse<string>
+                {
+                    StatusCode = 409,
+                    Value = "Hệ thống đang bận do có nhiều người mua cùng lúc, vui lòng thử lại sau giây lát."
+                });
+            }
         }
 
         /// <summary>
@@ -62,26 +78,32 @@ namespace TechExpress.Application.Controllers
         [Authorize(Roles = "Customer")]
         public async Task<IActionResult> MemberCheckout([FromBody] MemberCheckoutRequest request)
         {
-            // Lấy UserId từ Token đang đăng nhập
-            var userId = _serviceProvider.UserContext.GetCurrentAuthenticatedUserId();
+            try
+            {
+                var userId = _serviceProvider.UserContext.GetCurrentAuthenticatedUserId();
 
-            // Truyền từng thuộc tính vào Service (Bao gồm SelectedCartItemIds)
-            var order = await _serviceProvider.OrderService.HandleMemberCheckoutAsync(
-                userId,
-                request.SelectedCartItemIds, // Truyền List ID
-                request.DeliveryType,
-                request.ReceiverEmail,
-                request.ReceiverFullName,
-                request.ShippingAddress,
-                request.TrackingPhone,
-                request.PaidType,
-                request.ReceiverIdentityCard,
-                request.InstallmentDurationMonth,
-                request.Notes
-            );
+                var order = await _serviceProvider.OrderService.HandleMemberCheckoutAsync(
+                    userId,
+                    request.SelectedCartItemIds,
+                    request.DeliveryType,
+                    request.ReceiverEmail,
+                    request.ReceiverFullName,
+                    request.ShippingAddress,
+                    request.TrackingPhone,
+                    request.PaidType,
+                    request.ReceiverIdentityCard,
+                    request.InstallmentDurationMonth,
+                    request.Notes
+                );
 
-            var response = ResponseMapper.MapToOrderResponseFromOrder(order);
-            return Ok(ApiResponse<OrderResponse>.OkResponse(response));
+                var response = ResponseMapper.MapToOrderResponseFromOrder(order);
+                return Ok(ApiResponse<OrderResponse>.OkResponse(response));
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                // Thêm cái này để Member cũng được bảo vệ Thread-safe
+                return Conflict(new ApiResponse<string> { StatusCode = 409, Value = "Hàng trong giỏ của bạn vừa có người khác mua mất, vui lòng kiểm tra lại số lượng tồn kho." });
+            }
         }
     }
 }

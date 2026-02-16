@@ -158,23 +158,27 @@ namespace TechExpress.Service.Services
         }
 
         // ============================== HELPER METHODS ===============================
-
         private void ValidateOrderRequirements(DeliveryType deliveryType, string? inputAddress, string? profileAddress,
                                              PaidType paidType, string? idCard, int? duration)
         {
-            // Kiểm tra địa chỉ ship
+            // 1. Kiểm tra địa chỉ ship
             if (deliveryType == DeliveryType.Shipping && string.IsNullOrWhiteSpace(inputAddress) && string.IsNullOrWhiteSpace(profileAddress))
                 throw new BadRequestException("Địa chỉ giao hàng là bắt buộc cho hình thức Shipping.");
 
-            // Kiểm tra trả góp (CCCD và kỳ hạn 6-9-12)
+            // 2. Kiểm tra logic trả góp
             if (paidType == PaidType.Installment)
             {
                 if (string.IsNullOrWhiteSpace(idCard))
-                    throw new BadRequestException("Thông tin số định danh (CCCD) là bắt buộc khi trả góp.");
+                    throw new BadRequestException("Số định danh (CCCD) là bắt buộc khi chọn trả góp.");
 
                 var validDurations = new[] { 6, 9, 12 };
                 if (!duration.HasValue || !validDurations.Contains(duration.Value))
                     throw new BadRequestException("Kỳ hạn trả góp không hợp lệ. Chỉ hỗ trợ 6, 9 hoặc 12 tháng.");
+            }
+            else
+            {
+                // Nếu không trả góp mà vẫn gửi kỳ hạn lên -> Cảnh báo hoặc set về null (tùy bạn, ở đây tui chọn chặn)
+                if (duration.HasValue) throw new BadRequestException("Không thể chọn kỳ hạn thanh toán cho phương thức trả thẳng.");
             }
         }
 
@@ -183,10 +187,7 @@ namespace TechExpress.Service.Services
                                       PaidType paidType, string? idCard, int? duration, string? notes,
                                       List<OrderItem> items)
         {
-            decimal shippingCost = (deliveryType == DeliveryType.Shipping ? 30000 : 0); // phí ship cố định 30k cho đơn giao hàng, miễn phí cho lấy tại cửa hàng
-
-
-            // Thuế VAT cố định 10% trên tổng giá trị sản phẩm (không tính phí ship)
+            decimal shippingCost = (deliveryType == DeliveryType.Shipping ? 30000 : 0);
             decimal tax = subTotal * 0.1m;
 
             return new Order
@@ -197,6 +198,7 @@ namespace TechExpress.Service.Services
                 SubTotal = subTotal,
                 ShippingCost = shippingCost,
                 Tax = tax,
+                // Công thức: $TotalPrice = SubTotal + ShippingCost + Tax$
                 TotalPrice = subTotal + shippingCost + tax,
                 ReceiverEmail = email,
                 ReceiverFullName = name,
@@ -204,7 +206,7 @@ namespace TechExpress.Service.Services
                 TrackingPhone = phone,
                 PaidType = paidType,
                 ReceiverIdentityCard = idCard,
-                InstallmentDurationMonth = duration,
+                InstallmentDurationMonth = (paidType == PaidType.Installment) ? duration : null, // Bảo vệ dữ liệu
                 Notes = notes,
                 Status = OrderStatus.Pending,
                 OrderDate = DateTimeOffset.Now,
