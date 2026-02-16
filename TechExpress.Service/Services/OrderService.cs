@@ -1,5 +1,4 @@
-﻿// TechExpress.Service/Services/OrderService.cs
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -22,6 +21,7 @@ namespace TechExpress.Service.Services
             _userContext = userContext;
         }
 
+        // ============================== GUEST CHECKOUT ===============================
         public async Task<Order> HandleGuestCheckoutAsync(
             List<(Guid ProductId, int Quantity)> items,
             DeliveryType deliveryType,
@@ -35,18 +35,18 @@ namespace TechExpress.Service.Services
             string? notes)
         {
             var orderId = Guid.NewGuid();
-            var orderItems = new List<OrderItem>(); //
+            var orderItems = new List<OrderItem>();
             decimal subTotal = 0;
 
             foreach (var item in items)
             {
                 var product = await _unitOfWork.ProductRepository.FindByIdWithTrackingAsync(item.ProductId)
-                    ?? throw new NotFoundException($"Sản phẩm {item.ProductId} không tồn tại."); //
+                    ?? throw new NotFoundException($"Sản phẩm {item.ProductId} không tồn tại.");
 
                 if (product.Status != ProductStatus.Available || product.Stock < item.Quantity)
                     throw new BadRequestException($"Sản phẩm '{product.Name}' không đủ tồn kho (Hiện có: {product.Stock}).");
 
-                // Trừ Stock (Stock chính là Quantity trong kho)
+                // Trừ Stock & Update thời gian (Chống Race Condition)
                 product.Stock -= item.Quantity;
                 product.UpdatedAt = DateTimeOffset.Now;
 
@@ -61,45 +61,23 @@ namespace TechExpress.Service.Services
                 });
             }
 
-            // Ràng buộc địa chỉ giao hàng
-            if (deliveryType == DeliveryType.Shipping && string.IsNullOrWhiteSpace(shippingAddress))
-                throw new BadRequestException("Địa chỉ giao hàng là bắt buộc.");
+            // Ràng buộc chung
+            ValidateOrderRequirements(deliveryType, shippingAddress, null, paidType, receiverIdentityCard, installmentDurationMonth);
 
-            // Ràng buộc trả góp
-            if (paidType == PaidType.Installment && (string.IsNullOrWhiteSpace(receiverIdentityCard) || !installmentDurationMonth.HasValue))
-                throw new BadRequestException("Thông tin trả góp không đầy đủ.");
-
-            var order = new Order //
-            {
-                Id = orderId,
-                UserId = null,
-                DeliveryType = deliveryType,
-                SubTotal = subTotal,
-                ShippingCost = (deliveryType == DeliveryType.Shipping ? 30000 : 0),
-                Tax = subTotal * 0.1m,
-                TotalPrice = subTotal + (deliveryType == DeliveryType.Shipping ? 30000 : 0) + (subTotal * 0.1m),
-                ReceiverEmail = receiverEmail,
-                ReceiverFullName = receiverFullName,
-                ShippingAddress = shippingAddress,
-                TrackingPhone = trackingPhone,
-                Notes = notes,
-                PaidType = paidType,
-                ReceiverIdentityCard = receiverIdentityCard,
-                InstallmentDurationMonth = installmentDurationMonth,
-                Status = OrderStatus.Pending,
-                OrderDate = DateTimeOffset.Now,
-                Items = orderItems
-            };
+            var order = CreateOrderObject(orderId, null, deliveryType, subTotal, receiverEmail, receiverFullName,
+                                        shippingAddress, trackingPhone, paidType, receiverIdentityCard,
+                                        installmentDurationMonth, notes, orderItems);
 
             await _unitOfWork.OrderRepository.AddOrderAsync(order);
-            await _unitOfWork.SaveChangesAsync(); // Lưu mọi thay đổi trong 1 Transaction ngầm định
+            await _unitOfWork.SaveChangesAsync();
 
             return order;
         }
-        // ============================== Memeber buy product===============================
+
+        // ============================== MEMBER CHECKOUT ===============================
         public async Task<Order> HandleMemberCheckoutAsync(
             Guid userId,
-            List<Guid> selectedCartItemIds, // Nhận danh sách ID item được chọn
+            List<Guid> selectedCartItemIds,
             DeliveryType deliveryType,
             string? receiverEmail,
             string? receiverFullName,
@@ -110,12 +88,10 @@ namespace TechExpress.Service.Services
             int? installmentDurationMonth,
             string? notes)
         {
-            // 1. Bảo mật: Kiểm tra xem người đang đăng nhập có phải là người sở hữu ID này không
+            // 1. Bảo mật: Chặn đứng ý định "thanh toán dùm" ID người khác
             var authenticatedUserId = _userContext.GetCurrentAuthenticatedUserId();
             if (authenticatedUserId != userId)
-            {
                 throw new UnauthorizedAccessException("Bạn không có quyền thực hiện hành động này.");
-            }
 
             // 2. Lấy thông tin User và Giỏ hàng
             var user = await _unitOfWork.UserRepository.FindUserByIdAsync(userId)
@@ -124,36 +100,23 @@ namespace TechExpress.Service.Services
             var cart = await _unitOfWork.CartRepository.FindCartByUserIdIncludeItemsWithTrackingAsync(userId)
                 ?? throw new BadRequestException("Giỏ hàng của bạn đang trống.");
 
-            if (cart.Items == null || !cart.Items.Any())
-                throw new BadRequestException("Giỏ hàng của bạn đang trống.");
-
-            // 3. Lọc ra những sản phẩm được người dùng tích chọn
-            var selectedItems = cart.Items
-                .Where(ci => selectedCartItemIds.Contains(ci.Id))
-                .ToList();
-
+            // 3. Lọc sản phẩm được chọn
+            var selectedItems = cart.Items.Where(ci => selectedCartItemIds.Contains(ci.Id)).ToList();
             if (!selectedItems.Any())
-            {
-                throw new BadRequestException("Vui lòng chọn ít nhất một sản phẩm hợp lệ trong giỏ hàng để thanh toán.");
-            }
+                throw new BadRequestException("Vui lòng chọn ít nhất một sản phẩm hợp lệ để thanh toán.");
 
-            // 4. Tự động điền (Pre-fill) thông tin từ Profile
+            // 4. Merge thông tin Profile (Logic C2)
             var finalFullName = !string.IsNullOrWhiteSpace(receiverFullName) ? receiverFullName : $"{user.FirstName} {user.LastName}".Trim();
             var finalEmail = !string.IsNullOrWhiteSpace(receiverEmail) ? receiverEmail : user.Email;
             var finalPhone = !string.IsNullOrWhiteSpace(trackingPhone) ? trackingPhone : user.Phone;
-
-            // Logic C2: Kiểm tra Address gắt gao cho Shipping
-            if (deliveryType == DeliveryType.Shipping && string.IsNullOrWhiteSpace(shippingAddress) && string.IsNullOrWhiteSpace(user.Address))
-            {
-                throw new BadRequestException("Địa chỉ giao hàng là bắt buộc cho hình thức Shipping.");
-            }
             var finalAddress = !string.IsNullOrWhiteSpace(shippingAddress) ? shippingAddress : user.Address;
 
-            // Kiểm tra ràng buộc cơ bản sau merge
+            // 5. Kiểm tra ràng buộc
+            ValidateOrderRequirements(deliveryType, shippingAddress, user.Address, paidType, receiverIdentityCard, installmentDurationMonth);
             if (string.IsNullOrWhiteSpace(finalFullName)) throw new BadRequestException("Tên người nhận không được để trống.");
             if (string.IsNullOrWhiteSpace(finalPhone)) throw new BadRequestException("Số điện thoại không được để trống.");
 
-            // 5. Xử lý Stock và tạo OrderItems cho các món đã chọn
+            // 6. Xử lý tồn kho
             var orderId = Guid.NewGuid();
             var orderItems = new List<OrderItem>();
             decimal subTotal = 0;
@@ -166,12 +129,10 @@ namespace TechExpress.Service.Services
                 if (product.Status != ProductStatus.Available || product.Stock < cartItem.Quantity)
                     throw new BadRequestException($"Sản phẩm '{product.Name}' không đủ tồn kho.");
 
-                // Trừ Stock trực tiếp
                 product.Stock -= cartItem.Quantity;
                 product.UpdatedAt = DateTimeOffset.Now;
 
                 subTotal += product.Price * cartItem.Quantity;
-
                 orderItems.Add(new OrderItem
                 {
                     OrderId = orderId,
@@ -181,41 +142,71 @@ namespace TechExpress.Service.Services
                 });
             }
 
-            // 6. Khởi tạo đối tượng Order
-            var order = new Order
+            // 7. Tạo Order & Lưu
+            var order = CreateOrderObject(orderId, userId, deliveryType, subTotal, finalEmail, finalFullName,
+                                        finalAddress, finalPhone!, paidType, receiverIdentityCard,
+                                        installmentDurationMonth, notes, orderItems);
+
+            await _unitOfWork.OrderRepository.AddOrderAsync(order);
+
+            // 8. CHỈ XÓA các món đã mua
+            foreach (var item in selectedItems)
+                _unitOfWork.CartItemRepository.RemoveCartItem(item);
+
+            await _unitOfWork.SaveChangesAsync();
+            return order;
+        }
+
+        // ============================== HELPER METHODS ===============================
+
+        private void ValidateOrderRequirements(DeliveryType deliveryType, string? inputAddress, string? profileAddress,
+                                             PaidType paidType, string? idCard, int? duration)
+        {
+            // Kiểm tra địa chỉ ship
+            if (deliveryType == DeliveryType.Shipping && string.IsNullOrWhiteSpace(inputAddress) && string.IsNullOrWhiteSpace(profileAddress))
+                throw new BadRequestException("Địa chỉ giao hàng là bắt buộc cho hình thức Shipping.");
+
+            // Kiểm tra trả góp (CCCD và kỳ hạn 6-9-12)
+            if (paidType == PaidType.Installment)
             {
-                Id = orderId,
+                if (string.IsNullOrWhiteSpace(idCard))
+                    throw new BadRequestException("Thông tin số định danh (CCCD) là bắt buộc khi trả góp.");
+
+                var validDurations = new[] { 6, 9, 12 };
+                if (!duration.HasValue || !validDurations.Contains(duration.Value))
+                    throw new BadRequestException("Kỳ hạn trả góp không hợp lệ. Chỉ hỗ trợ 6, 9 hoặc 12 tháng.");
+            }
+        }
+
+        private Order CreateOrderObject(Guid id, Guid? userId, DeliveryType deliveryType, decimal subTotal,
+                                      string? email, string name, string? address, string phone,
+                                      PaidType paidType, string? idCard, int? duration, string? notes,
+                                      List<OrderItem> items)
+        {
+            decimal shippingCost = (deliveryType == DeliveryType.Shipping ? 30000 : 0);
+            decimal tax = subTotal * 0.1m;
+
+            return new Order
+            {
+                Id = id,
                 UserId = userId,
                 DeliveryType = deliveryType,
                 SubTotal = subTotal,
-                ShippingCost = (deliveryType == DeliveryType.Shipping ? 30000 : 0),
-                Tax = subTotal * 0.1m,
-                TotalPrice = subTotal + (deliveryType == DeliveryType.Shipping ? 30000 : 0) + (subTotal * 0.1m),
-                ReceiverEmail = finalEmail,
-                ReceiverFullName = finalFullName,
-                ShippingAddress = finalAddress,
-                TrackingPhone = finalPhone!,
+                ShippingCost = shippingCost,
+                Tax = tax,
+                TotalPrice = subTotal + shippingCost + tax,
+                ReceiverEmail = email,
+                ReceiverFullName = name,
+                ShippingAddress = address,
+                TrackingPhone = phone,
                 PaidType = paidType,
-                ReceiverIdentityCard = receiverIdentityCard,
-                InstallmentDurationMonth = installmentDurationMonth,
+                ReceiverIdentityCard = idCard,
+                InstallmentDurationMonth = duration,
                 Notes = notes,
                 Status = OrderStatus.Pending,
                 OrderDate = DateTimeOffset.Now,
-                Items = orderItems
+                Items = items
             };
-
-            // 7. Lưu đơn hàng và CHỈ XÓA các Item đã chọn mua
-            await _unitOfWork.OrderRepository.AddOrderAsync(order);
-
-            foreach (var item in selectedItems)
-            {
-                // Bạn cần đảm bảo Repository có hàm xóa lẻ item
-                _unitOfWork.CartItemRepository.RemoveCartItem(item);
-            }
-
-            await _unitOfWork.SaveChangesAsync(); // Kết thúc giao dịch ngầm định
-
-            return order;
         }
     }
 }
