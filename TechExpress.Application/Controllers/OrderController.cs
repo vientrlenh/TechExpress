@@ -26,7 +26,6 @@ namespace TechExpress.Application.Controllers
         [HttpPost("guest-checkout")]
         public async Task<IActionResult> GuestCheckout([FromBody] GuestCheckoutRequest request)
         {
-            // 1. CHẶN NGƯỜI DÙNG ĐÀ AUTHEN (Fix lỗi logic Guest)
             if (User.Identity?.IsAuthenticated == true)
             {
                 return BadRequest(new ApiResponse<string>
@@ -40,8 +39,8 @@ namespace TechExpress.Application.Controllers
             {
                 var items = request.Items.Select(i => (i.ProductId, i.Quantity)).ToList();
 
-                // Nhận kết quả dạng Tuple (order, installment) từ Service
-                var (order, installment) = await _serviceProvider.OrderService.HandleGuestCheckoutAsync(
+                // Nhận kết quả dạng Tuple (order, danh sách installments)
+                var (order, installments) = await _serviceProvider.OrderService.HandleGuestCheckoutAsync(
                     items,
                     request.DeliveryType,
                     request.ReceiverEmail,
@@ -54,8 +53,7 @@ namespace TechExpress.Application.Controllers
                     request.Notes
                 );
 
-                // Truyền cả order và installment vào Mapper
-                var response = ResponseMapper.MapToOrderResponseFromOrder(order, installment);
+                var response = ResponseMapper.MapToOrderResponseFromOrder(order, installments);
                 return Ok(ApiResponse<OrderResponse>.OkResponse(response));
             }
             catch (DbUpdateConcurrencyException)
@@ -79,8 +77,8 @@ namespace TechExpress.Application.Controllers
             {
                 var userId = _serviceProvider.UserContext.GetCurrentAuthenticatedUserId();
 
-                // Nhận kết quả dạng Tuple (order, installment) từ Service
-                var (order, installment) = await _serviceProvider.OrderService.HandleMemberCheckoutAsync(
+                // Nhận kết quả dạng Tuple (order, danh sách installments)
+                var (order, installments) = await _serviceProvider.OrderService.HandleMemberCheckoutAsync(
                     userId,
                     request.SelectedCartItemIds,
                     request.DeliveryType,
@@ -94,8 +92,7 @@ namespace TechExpress.Application.Controllers
                     request.Notes
                 );
 
-                // Truyền cả order và installment vào Mapper
-                var response = ResponseMapper.MapToOrderResponseFromOrder(order, installment);
+                var response = ResponseMapper.MapToOrderResponseFromOrder(order, installments);
                 return Ok(ApiResponse<OrderResponse>.OkResponse(response));
             }
             catch (DbUpdateConcurrencyException)

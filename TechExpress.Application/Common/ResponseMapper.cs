@@ -359,7 +359,8 @@ public class ResponseMapper
     }
 
     //======================= Map Order Response =======================//
-    public static OrderResponse MapToOrderResponseFromOrder(Order order, Installment? installment = null)
+    // Cập nhật từ Oder sang OrderResponse, thêm tham số List<Installment> để ánh xạ danh sách 6-12 kỳ hạn nếu có
+    public static OrderResponse MapToOrderResponseFromOrder(Order order, List<Installment>? installments = null)
     {
         return new OrderResponse
         {
@@ -386,15 +387,15 @@ public class ResponseMapper
                 UnitPrice = oi.UnitPrice
             }).ToList(),
 
-            // Ánh xạ duy nhất 1 bản ghi summary trả về cho Client
-            Installment = installment != null ? new InstallmentResponse
+            // Ánh xạ danh sách 6-12 kỳ hạn
+            Installments = installments?.Select(i => new InstallmentResponse
             {
-                Id = installment.Id,
-                Period = installment.Period,
-                Amount = installment.Amount,
-                Status = installment.Status,
-                DueDate = installment.DueDate // Đây là ngày kết thúc kỳ hạn
-            } : null
+                Id = i.Id,
+                Period = i.Period,
+                Amount = i.Amount,
+                Status = i.Status,
+                DueDate = i.DueDate
+            }).ToList() ?? new List<InstallmentResponse>()
         };
     }
 }

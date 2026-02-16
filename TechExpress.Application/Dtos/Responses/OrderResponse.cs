@@ -21,9 +21,9 @@ namespace TechExpress.Application.DTOs.Responses
         public ICollection<OrderItemResponse> Items { get; set; } = [];
 
         //// Trả về danh sách các kỳ hạn thanh toán
-        //public ICollection<InstallmentResponse> Installments { get; set; } = [];
+        public ICollection<InstallmentResponse> Installments { get; set; } = [];
 
         // Trả về duy nhất 1 thông tin tóm tắt gói trả góp
-        public InstallmentResponse? Installment { get; set; }
+        //public InstallmentResponse? Installment { get; set; }
     }
 }

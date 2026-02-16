@@ -304,5 +304,18 @@ namespace TechExpress.Repository.Repositories
                     (top, p) => p)
                 .ToListAsync();
         }
+
+
+        // Sử dụng tính năng của auto-transaction của EF Core để thực hiện cập nhật số lượng tồn kho một cách nguyên tử, tránh tình trạng oversell khi có nhiều khách hàng mua cùng lúc.
+        public async Task<int> DecrementStockAtomicAsync(Guid productId, int quantity)
+        {
+            // ExecuteUpdateAsync (EF Core 7+) cập nhật trực tiếp xuống DB 
+            // và trả về số hàng bị ảnh hưởng.
+            return await _context.Products
+                .Where(p => p.Id == productId && p.Stock >= quantity)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(p => p.Stock, p => p.Stock - quantity)
+                    .SetProperty(p => p.UpdatedAt, DateTimeOffset.Now));
+        }
     }
 }
