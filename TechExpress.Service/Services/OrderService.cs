@@ -183,7 +183,10 @@ namespace TechExpress.Service.Services
                                       PaidType paidType, string? idCard, int? duration, string? notes,
                                       List<OrderItem> items)
         {
-            decimal shippingCost = (deliveryType == DeliveryType.Shipping ? 30000 : 0);
+            decimal shippingCost = (deliveryType == DeliveryType.Shipping ? 30000 : 0); // phí ship cố định 30k cho đơn giao hàng, miễn phí cho lấy tại cửa hàng
+
+
+            // Thuế VAT cố định 10% trên tổng giá trị sản phẩm (không tính phí ship)
             decimal tax = subTotal * 0.1m;
 
             return new Order
