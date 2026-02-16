@@ -22,7 +22,7 @@ namespace TechExpress.Service.Services
         }
 
         // ============================== GUEST CHECKOUT ===============================
-        public async Task<Order> HandleGuestCheckoutAsync(
+        public async Task<(Order order, Installment? installment)> HandleGuestCheckoutAsync(
             List<(Guid ProductId, int Quantity)> items,
             DeliveryType deliveryType,
             string? receiverEmail,
@@ -69,13 +69,21 @@ namespace TechExpress.Service.Services
                                         installmentDurationMonth, notes, orderItems);
 
             await _unitOfWork.OrderRepository.AddOrderAsync(order);
+
+            // Tích hợp tạo Installment Record nếu chọn trả góp (Trả về 1 bản ghi duy nhất)
+            Installment? installment = null;
+            if (paidType == PaidType.Installment)
+            {
+                installment = await CreateInstallmentRecord(order, installmentDurationMonth!.Value);
+            }
+
             await _unitOfWork.SaveChangesAsync();
 
-            return order;
+            return (order, installment);
         }
 
         // ============================== MEMBER CHECKOUT ===============================
-        public async Task<Order> HandleMemberCheckoutAsync(
+        public async Task<(Order order, Installment? installment)> HandleMemberCheckoutAsync(
             Guid userId,
             List<Guid> selectedCartItemIds,
             DeliveryType deliveryType,
@@ -142,30 +150,53 @@ namespace TechExpress.Service.Services
                 });
             }
 
-            // 7. Tạo Order & Lưu
+            // 7. Tạo Order
             var order = CreateOrderObject(orderId, userId, deliveryType, subTotal, finalEmail, finalFullName,
                                         finalAddress, finalPhone!, paidType, receiverIdentityCard,
                                         installmentDurationMonth, notes, orderItems);
 
             await _unitOfWork.OrderRepository.AddOrderAsync(order);
 
+            // Tích hợp tạo Installment Record nếu chọn trả góp (Trả về 1 bản ghi duy nhất)
+            Installment? installment = null;
+            if (paidType == PaidType.Installment)
+            {
+                installment = await CreateInstallmentRecord(order, installmentDurationMonth!.Value);
+            }
+
             // 8. CHỈ XÓA các món đã mua
             foreach (var item in selectedItems)
                 _unitOfWork.CartItemRepository.RemoveCartItem(item);
 
             await _unitOfWork.SaveChangesAsync();
-            return order;
+            return (order, installment);
         }
 
         // ============================== HELPER METHODS ===============================
+
+        private async Task<Installment> CreateInstallmentRecord(Order order, int duration)
+        {
+            // Khớp với Model Installment: Id, OrderId, Period, Amount, Status, DueDate
+            var installment = new Installment
+            {
+                Id = Guid.NewGuid(),
+                OrderId = order.Id,
+                Period = duration,                                 // Kỳ hạn tổng (6, 9, 12)
+                Amount = Math.Round(order.TotalPrice / duration, 0), // Số tiền thanh toán mỗi tháng (Làm tròn)
+                Status = InstallmentStatus.Pending,                // Chờ duyệt
+                DueDate = DateTimeOffset.Now.AddMonths(duration)   // NGÀY KẾT THÚC: cộng thêm số tháng kỳ hạn
+            };
+
+            await _unitOfWork.InstallmentRepository.AddAsync(installment);
+            return installment;
+        }
+
         private void ValidateOrderRequirements(DeliveryType deliveryType, string? inputAddress, string? profileAddress,
                                              PaidType paidType, string? idCard, int? duration)
         {
-            // 1. Kiểm tra địa chỉ ship
             if (deliveryType == DeliveryType.Shipping && string.IsNullOrWhiteSpace(inputAddress) && string.IsNullOrWhiteSpace(profileAddress))
                 throw new BadRequestException("Địa chỉ giao hàng là bắt buộc cho hình thức Shipping.");
 
-            // 2. Kiểm tra logic trả góp
             if (paidType == PaidType.Installment)
             {
                 if (string.IsNullOrWhiteSpace(idCard))
@@ -177,7 +208,6 @@ namespace TechExpress.Service.Services
             }
             else
             {
-                // Nếu không trả góp mà vẫn gửi kỳ hạn lên -> Cảnh báo hoặc set về null (tùy bạn, ở đây tui chọn chặn)
                 if (duration.HasValue) throw new BadRequestException("Không thể chọn kỳ hạn thanh toán cho phương thức trả thẳng.");
             }
         }
@@ -198,7 +228,6 @@ namespace TechExpress.Service.Services
                 SubTotal = subTotal,
                 ShippingCost = shippingCost,
                 Tax = tax,
-                // Công thức: $TotalPrice = SubTotal + ShippingCost + Tax$
                 TotalPrice = subTotal + shippingCost + tax,
                 ReceiverEmail = email,
                 ReceiverFullName = name,
@@ -206,7 +235,7 @@ namespace TechExpress.Service.Services
                 TrackingPhone = phone,
                 PaidType = paidType,
                 ReceiverIdentityCard = idCard,
-                InstallmentDurationMonth = (paidType == PaidType.Installment) ? duration : null, // Bảo vệ dữ liệu
+                InstallmentDurationMonth = (paidType == PaidType.Installment) ? duration : null,
                 Notes = notes,
                 Status = OrderStatus.Pending,
                 OrderDate = DateTimeOffset.Now,

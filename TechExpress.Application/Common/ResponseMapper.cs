@@ -359,8 +359,7 @@ public class ResponseMapper
     }
 
     //======================= Map Order Response =======================//
-
-    public static OrderResponse MapToOrderResponseFromOrder(Order order)
+    public static OrderResponse MapToOrderResponseFromOrder(Order order, Installment? installment = null)
     {
         return new OrderResponse
         {
@@ -382,11 +381,20 @@ public class ResponseMapper
             {
                 Id = oi.Id,
                 ProductId = oi.ProductId,
-                // Lưu ý: Nếu Model OrderItem có Include Product, bạn có thể lấy tên ở đây
                 ProductName = oi.Product?.Name ?? "Sản phẩm không xác định",
                 Quantity = oi.Quantity,
                 UnitPrice = oi.UnitPrice
-            }).ToList()
+            }).ToList(),
+
+            // Ánh xạ duy nhất 1 bản ghi summary trả về cho Client
+            Installment = installment != null ? new InstallmentResponse
+            {
+                Id = installment.Id,
+                Period = installment.Period,
+                Amount = installment.Amount,
+                Status = installment.Status,
+                DueDate = installment.DueDate // Đây là ngày kết thúc kỳ hạn
+            } : null
         };
     }
 }
