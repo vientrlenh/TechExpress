@@ -18,6 +18,10 @@ namespace TechExpress.Repository
         public CartRepository CartRepository { get; }
         public CartItemRepository CartItemRepository { get; }
 
+        public OrderRepository OrderRepository { get; }
+        public PaymentRepository PaymentRepository { get; }
+        public InstallmentRepository InstallmentRepository { get; }
+
 
         public UnitOfWork(ApplicationDbContext context)
         {
@@ -31,6 +35,10 @@ namespace TechExpress.Repository
             BrandRepository = new BrandRepository(context);
             CartRepository = new CartRepository(context);
             CartItemRepository = new CartItemRepository(context);
+
+            OrderRepository = new OrderRepository(context);
+            PaymentRepository = new PaymentRepository(context);
+            InstallmentRepository = new InstallmentRepository(context);
         }
 
         public async Task SaveChangesAsync()
