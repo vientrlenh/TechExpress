@@ -29,6 +29,9 @@ namespace TechExpress.Service.Services
         private const string PayOsCallbackLock = "payos:cb:";           // lock duplicate callback
         private const string PayOsReturnCancelLock = "payos:rc:";       // lock duplicate return/cancel
 
+        private const string PayOsIndexOrder = "payos:idx:order:";       // payos:idx:order:{orderId} -> sessionId
+        private const string PayOsIndexInstallment = "payos:idx:ins:";   // payos:idx:ins:{installmentId} -> sessionId
+
         public PaymentService(UnitOfWork unitOfWork, RedisUtils redisUtils, PayOsClient payOs)
         {
             _unitOfWork = unitOfWork;
@@ -60,16 +63,34 @@ namespace TechExpress.Service.Services
         // 2) ONLINE INIT (REDIRECT)
         // =========================
         public async Task<OnlinePaymentInitResult> HandleInitOrderOnlinePaymentAsync(
-            Guid orderId,
-            PaymentMethod method,
-            string? returnUrl,
-            CancellationToken ct = default)
+    Guid orderId,
+    PaymentMethod method,
+    string? returnUrl,
+    CancellationToken ct = default)
         {
             if (method != PaymentMethod.PayOs)
                 throw new BadRequestException("Bản hiện tại chỉ implement PayOS.");
 
+            // ✅ 0) idempotent: nếu có session active thì trả lại
+            var existingSidStr = await _redisUtils.GetStringDataFromKey($"{PayOsIndexOrder}{orderId}");
+            if (!string.IsNullOrWhiteSpace(existingSidStr) && Guid.TryParse(existingSidStr, out var existingSid))
+            {
+                var existingSession = await GetSessionByIdAsync(existingSid);
+                if (existingSession != null && !string.IsNullOrWhiteSpace(existingSession.RedirectUrl))
+                {
+                    return new OnlinePaymentInitResult
+                    {
+                        SessionId = existingSession.SessionId,
+                        RedirectUrl = existingSession.RedirectUrl!,
+                        OrderCode = existingSession.OrderCode,
+                        PaymentLinkId = existingSession.PaymentLinkId,
+                        ExpiredAt = 0 // (nếu muốn chuẩn thì thêm field ExpiredAt vào session)
+                    };
+                }
+            }
+
             var order = await _unitOfWork.OrderRepository.FindByIdAsync(orderId)
-                        ?? throw new NotFoundException("Không tìm thấy đơn hàng.");
+                ?? throw new NotFoundException("Không tìm thấy đơn hàng.");
 
             if (order.TotalPrice <= 0)
                 throw new BadRequestException("Tổng tiền đơn hàng không hợp lệ.");
@@ -80,21 +101,15 @@ namespace TechExpress.Service.Services
             var expiredAt = DateTimeOffset.UtcNow.AddSeconds(_payOs.ExpirationSeconds).ToUnixTimeSeconds();
 
             var items = new List<ItemData>
-            {
-                new ItemData("Thanh toán đơn hàng", 1, amount)
-            };
+    {
+        new ItemData("Thanh toán đơn hàng", 1, amount)
+    };
 
             var finalReturnUrl = string.IsNullOrWhiteSpace(returnUrl) ? _payOs.ReturnUrl : returnUrl;
 
-            // TIP: nếu muốn return/cancel call được bằng sessionId,
-            // bạn có thể tự append sessionId sau khi tạo session,
-            // hoặc append orderCode ở client rồi gọi /payments/payos/return?orderCode=xxx
-
             var paymentData = new PaymentData(
                 orderCode: orderCode,
-                //amount: amount,
-                amount: 10000,
-
+                amount: 10000, // bạn đang test
                 description: $"Thanh toán đơn",
                 items: items,
                 returnUrl: finalReturnUrl,
@@ -104,17 +119,16 @@ namespace TechExpress.Service.Services
 
             var response = await _payOs.CreatePaymentLinkAsync(paymentData);
 
-            // Redis session (để return/cancel/webhook tìm ra orderId)
             var session = new PayOsInitSession
             {
                 SessionId = Guid.NewGuid(),
                 OrderId = orderId,
                 InstallmentId = null,
                 PaidType = PaidType.Full,
-                //AmountVnd = amount,
                 AmountVnd = 10000,
                 OrderCode = orderCode,
-                PaymentLinkId = response.paymentLinkId
+                PaymentLinkId = response.paymentLinkId,
+                RedirectUrl = response.checkoutUrl // ✅ lưu để trả lại lần sau
             };
 
             await SaveSessionAsync(session);
@@ -128,7 +142,6 @@ namespace TechExpress.Service.Services
                 ExpiredAt = expiredAt
             };
         }
-
         public async Task<OnlinePaymentInitResult> HandleInitInstallmentOnlinePaymentAsync(
     Guid installmentId,
     PaymentMethod method,
@@ -137,10 +150,27 @@ namespace TechExpress.Service.Services
             if (method != PaymentMethod.PayOs)
                 throw new BadRequestException("Bản hiện tại chỉ implement PayOS.");
 
+            // ✅ 0) idempotent: nếu có session active thì trả lại
+            var existingSidStr = await _redisUtils.GetStringDataFromKey($"{PayOsIndexInstallment}{installmentId}");
+            if (!string.IsNullOrWhiteSpace(existingSidStr) && Guid.TryParse(existingSidStr, out var existingSid))
+            {
+                var existingSession = await GetSessionByIdAsync(existingSid);
+                if (existingSession != null && !string.IsNullOrWhiteSpace(existingSession.RedirectUrl))
+                {
+                    return new OnlinePaymentInitResult
+                    {
+                        SessionId = existingSession.SessionId,
+                        RedirectUrl = existingSession.RedirectUrl!,
+                        OrderCode = existingSession.OrderCode,
+                        PaymentLinkId = existingSession.PaymentLinkId,
+                        ExpiredAt = 0
+                    };
+                }
+            }
+
             var installment = await _unitOfWork.InstallmentRepository.FindByIdAsync(installmentId)
                 ?? throw new NotFoundException("Không tìm thấy kỳ trả góp.");
 
-            // ÉP amount theo DB để 1 lần thanh toán là đủ tiền kỳ => Paid ngay
             var amount = ToVndInt(installment.Amount);
 
             var orderCode = CreateOrderCode();
@@ -171,7 +201,8 @@ namespace TechExpress.Service.Services
                 PaidType = PaidType.Installment,
                 AmountVnd = amount,
                 OrderCode = orderCode,
-                PaymentLinkId = response.paymentLinkId
+                PaymentLinkId = response.paymentLinkId,
+                RedirectUrl = response.checkoutUrl // ✅ lưu để trả lại lần sau
             };
 
             await SaveSessionAsync(session);
@@ -299,6 +330,8 @@ namespace TechExpress.Service.Services
             await _unitOfWork.PaymentRepository.AddAsync(payment);
             await _unitOfWork.SaveChangesAsync();
 
+
+
             // 4) update order/installment khi success
             if (status == PaymentStatus.Success)
             {
@@ -310,6 +343,8 @@ namespace TechExpress.Service.Services
                 // ✅ persist status changes
                 await _unitOfWork.SaveChangesAsync();
             }
+
+            await ClearSessionAsync(session);
 
             return new GatewayCallbackResult
             {
@@ -426,7 +461,7 @@ namespace TechExpress.Service.Services
             // main key
             await _redisUtils.StoreStringData($"{prefix}{session.SessionId}", json, ttl);
 
-            // indexes for lookup
+            // index by paymentLinkId
             if (!string.IsNullOrWhiteSpace(session.PaymentLinkId))
             {
                 await _redisUtils.StoreStringData(
@@ -439,6 +474,19 @@ namespace TechExpress.Service.Services
                 $"{PayOsIndexOrderCode}{session.OrderCode}",
                 session.SessionId.ToString(),
                 TimeSpan.FromDays(2));
+
+            await _redisUtils.StoreStringData(
+                $"{PayOsIndexOrder}{session.OrderId}",
+                session.SessionId.ToString(),
+                ttl);
+
+            if (session.InstallmentId.HasValue)
+            {
+                await _redisUtils.StoreStringData(
+                    $"{PayOsIndexInstallment}{session.InstallmentId.Value}",
+                    session.SessionId.ToString(),
+                    ttl);
+            }
         }
 
         private async Task<PayOsInitSession?> GetSessionByIdAsync(Guid sessionId)
@@ -530,7 +578,24 @@ namespace TechExpress.Service.Services
 
         private static long CreateOrderCode()
             => DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+        private async Task ClearSessionAsync(PayOsInitSession session)
+        {
+            var prefix = string.IsNullOrWhiteSpace(_payOs.RedisKeyPrefix) ? PayOsSessionPrefix : _payOs.RedisKeyPrefix;
+
+            await _redisUtils.RemoveAsync($"{prefix}{session.SessionId}");
+            await _redisUtils.RemoveAsync($"{PayOsIndexOrderCode}{session.OrderCode}");
+            await _redisUtils.RemoveAsync($"{PayOsIndexOrder}{session.OrderId}");
+
+            if (session.InstallmentId.HasValue)
+                await _redisUtils.RemoveAsync($"{PayOsIndexInstallment}{session.InstallmentId.Value}");
+
+            if (!string.IsNullOrWhiteSpace(session.PaymentLinkId))
+                await _redisUtils.RemoveAsync($"{PayOsIndexPayLink}{session.PaymentLinkId}");
+        }
     }
+
+
 
     // ==========================================================
     // DTOs (để 1 file copy-paste chạy luôn)
@@ -544,6 +609,8 @@ namespace TechExpress.Service.Services
         public int AmountVnd { get; set; }
         public long OrderCode { get; set; }
         public string? PaymentLinkId { get; set; }
+
+        public string? RedirectUrl { get; set; } // ✅ thêm để init trả lại link cũ
     }
 
     public class OnlinePaymentInitResult
