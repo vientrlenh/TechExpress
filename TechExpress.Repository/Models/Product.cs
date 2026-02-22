@@ -18,7 +18,6 @@ public class Product
 
     public required decimal Price { get; set; }
 
-    [ConcurrencyCheck] // check nhiều người mua cùng lúc
     public required int Stock { get; set; }
 
     public required string Description { get; set; }
