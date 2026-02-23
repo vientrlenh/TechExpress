@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using TechExpress.Repository;
@@ -22,7 +23,6 @@ namespace TechExpress.Service.Services
 
         private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
 
-        // ===== Redis Keys =====
         private const string PayOsSessionPrefix = "payos:sess:";        // main session key: payos:sess:{sessionId}
         private const string PayOsIndexOrderCode = "payos:idx:ocode:";  // payos:idx:ocode:{orderCode} -> sessionId
         private const string PayOsIndexPayLink = "payos:idx:plink:";    // payos:idx:plink:{paymentLinkId} -> sessionId
@@ -71,24 +71,21 @@ namespace TechExpress.Service.Services
             if (method != PaymentMethod.PayOs)
                 throw new BadRequestException("Bản hiện tại chỉ implement PayOS.");
 
-            // ✅ 0) idempotent: nếu có session active thì trả lại
-            var existingSidStr = await _redisUtils.GetStringDataFromKey($"{PayOsIndexOrder}{orderId}");
-            if (!string.IsNullOrWhiteSpace(existingSidStr) && Guid.TryParse(existingSidStr, out var existingSid))
+            // ✅ REUSE nếu link còn hạn
+            var reusable = await TryGetReusableSessionByOrderIdAsync(orderId);
+            if (reusable != null)
             {
-                var existingSession = await GetSessionByIdAsync(existingSid);
-                if (existingSession != null && !string.IsNullOrWhiteSpace(existingSession.RedirectUrl))
+                return new OnlinePaymentInitResult
                 {
-                    return new OnlinePaymentInitResult
-                    {
-                        SessionId = existingSession.SessionId,
-                        RedirectUrl = existingSession.RedirectUrl!,
-                        OrderCode = existingSession.OrderCode,
-                        PaymentLinkId = existingSession.PaymentLinkId,
-                        ExpiredAt = 0 // (nếu muốn chuẩn thì thêm field ExpiredAt vào session)
-                    };
-                }
+                    SessionId = reusable.SessionId,
+                    RedirectUrl = reusable.RedirectUrl!,
+                    OrderCode = reusable.OrderCode,
+                    PaymentLinkId = reusable.PaymentLinkId,
+                    ExpiredAt = reusable.ExpiredAt
+                };
             }
 
+            // ===== create new link =====
             var order = await _unitOfWork.OrderRepository.FindByIdAsync(orderId)
                 ?? throw new NotFoundException("Không tìm thấy đơn hàng.");
 
@@ -109,8 +106,8 @@ namespace TechExpress.Service.Services
 
             var paymentData = new PaymentData(
                 orderCode: orderCode,
-                amount: 10000, // bạn đang test
-                description: $"Thanh toán đơn",
+                amount: amount, // ✅ đừng hardcode 10000 nữa (trừ khi bạn thật sự muốn test 10k)
+                description: "Thanh toán đơn",
                 items: items,
                 returnUrl: finalReturnUrl,
                 cancelUrl: _payOs.CancelUrl,
@@ -125,10 +122,11 @@ namespace TechExpress.Service.Services
                 OrderId = orderId,
                 InstallmentId = null,
                 PaidType = PaidType.Full,
-                AmountVnd = 10000,
+                AmountVnd = amount,
                 OrderCode = orderCode,
                 PaymentLinkId = response.paymentLinkId,
-                RedirectUrl = response.checkoutUrl // ✅ lưu để trả lại lần sau
+                RedirectUrl = response.checkoutUrl,
+                ExpiredAt = expiredAt // ✅ save expiredAt
             };
 
             await SaveSessionAsync(session);
@@ -136,10 +134,10 @@ namespace TechExpress.Service.Services
             return new OnlinePaymentInitResult
             {
                 SessionId = session.SessionId,
-                RedirectUrl = response.checkoutUrl,
-                OrderCode = orderCode,
-                PaymentLinkId = response.paymentLinkId,
-                ExpiredAt = expiredAt
+                RedirectUrl = session.RedirectUrl!,
+                OrderCode = session.OrderCode,
+                PaymentLinkId = session.PaymentLinkId,
+                ExpiredAt = session.ExpiredAt
             };
         }
         public async Task<OnlinePaymentInitResult> HandleInitInstallmentOnlinePaymentAsync(
@@ -150,22 +148,18 @@ namespace TechExpress.Service.Services
             if (method != PaymentMethod.PayOs)
                 throw new BadRequestException("Bản hiện tại chỉ implement PayOS.");
 
-            // ✅ 0) idempotent: nếu có session active thì trả lại
-            var existingSidStr = await _redisUtils.GetStringDataFromKey($"{PayOsIndexInstallment}{installmentId}");
-            if (!string.IsNullOrWhiteSpace(existingSidStr) && Guid.TryParse(existingSidStr, out var existingSid))
+            // ✅ REUSE nếu link còn hạn
+            var reusable = await TryGetReusableSessionByInstallmentIdAsync(installmentId);
+            if (reusable != null)
             {
-                var existingSession = await GetSessionByIdAsync(existingSid);
-                if (existingSession != null && !string.IsNullOrWhiteSpace(existingSession.RedirectUrl))
+                return new OnlinePaymentInitResult
                 {
-                    return new OnlinePaymentInitResult
-                    {
-                        SessionId = existingSession.SessionId,
-                        RedirectUrl = existingSession.RedirectUrl!,
-                        OrderCode = existingSession.OrderCode,
-                        PaymentLinkId = existingSession.PaymentLinkId,
-                        ExpiredAt = 0
-                    };
-                }
+                    SessionId = reusable.SessionId,
+                    RedirectUrl = reusable.RedirectUrl!,
+                    OrderCode = reusable.OrderCode,
+                    PaymentLinkId = reusable.PaymentLinkId,
+                    ExpiredAt = reusable.ExpiredAt
+                };
             }
 
             var installment = await _unitOfWork.InstallmentRepository.FindByIdAsync(installmentId)
@@ -202,7 +196,8 @@ namespace TechExpress.Service.Services
                 AmountVnd = amount,
                 OrderCode = orderCode,
                 PaymentLinkId = response.paymentLinkId,
-                RedirectUrl = response.checkoutUrl // ✅ lưu để trả lại lần sau
+                RedirectUrl = response.checkoutUrl,
+                ExpiredAt = expiredAt // ✅
             };
 
             await SaveSessionAsync(session);
@@ -210,43 +205,41 @@ namespace TechExpress.Service.Services
             return new OnlinePaymentInitResult
             {
                 SessionId = session.SessionId,
-                RedirectUrl = response.checkoutUrl,
-                OrderCode = orderCode,
-                PaymentLinkId = response.paymentLinkId,
-                ExpiredAt = expiredAt
+                RedirectUrl = session.RedirectUrl!,
+                OrderCode = session.OrderCode,
+                PaymentLinkId = session.PaymentLinkId,
+                ExpiredAt = session.ExpiredAt
             };
         }
         // =========================
         // 3) GATEWAY CALLBACK (Controller đang gọi method này)
         // =========================
-        public async Task<GatewayCallbackResult> HandleGatewayCallbackAsync(
-    string provider,
-    object callbackPayload,
-    CancellationToken ct = default)
+        public async Task<GatewayCallbackResult> HandlePayOsWebhookAsync(
+             PayOsWebhookRequest req,
+             CancellationToken ct = default)
         {
-            provider = (provider ?? "").Trim().ToLowerInvariant();
+            if (req == null) throw new BadRequestException("Callback payload không hợp lệ.");
 
-            if (provider != "payos")
-                throw new BadRequestException("Provider không được hỗ trợ (bản này chỉ demo PayOS).");
+            // (tạm thời) chỉ check có signature, chưa verify
+            if (string.IsNullOrWhiteSpace(req.Signature))
+                return new GatewayCallbackResult { Ok = false, Message = "Thiếu signature." };
 
-            if (callbackPayload is not GatewayCallbackRequest req)
-                throw new BadRequestException("Callback payload không hợp lệ.");
-
-            var session = await GetSessionByIdAsync(req.SessionId);
+            // 1) resolve session
+            var session = await ResolvePayOsSessionAsync(req);
             if (session == null)
                 return new GatewayCallbackResult { Ok = false, Message = "Session không tồn tại hoặc đã hết hạn." };
 
-            var lockKey = $"{PayOsCallbackLock}{session.SessionId}";
+            // 2) idempotency lock (theo orderCode là hợp lý)
+            var lockKey = $"{PayOsCallbackLock}{session.OrderCode}";
             var locked = await _redisUtils.TrySetStringIfNotExists(lockKey, "1", TimeSpan.FromDays(2));
             if (!locked)
-                return new GatewayCallbackResult { Ok = true, Message = "Duplicate callback (ignored)." };
+                return new GatewayCallbackResult { Ok = true, Message = "Duplicate webhook (ignored)." };
 
-            if (string.IsNullOrWhiteSpace(req.Signature))
-                return new GatewayCallbackResult { Ok = false, Message = "Thiếu chữ ký callback." };
-
+            // 3) status + amount
             var status = req.Success ? PaymentStatus.Success : PaymentStatus.Failed;
-            var paidAmount = req.PaidAmount > 0 ? req.PaidAmount : session.AmountVnd;
+            var paidAmount = req.Data.Amount > 0 ? (decimal)req.Data.Amount : session.AmountVnd;
 
+            // 4) insert payment
             var payment = new Payment
             {
                 OrderId = session.OrderId,
@@ -257,40 +250,58 @@ namespace TechExpress.Service.Services
                 PaymentDate = DateTimeOffset.Now
             };
 
-            // 1-2) Add + flush payment
             await _unitOfWork.PaymentRepository.AddAsync(payment);
             await _unitOfWork.SaveChangesAsync();
 
+            // 5) update statuses nếu success (giữ nguyên cách bạn đang làm)
             if (status == PaymentStatus.Success)
             {
-                // 3-4) Update installment + flush installment status (để Order.Completed đúng ngay)
                 if (session.InstallmentId.HasValue)
                 {
                     await UpdateInstallmentPaidStatusBySumAsync(session.InstallmentId.Value, ct);
                     await _unitOfWork.SaveChangesAsync();
                 }
 
-                // 5-6) Update order + save
                 await UpdateOrderStatusAfterPaymentAsync(session.OrderId, ct);
                 await _unitOfWork.SaveChangesAsync();
             }
+
+            // (optional) clear session luôn
+            await ClearSessionAsync(session);
 
             return new GatewayCallbackResult
             {
                 Ok = true,
                 Payment = payment,
-                Message = "Callback processed."
+                Message = "PayOS webhook processed."
             };
+        }
+
+        private async Task<PayOsInitSession?> ResolvePayOsSessionAsync(PayOsWebhookRequest req)
+        {
+            // ưu tiên paymentLinkId
+            if (!string.IsNullOrWhiteSpace(req.Data?.PaymentLinkId))
+            {
+                var sidStr = await _redisUtils.GetStringDataFromKey($"{PayOsIndexPayLink}{req.Data.PaymentLinkId}");
+                if (Guid.TryParse(sidStr, out var sid))
+                    return await GetSessionByIdAsync(sid);
+            }
+
+            // fallback orderCode
+            if (req.Data?.OrderCode > 0)
+                return await FindSessionByOrderCodeAsync(req.Data.OrderCode);
+
+            return null;
         }
         // =========================
         // 3b) PAYOS RETURN/CANCEL (NO OFFICIAL WEBHOOK YET)
         // Controller gọi method này trong /payments/payos/return & /payments/payos/cancel
         // =========================
         public async Task<GatewayCallbackResult> HandlePayOsReturnOrCancelAsync(
-    bool isSuccess,
-    long? orderCode,
-    Guid? sessionId,
-    CancellationToken ct = default)
+            bool isSuccess,
+            long? orderCode,
+            Guid? sessionId,
+            CancellationToken ct = default)
         {
             if (!orderCode.HasValue && !sessionId.HasValue)
                 throw new BadRequestException("orderCode hoặc sessionId là bắt buộc.");
@@ -326,13 +337,11 @@ namespace TechExpress.Service.Services
                 PaymentDate = DateTimeOffset.Now
             };
 
-            // ✅ FIX: flush payment xuống DB trước khi Sum()
             await _unitOfWork.PaymentRepository.AddAsync(payment);
             await _unitOfWork.SaveChangesAsync();
 
 
 
-            // 4) update order/installment khi success
             if (status == PaymentStatus.Success)
             {
                 if (session.InstallmentId.HasValue)
@@ -340,7 +349,6 @@ namespace TechExpress.Service.Services
 
                 await UpdateOrderStatusAfterPaymentAsync(session.OrderId, ct);
 
-                // ✅ persist status changes
                 await _unitOfWork.SaveChangesAsync();
             }
 
@@ -593,6 +601,50 @@ namespace TechExpress.Service.Services
             if (!string.IsNullOrWhiteSpace(session.PaymentLinkId))
                 await _redisUtils.RemoveAsync($"{PayOsIndexPayLink}{session.PaymentLinkId}");
         }
+
+        private static bool IsPayOsLinkStillValid(PayOsInitSession s, int bufferSeconds = 10)
+        {
+            if (s == null) return false;
+            if (s.ExpiredAt <= 0) return false;
+            if (string.IsNullOrWhiteSpace(s.RedirectUrl)) return false;
+
+            var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            return now < (s.ExpiredAt - bufferSeconds);
+        }
+
+        private async Task<PayOsInitSession?> TryGetReusableSessionByOrderIdAsync(Guid orderId)
+        {
+            var sidStr = await _redisUtils.GetStringDataFromKey($"{PayOsIndexOrder}{orderId}");
+            if (string.IsNullOrWhiteSpace(sidStr) || !Guid.TryParse(sidStr, out var sid))
+                return null;
+
+            var session = await GetSessionByIdAsync(sid);
+            if (session == null) return null;
+
+            // Nếu link còn hạn => reuse
+            if (IsPayOsLinkStillValid(session))
+                return session;
+
+            // Nếu link đã hết hạn nhưng session còn => clear để init tạo link mới
+            await ClearSessionAsync(session);
+            return null;
+        }
+
+        private async Task<PayOsInitSession?> TryGetReusableSessionByInstallmentIdAsync(Guid installmentId)
+        {
+            var sidStr = await _redisUtils.GetStringDataFromKey($"{PayOsIndexInstallment}{installmentId}");
+            if (string.IsNullOrWhiteSpace(sidStr) || !Guid.TryParse(sidStr, out var sid))
+                return null;
+
+            var session = await GetSessionByIdAsync(sid);
+            if (session == null) return null;
+
+            if (IsPayOsLinkStillValid(session))
+                return session;
+
+            await ClearSessionAsync(session);
+            return null;
+        }
     }
 
 
@@ -610,7 +662,9 @@ namespace TechExpress.Service.Services
         public long OrderCode { get; set; }
         public string? PaymentLinkId { get; set; }
 
-        public string? RedirectUrl { get; set; } // ✅ thêm để init trả lại link cũ
+        public string? RedirectUrl { get; set; }
+        public long ExpiredAt { get; set; }
+
     }
 
     public class OnlinePaymentInitResult
@@ -630,12 +684,78 @@ namespace TechExpress.Service.Services
     }
 
     // Model request giống controller DTO demo (để compile service nếu bạn đặt chung project Service)
-    public class GatewayCallbackRequest
+    /// <summary>
+    /// Payload webhook của PayOS.
+    /// Top-level: code, desc, success, data, signature.
+    /// </summary>
+    public sealed class PayOsWebhookRequest
     {
-        public Guid SessionId { get; set; }
+        [JsonPropertyName("code")]
+        public string Code { get; set; } = string.Empty;
+
+        [JsonPropertyName("desc")]
+        public string Desc { get; set; } = string.Empty;
+
+        [JsonPropertyName("success")]
         public bool Success { get; set; }
-        public decimal PaidAmount { get; set; }
+
+        [JsonPropertyName("data")]
+        public PayOsWebhookData Data { get; set; } = new();
+
+        [JsonPropertyName("signature")]
         public string Signature { get; set; } = string.Empty;
-        public string? Raw { get; set; }
+    }
+
+    public sealed class PayOsWebhookData
+    {
+        [JsonPropertyName("orderCode")]
+        public long OrderCode { get; set; }
+
+        [JsonPropertyName("amount")]
+        public int Amount { get; set; }
+
+        [JsonPropertyName("description")]
+        public string Description { get; set; } = string.Empty;
+
+        [JsonPropertyName("accountNumber")]
+        public string AccountNumber { get; set; } = string.Empty;
+
+        [JsonPropertyName("reference")]
+        public string Reference { get; set; } = string.Empty;
+
+        [JsonPropertyName("transactionDateTime")]
+        public string TransactionDateTime { get; set; } = string.Empty;
+
+        [JsonPropertyName("currency")]
+        public string Currency { get; set; } = string.Empty;
+
+        [JsonPropertyName("paymentLinkId")]
+        public string PaymentLinkId { get; set; } = string.Empty;
+
+        // code/desc nằm trong data (theo docs)
+        [JsonPropertyName("code")]
+        public string Code { get; set; } = string.Empty;
+
+        [JsonPropertyName("desc")]
+        public string Desc { get; set; } = string.Empty;
+
+        // optional fields
+        [JsonPropertyName("counterAccountBankId")]
+        public string? CounterAccountBankId { get; set; }
+
+        [JsonPropertyName("counterAccountBankName")]
+        public string? CounterAccountBankName { get; set; }
+
+        [JsonPropertyName("counterAccountName")]
+        public string? CounterAccountName { get; set; }
+
+        [JsonPropertyName("counterAccountNumber")]
+        public string? CounterAccountNumber { get; set; }
+
+        [JsonPropertyName("virtualAccountName")]
+        public string? VirtualAccountName { get; set; }
+
+        [JsonPropertyName("virtualAccountNumber")]
+        public string? VirtualAccountNumber { get; set; }
     }
 }

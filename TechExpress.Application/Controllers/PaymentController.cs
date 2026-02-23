@@ -1,11 +1,12 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.ComponentModel.DataAnnotations;
+using System.Text.Json;
 using TechExpress.Application.Common;
 using TechExpress.Application.Dtos.Requests;
 using TechExpress.Application.Dtos.Responses;
 using TechExpress.Repository.Enums;
 using TechExpress.Service;
+using TechExpress.Service.Services;
 
 namespace TechExpress.Application.Controllers
 {
@@ -30,10 +31,12 @@ namespace TechExpress.Application.Controllers
     public class PaymentController : ControllerBase
     {
         private readonly ServiceProviders _serviceProvider;
+        private readonly ILogger<PaymentController> _logger;
 
-        public PaymentController(ServiceProviders serviceProvider)
+        public PaymentController(ServiceProviders serviceProvider, ILogger<PaymentController> logger)
         {
             _serviceProvider = serviceProvider;
+            _logger = logger;
         }
 
         // =========================
@@ -219,31 +222,14 @@ namespace TechExpress.Application.Controllers
         // =========================
         // 3) GATEWAY CALLBACK
         // =========================
-
-        /// <summary>
-        /// Gateway callback (PayOS/VnPay): verify chữ ký + tạo Payment record.
-        /// </summary>
-        /// <remarks>
-        /// <para>Endpoint public, bắt buộc verify chữ ký. Nên idempotent bằng Redis SETNX/lock hoặc unique txn id.</para>
-        /// </remarks>
-        [HttpPost("payments/gateways/{provider}/callback")]
+        [HttpPost("payments/gateways/payos/callback")]
         [AllowAnonymous]
         [ProducesResponseType(typeof(ApiResponse<GatewayCallbackResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> GatewayCallback(
-            [FromRoute] string provider,
-            [FromBody] GatewayCallbackRequest request,
+        public async Task<IActionResult> PayOsWebhookCallback(
+            [FromBody] PayOsWebhookRequest request,
             CancellationToken ct)
         {
-            if (string.IsNullOrWhiteSpace(provider))
-            {
-                return BadRequest(new ErrorResponse
-                {
-                    StatusCode = StatusCodes.Status400BadRequest,
-                    Message = "Provider is required."
-                });
-            }
-
             if (request == null)
             {
                 return BadRequest(new ErrorResponse
@@ -253,11 +239,12 @@ namespace TechExpress.Application.Controllers
                 });
             }
 
-            var result = await _serviceProvider.PaymentService
-                .HandleGatewayCallbackAsync(provider, request, ct);
+            _logger.LogInformation("PayOS Webhook RAW: {Payload}",
+                JsonSerializer.Serialize(request));
 
-            var response = ResponseMapper.MapToGatewayCallbackResponse(result);
+            var result = await _serviceProvider.PaymentService.HandlePayOsWebhookAsync(request, ct);
 
+            var response = new GatewayCallbackResponse { Ok = result.Ok };
             return Ok(ApiResponse<GatewayCallbackResponse>.OkResponse(response));
         }
 
@@ -508,230 +495,5 @@ namespace TechExpress.Application.Controllers
             return Ok(ApiResponse<GatewayCallbackResponse>.OkResponse(response));
         }
 
-    }
-
-    /// <summary>
-    /// Request: set payment intent (trả thẳng) cho order.
-    /// </summary>
-    public class SetPaymentIntentRequest
-    {
-        /// <summary>
-        /// Phương thức thanh toán dự kiến tại checkout.
-        /// </summary>
-        [Required]
-        public PaymentMethod Method { get; set; }
-    }
-
-    /// <summary>
-    /// Request: set installment intent và tạo schedule theo số tháng.
-    /// </summary>
-    public class SetInstallmentIntentRequest
-    {
-        /// <summary>
-        /// Số tháng trả góp (1..60).
-        /// </summary>
-        [Range(1, 60)]
-        public int Months { get; set; }
-    }
-
-    /// <summary>
-    /// Request: init thanh toán online cho order (full).
-    /// </summary>
-    public class InitOrderOnlinePaymentRequest
-    {
-        /// <summary>
-        /// Cổng thanh toán online: PayOs hoặc VnPay.
-        /// </summary>
-        [Required]
-        public PaymentMethod Method { get; set; }
-
-        /// <summary>
-        /// URL client muốn nhận kết quả (optional). Nếu null thì backend dùng default return url.
-        /// </summary>
-        public string? ReturnUrl { get; set; }
-    }
-
-    /// <summary>
-    /// Request: init thanh toán online cho một kỳ installment.
-    /// </summary>
-    public class InitInstallmentOnlinePaymentRequest
-    {
-        /// <summary>
-        /// Cổng thanh toán online: PayOs hoặc VnPay.
-        /// </summary>
-        [Required]
-        public PaymentMethod Method { get; set; }
-
-    }
-
-    /// <summary>
-    /// DTO demo cho callback/return.
-    /// Thực tế PayOS/VnPay có payload khác nhau, PaymentService sẽ parse/verify theo provider.
-    /// </summary>
-    public class GatewayCallbackRequest
-    {
-        /// <summary>
-        /// SessionId được trả từ endpoint init online (Redis session key).
-        /// </summary>
-        [Required]
-        public Guid SessionId { get; set; }
-
-        /// <summary>
-        /// Gateway báo thành công hay thất bại.
-        /// </summary>
-        public bool Success { get; set; }
-
-        /// <summary>
-        /// Số tiền thực tế gateway báo đã thanh toán.
-        /// </summary>
-        [Range(0, double.MaxValue)]
-        public decimal PaidAmount { get; set; }
-
-        /// <summary>
-        /// Chữ ký/checksum (tùy gateway). Backend phải verify.
-        /// </summary>
-        [Required]
-        public string Signature { get; set; } = string.Empty;
-
-        /// <summary>
-        /// Raw payload (optional) để debug/log hoặc trường hợp gateway trả nhiều field.
-        /// </summary>
-        public string? Raw { get; set; }
-    }
-
-    /// <summary>
-    /// Request: staff ghi nhận thu tiền mặt/COD.
-    /// </summary>
-    public class CashPaymentRequest
-    {
-        /// <summary>
-        /// Số tiền thu.
-        /// </summary>
-        [Range(0.01, double.MaxValue)]
-        public decimal Amount { get; set; }
-
-        /// <summary>
-        /// Ghi chú thu tiền (optional).
-        /// </summary>
-        public string? Note { get; set; }
-    }
-
-    /// <summary>
-    /// Request: refund payment.
-    /// </summary>
-    public class RefundPaymentRequest
-    {
-        /// <summary>
-        /// Lý do refund (optional).
-        /// </summary>
-        public string? Reason { get; set; }
-    }
-
-
-    /// <summary>
-    /// Response: kết quả set intent trả thẳng.
-    /// </summary>
-    public class SetPaymentIntentResponse
-    {
-        /// <summary>Order id.</summary>
-        public Guid OrderId { get; set; }
-
-        /// <summary>Loại trả: Full.</summary>
-        public PaidType PaidType { get; set; }
-
-        /// <summary>Phương thức thanh toán user đã chọn.</summary>
-        public PaymentMethod Method { get; set; }
-    }
-
-    /// <summary>
-    /// Một kỳ trong lịch trả góp.
-    /// </summary>
-    public class InstallmentItemResponse
-    {
-        public Guid Id { get; set; }
-        public int Period { get; set; }
-        public decimal Amount { get; set; }
-        public InstallmentStatus Status { get; set; }
-        public DateTimeOffset DueDate { get; set; }
-    }
-
-    /// <summary>
-    /// Response: kết quả tạo schedule trả góp.
-    /// </summary>
-    public class SetInstallmentIntentResponse
-    {
-        public Guid OrderId { get; set; }
-        public PaidType PaidType { get; set; }
-        public int Months { get; set; }
-        public List<InstallmentItemResponse> Schedule { get; set; } = new();
-    }
-
-    /// <summary>
-    /// Response: init online payment.
-    /// </summary>
-    public class InitOnlinePaymentResponse
-    {
-        /// <summary>SessionId (Redis) để callback tra cứu.</summary>
-        public Guid SessionId { get; set; }
-
-        /// <summary>URL chuyển hướng sang cổng thanh toán (PayOS/VnPay).</summary>
-        public string RedirectUrl { get; set; } = string.Empty;
-    }
-
-    /// <summary>
-    /// Response: callback đã được xử lý hay chưa.
-    /// </summary>
-    public class GatewayCallbackResponse
-    {
-        public bool Ok { get; set; }
-    }
-
-    /// <summary>
-    /// Response: staff ghi nhận thu tiền mặt.
-    /// </summary>
-    public class CashPaymentResponse
-    {
-        public long PaymentId { get; set; }
-        public PaymentStatus Status { get; set; }
-        public PaymentMethod Method { get; set; }
-        public decimal Amount { get; set; }
-        public DateTimeOffset PaymentDate { get; set; }
-    }
-
-    /// <summary>
-    /// Payment item (query).
-    /// </summary>
-    public class PaymentResponse
-    {
-        public long Id { get; set; }
-        public Guid OrderId { get; set; }
-        public Guid? InstallmentId { get; set; }
-        public decimal Amount { get; set; }
-        public PaymentMethod Method { get; set; }
-        public PaymentStatus Status { get; set; }
-        public DateTimeOffset PaymentDate { get; set; }
-    }
-
-    /// <summary>
-    /// Installment item (query).
-    /// </summary>
-    public class InstallmentResponse
-    {
-        public Guid Id { get; set; }
-        public Guid OrderId { get; set; }
-        public int Period { get; set; }
-        public decimal Amount { get; set; }
-        public InstallmentStatus Status { get; set; }
-        public DateTimeOffset DueDate { get; set; }
-    }
-
-    /// <summary>
-    /// Response: refund.
-    /// </summary>
-    public class RefundPaymentResponse
-    {
-        public bool Ok { get; set; }
-        public long PaymentId { get; set; }
-        public string? Reason { get; set; }
     }
 }
