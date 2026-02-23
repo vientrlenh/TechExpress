@@ -10,6 +10,7 @@ public enum OrderStatus
     ReadyForPickup,
     PickedUp,
     Completed,
+    Installing,
     Canceled,
     Refunded
 }

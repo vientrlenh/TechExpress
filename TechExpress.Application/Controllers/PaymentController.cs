@@ -4,6 +4,7 @@ using System.Text.Json;
 using TechExpress.Application.Common;
 using TechExpress.Application.Dtos.Requests;
 using TechExpress.Application.Dtos.Responses;
+using TechExpress.Application.DTOs.Responses;
 using TechExpress.Repository.Enums;
 using TechExpress.Service;
 using TechExpress.Service.Services;
@@ -39,93 +40,7 @@ namespace TechExpress.Application.Controllers
             _logger = logger;
         }
 
-        // =========================
-        // 1) CHECKOUT - INTENT
-        // =========================
 
-        /// <summary>
-        /// Checkout: chọn trả thẳng (Full) + payment method.
-        /// </summary>
-        /// <remarks>
-        /// <para><b>Request</b></para>
-        /// <code>{ "method": "PayOs" }</code>
-        ///
-        /// <para><b>Response</b></para>
-        /// <code>
-        /// {
-        ///   "statusCode": 200,
-        ///   "message": "OK",
-        ///   "value": { "orderId": "GUID", "paidType": "Full", "method": "PayOs" }
-        /// }
-        /// </code>
-        /// </remarks>
-        [HttpPut("orders/{orderId:guid}/payment-intent")]
-        [Authorize]
-        [ProducesResponseType(typeof(ApiResponse<SetPaymentIntentResponse>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> SetPaymentIntent(
-            [FromRoute] Guid orderId,
-            [FromBody] SetPaymentIntentRequest request,
-            CancellationToken ct)
-        {
-            if (request == null)
-            {
-                return BadRequest(new ErrorResponse
-                {
-                    StatusCode = StatusCodes.Status400BadRequest,
-                    Message = "Request body is required."
-                });
-            }
-
-            // Service trả về Order (hoặc model khác). Controller chỉ map ra response DTO.
-            var order = await _serviceProvider.PaymentService
-                .HandleSetFullPaymentIntentAsync(orderId, request.Method, ct);
-
-            var response = ResponseMapper.MapToSetPaymentIntentResponse(order.Id, request.Method);
-
-            return Ok(ApiResponse<SetPaymentIntentResponse>.OkResponse(response));
-        }
-
-        /// <summary>
-        /// Checkout: chọn trả góp (Installment) + tạo schedule theo kỳ.
-        /// </summary>
-        [HttpPut("orders/{orderId:guid}/installment-intent")]
-        [Authorize]
-        [ProducesResponseType(typeof(ApiResponse<SetInstallmentIntentResponse>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> SetInstallmentIntent(
-            [FromRoute] Guid orderId,
-            [FromBody] SetInstallmentIntentRequest request,
-            CancellationToken ct)
-        {
-            var schedule = await _serviceProvider.InstallmentService
-    .HandleCreateInstallmentScheduleAsync(orderId, request.Months, ct);
-
-            if (schedule == null || schedule.Count == 0)
-            {
-                return BadRequest(new ErrorResponse
-                {
-                    StatusCode = StatusCodes.Status400BadRequest,
-                    Message = "Không tạo được lịch trả góp."
-                });
-            }
-
-            var response = ResponseMapper.MapToSetInstallmentIntentResponse(
-                orderId,
-                request.Months,
-                schedule);
-
-            return Ok(ApiResponse<SetInstallmentIntentResponse>.OkResponse(response));
-
-        }
-
-        // =========================
-        // 2) ONLINE INIT (REDIRECT)
-        // =========================
 
         /// <summary>
         /// Online init (Order Full): tạo session (Redis) + trả redirectUrl.
@@ -133,7 +48,7 @@ namespace TechExpress.Application.Controllers
         /// <remarks>
         /// <para><b>Quan trọng</b>: không tạo Payment record ở bước init.</para>
         /// </remarks>
-        [HttpPost("orders/{orderId:guid}/payments/online/init")]
+        [HttpPost("payments/orders/{orderId:guid}/online/init")]
         [Authorize]
         [ProducesResponseType(typeof(ApiResponse<InitOnlinePaymentResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
@@ -173,7 +88,7 @@ namespace TechExpress.Application.Controllers
         /// <summary>
         /// Online init (Installment period): tạo session (Redis) + trả redirectUrl.
         /// </summary>
-        [HttpPost("installments/{installmentId:guid}/payments/online/init")]
+        [HttpPost("payments/installments/{installmentId:guid}/online/init")]
         [Authorize]
         [ProducesResponseType(typeof(ApiResponse<InitOnlinePaymentResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
@@ -255,7 +170,7 @@ namespace TechExpress.Application.Controllers
         /// <summary>
         /// Staff/Admin: ghi nhận thu tiền mặt cho Order (COD/tại quầy).
         /// </summary>
-        [HttpPost("orders/{orderId:guid}/payments/cash")]
+        [HttpPost("payments/orders/{orderId:guid}/cash")]
         [Authorize(Roles = "Admin,Staff")]
         [ProducesResponseType(typeof(ApiResponse<CashPaymentResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
@@ -296,7 +211,7 @@ namespace TechExpress.Application.Controllers
         /// <summary>
         /// Staff/Admin: ghi nhận thu tiền mặt cho một kỳ Installment.
         /// </summary>
-        [HttpPost("installments/{installmentId:guid}/payments/cash")]
+        [HttpPost("payments/installments/{installmentId:guid}/cash")]
         [Authorize(Roles = "Admin,Staff")]
         [ProducesResponseType(typeof(ApiResponse<CashPaymentResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
@@ -338,41 +253,7 @@ namespace TechExpress.Application.Controllers
         // 5) QUERY
         // =========================
 
-        /// <summary>
-        /// Query: danh sách Payment theo Order.
-        /// </summary>
-        [HttpGet("orders/{orderId:guid}/payments")]
-        [Authorize]
-        [ProducesResponseType(typeof(ApiResponse<List<PaymentResponse>>), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> GetOrderPayments([FromRoute] Guid orderId, CancellationToken ct)
-        {
-            var payments = await _serviceProvider.PaymentService
-                .HandleGetPaymentsByOrderAsync(orderId, ct);
-
-            var response = ResponseMapper.MapToPaymentResponseList(payments);
-
-            return Ok(ApiResponse<List<PaymentResponse>>.OkResponse(response));
-        }
-
-        /// <summary>
-        /// Query: lịch trả góp (Installment schedule) theo Order.
-        /// </summary>
-        [HttpGet("orders/{orderId:guid}/installment")]
-        [Authorize]
-        [ProducesResponseType(typeof(ApiResponse<List<InstallmentResponse>>), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> GetOrderInstallments([FromRoute] Guid orderId, CancellationToken ct)
-        {
-            var schedule = await _serviceProvider.InstallmentService
-                .HandleGetInstallmentScheduleByOrderAsync(orderId, ct);
-
-            var response = ResponseMapper.MapToInstallmentResponseListFromInstallmentList(schedule);
-
-            return Ok(ApiResponse<List<InstallmentResponse>>.OkResponse(response));
-        }
+        
 
         /// <summary>
         /// Query: danh sách Payment theo một kỳ Installment.
@@ -399,26 +280,26 @@ namespace TechExpress.Application.Controllers
         /// <summary>
         /// Staff/Admin: Refund một Payment (optional).
         /// </summary>
-        [HttpPost("payments/{paymentId:long}/refund")]
-        [Authorize(Roles = "Admin,Staff")]
-        [ProducesResponseType(typeof(ApiResponse<RefundPaymentResponse>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> RefundPayment(
-            [FromRoute] long paymentId,
-            [FromBody] RefundPaymentRequest request,
-            CancellationToken ct)
-        {
-            var payment = await _serviceProvider.PaymentService
-                .HandleRefundPaymentAsync(paymentId, request?.Reason, ct);
+        //[HttpPost("payments/{paymentId:long}/refund")]
+        //[Authorize(Roles = "Admin,Staff")]
+        //[ProducesResponseType(typeof(ApiResponse<RefundPaymentResponse>), StatusCodes.Status200OK)]
+        //[ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        //[ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        //[ProducesResponseType(StatusCodes.Status403Forbidden)]
+        //[ProducesResponseType(StatusCodes.Status404NotFound)]
+        //public async Task<IActionResult> RefundPayment(
+        //    [FromRoute] long paymentId,
+        //    [FromBody] RefundPaymentRequest request,
+        //    CancellationToken ct)
+        //{
+        //    var payment = await _serviceProvider.PaymentService
+        //        .HandleRefundPaymentAsync(paymentId, request?.Reason, ct);
 
-            // service trả Payment => map ra RefundPaymentResponse
-            var response = ResponseMapper.MapToRefundPaymentResponse(payment.Id, request?.Reason);
+        //    // service trả Payment => map ra RefundPaymentResponse
+        //    var response = ResponseMapper.MapToRefundPaymentResponse(payment.Id, request?.Reason);
 
-            return Ok(ApiResponse<RefundPaymentResponse>.OkResponse(response));
-        }
+        //    return Ok(ApiResponse<RefundPaymentResponse>.OkResponse(response));
+        //}
 
         // =========================
         // 3b) TEMP RETURN/CANCEL (NO WEBHOOK YET) - PAYOS

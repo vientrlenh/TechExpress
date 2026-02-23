@@ -519,4 +519,45 @@ public class ResponseMapper
 
 
 
+
+    //======================= Map Order Response =======================//
+    // Cập nhật từ Oder sang OrderResponse, thêm tham số List<Installment> để ánh xạ danh sách 6-12 kỳ hạn nếu có
+    public static OrderResponse MapToOrderResponseFromOrder(Order order, List<Installment>? installments = null)
+    {
+        return new OrderResponse
+        {
+            Id = order.Id,
+            OrderDate = order.OrderDate,
+            Status = order.Status,
+            SubTotal = order.SubTotal,
+            ShippingCost = order.ShippingCost,
+            Tax = order.Tax,
+            TotalPrice = order.TotalPrice,
+            DeliveryType = order.DeliveryType,
+            PaidType = order.PaidType,
+            ReceiverFullName = order.ReceiverFullName,
+            ReceiverEmail = order.ReceiverEmail,
+            ShippingAddress = order.ShippingAddress,
+            TrackingPhone = order.TrackingPhone,
+            Notes = order.Notes,
+            Items = order.Items.Select(oi => new OrderItemResponse
+            {
+                Id = oi.Id,
+                ProductId = oi.ProductId,
+                ProductName = oi.Product?.Name ?? "Sản phẩm không xác định",
+                Quantity = oi.Quantity,
+                UnitPrice = oi.UnitPrice
+            }).ToList(),
+
+            // Ánh xạ danh sách 6-12 kỳ hạn
+            Installments = installments?.Select(i => new InstallmentResponse
+            {
+                Id = i.Id,
+                Period = i.Period,
+                Amount = i.Amount,
+                Status = i.Status,
+                DueDate = i.DueDate
+            }).ToList() ?? new List<InstallmentResponse>()
+        };
+    }
 }

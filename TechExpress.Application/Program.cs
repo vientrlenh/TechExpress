@@ -213,7 +213,7 @@ builder.Services.AddScoped<RedisUtils>();
 builder.Services.AddScoped<OtpUtils>();
 builder.Services.AddScoped<SmtpEmailSender>();
 
-//builder.Services.AddHostedService<CleanOrderWorkerService>();
+builder.Services.AddHostedService<CleanOrderWorkerService>();
 
 
 builder.Services.AddCors(options =>

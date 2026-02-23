@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Linq;
 using System.Threading;
@@ -60,11 +60,17 @@ namespace TechExpress.Repository.Repositories
             return _context.Orders
                 .Where(o =>
                     o.Status == OrderStatus.Pending &&
-                    o.PaidType == PaidType.Full &&
+                    //o.PaidType == PaidType.Full &&
                     o.OrderDate <= cutoff &&
                     !_context.Payments.Any(p => p.OrderId == o.Id)
                 )
                 .ExecuteDeleteAsync(ct);
+                }
+        
+
+        public async Task AddOrderAsync(Order order)
+        {
+            await _context.Orders.AddAsync(order);
         }
     }
 }

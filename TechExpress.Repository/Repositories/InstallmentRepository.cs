@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -51,6 +51,11 @@ namespace TechExpress.Repository.Repositories
             var ins = await _context.Installments.AsTracking().FirstOrDefaultAsync(i => i.Id == installmentId);
             if (ins != null) ins.Status = status;
             //throw new NotImplementedException();
+        }
+
+        public async Task AddAsync(Installment installment)
+        {
+            await _context.Installments.AddAsync(installment);
         }
     }
 }

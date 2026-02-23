@@ -4,7 +4,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using TechExpress.Application.Common;
 using TechExpress.Application.Dtos.Requests;
 using TechExpress.Application.Dtos.Responses;
+using TechExpress.Repository.Enums;
 using TechExpress.Service;
+using TechExpress.Service.Enums;
 using TechExpress.Service.Utils;
 
 namespace TechExpress.Application.Controllers
@@ -153,7 +155,37 @@ namespace TechExpress.Application.Controllers
             return Ok(ApiResponse<List<ProductListResponse>>.OkResponse(response));
         }
 
+        [HttpGet("ui")]
+        public async Task<IActionResult> GetUiListProducts([FromQuery] string? search, [FromQuery] Guid? categoryId, [FromQuery] int page = 1, [FromQuery] int pageSize = 12,
+             [FromQuery] ProductSortBy sortBy = ProductSortBy.UpdatedAt,
+            [FromQuery] SortDirection sortDirection = SortDirection.Asc)
+        {
+            if (pageSize <= 0 || pageSize > 20) pageSize = 12;
+            if (page <= 0) page = 1;
+            var pagedProducts =
+                await _serviceProvider.ProductService.HandleGetUiProductList(search, categoryId, page, pageSize, sortBy,
+                    sortDirection);
+            var response = ResponseMapper.MapToProductListResponsePaginationFromProductPagination(pagedProducts);
+            return Ok(ApiResponse<Pagination<ProductListResponse>>.OkResponse(response));
+        }
 
+
+        /// <summary>
+        /// San pham xuat hiện nhiều nhất trong các đơn hàng
+        /// </summary>
+        /// <param name="count"></param>
+        /// <returns></returns>
+        [HttpGet("top-selling")]
+        public async Task<IActionResult> GetTopSellingProducts([FromQuery] int count = 10)
+        {
+            // Gọi service để lấy danh sách sản phẩm bán chạy
+            var products = await _serviceProvider.ProductService.HandleGetTopSellingProductsAsync(count);
+
+            // Map dữ liệu sang DTO response
+            var response = ResponseMapper.MapToProductListResponsesFromProducts(products);
+
+            return Ok(ApiResponse<List<ProductListResponse>>.OkResponse(response));
+        }
 
     }
 }

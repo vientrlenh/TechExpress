@@ -106,7 +106,7 @@ namespace TechExpress.Service.Services
 
             var paymentData = new PaymentData(
                 orderCode: orderCode,
-                amount: amount, // ✅ đừng hardcode 10000 nữa (trừ khi bạn thật sự muốn test 10k)
+                amount: amount, 
                 description: "Thanh toán đơn",
                 items: items,
                 returnUrl: finalReturnUrl,
@@ -126,7 +126,7 @@ namespace TechExpress.Service.Services
                 OrderCode = orderCode,
                 PaymentLinkId = response.paymentLinkId,
                 RedirectUrl = response.checkoutUrl,
-                ExpiredAt = expiredAt // ✅ save expiredAt
+                ExpiredAt = expiredAt 
             };
 
             await SaveSessionAsync(session);
@@ -197,7 +197,7 @@ namespace TechExpress.Service.Services
                 OrderCode = orderCode,
                 PaymentLinkId = response.paymentLinkId,
                 RedirectUrl = response.checkoutUrl,
-                ExpiredAt = expiredAt // ✅
+                ExpiredAt = expiredAt 
             };
 
             await SaveSessionAsync(session);
@@ -649,9 +649,6 @@ namespace TechExpress.Service.Services
 
 
 
-    // ==========================================================
-    // DTOs (để 1 file copy-paste chạy luôn)
-    // ==========================================================
     public class PayOsInitSession
     {
         public Guid SessionId { get; set; }
