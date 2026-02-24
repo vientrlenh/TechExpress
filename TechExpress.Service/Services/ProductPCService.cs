@@ -13,15 +13,17 @@ namespace TechExpress.Service.Services
     {
         private readonly UnitOfWork _unitOfWork;
         private readonly ProductService _productService;
+        private readonly PCComponentCompatibilityService _compatibilityService;
 
-        public ProductPCService(UnitOfWork unitOfWork, ProductService productService)
+        public ProductPCService(UnitOfWork unitOfWork, ProductService productService, PCComponentCompatibilityService compatibilityService)
         {
             _unitOfWork = unitOfWork;
             _productService = productService;
+            _compatibilityService = compatibilityService;
         }
 
 
-        public async Task<Product> HandleCreateProductPCAsync(
+        public async Task<(Product Product, List<ComputerComponent> Components)> HandleCreateProductPCAsync(
             string name,
             string sku,
             Guid categoryId,
@@ -47,17 +49,25 @@ namespace TechExpress.Service.Services
             var componentProducts = await _unitOfWork.ProductRepository.FindByIdsWithTrackingAsync(componentProductIds);
 
             var componentProductDict = componentProducts.ToDictionary(p => p.Id);
+            var missingIds = componentProductIds.Where(id => !componentProductDict.ContainsKey(id)).ToList();
+            if (missingIds.Count > 0)
+                throw new NotFoundException(
+                    "Không tìm thấy sản phẩm linh kiện với mã: " + string.Join(", ", missingIds) + ".");
 
             foreach (var (componentProductId, quantity) in components)
             {
-                if (!componentProductDict.TryGetValue(componentProductId, out var componentProduct))
-                    throw new NotFoundException($"Không tìm thấy sản phẩm linh kiện có mã {componentProductId}.");
+                var componentProduct = componentProductDict[componentProductId];
 
                 var requiredQty = quantity * stock;
                 if (componentProduct.Stock < requiredQty)
                     throw new BadRequestException(
                         $"Linh kiện '{componentProduct.Name}' (SKU: {componentProduct.Sku}) không đủ tồn kho. Cần: {requiredQty}, Hiện có: {componentProduct.Stock}.");
             }
+
+            var compatibilityResult = await _compatibilityService.ValidatePcComponentsAsync(components);
+            if (!compatibilityResult.IsCompatible)
+                throw new BadRequestException(
+                    "Các linh kiện không tương thích: " + string.Join(" ", compatibilityResult.Errors));
 
             var pcProduct = await _productService.PrepareAndAddProductAsync(
                 name, sku, categoryId, brandId, price, stock, warrantyMonth,
@@ -82,10 +92,13 @@ namespace TechExpress.Service.Services
 
             await _unitOfWork.SaveChangesAsync();
 
-            var result = await _unitOfWork.ProductRepository.FindByIdIncludeAllForPCDetailAsync(pcProduct.Id)
+            var result = await _unitOfWork.ProductRepository.FindByIdIncludeCategoryImagesSpecValuesAsync(pcProduct.Id)
                 ?? throw new NotFoundException("Không tìm thấy sản phẩm PC sau khi tạo.");
 
-            return result;
+            var pcComponents = await _unitOfWork.ComputerComponentRepository
+                .FindByComputerProductIdWithComponentProductAsync(pcProduct.Id);
+
+            return (result, pcComponents);
         }
     }
 }

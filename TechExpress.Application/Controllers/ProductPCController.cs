@@ -31,7 +31,7 @@ namespace TechExpress.Application.Controllers
                 .Select(c => (c.ComponentProductId, c.Quantity))
                 .ToList();
 
-            var product = await _serviceProvider.ProductPCService.HandleCreateProductPCAsync(
+            var (product, pcComponents) = await _serviceProvider.ProductPCService.HandleCreateProductPCAsync(
                 request.Name.Trim(),
                 request.Sku.Trim(),
                 request.CategoryId,
@@ -45,7 +45,7 @@ namespace TechExpress.Application.Controllers
                 components
             );
 
-            var response = ResponseMapper.MapToProductPCDetailResponseFromProduct(product);
+            var response = ResponseMapper.MapToProductPCDetailResponseFromProduct(product, pcComponents);
 
             return CreatedAtAction(nameof(CreateProductPC), ApiResponse<ProductPCDetailResponse>.CreatedResponse(response));
         }

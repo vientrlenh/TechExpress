@@ -262,11 +262,11 @@ public class ResponseMapper
         );
     }
 
-    public static ProductPCDetailResponse MapToProductPCDetailResponseFromProduct(Product product)
+    public static ProductPCDetailResponse MapToProductPCDetailResponseFromProduct(Product product, List<ComputerComponent> components)
     {
         var baseDetail = MapToProductDetailResponseFromProduct(product);
 
-        var componentResponses = (product.Components ?? [])
+        var componentResponses = (components ?? [])
             .OrderBy(c => c.Id)
             .Select(c => new ProductPCComponentResponse(
                 c.ComponentProductId,

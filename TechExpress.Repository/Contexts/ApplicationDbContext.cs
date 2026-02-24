@@ -583,7 +583,7 @@ namespace TechExpress.Repository.Contexts
                     .HasDatabaseName("idx_computer_component");
                 
                 cc.HasOne(c => c.ComputerProduct)
-                    .WithMany(p => p.Components)
+                    .WithMany()
                     .HasForeignKey(c => c.ComputerProductId)
                     .OnDelete(DeleteBehavior.Cascade);
 

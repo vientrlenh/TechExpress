@@ -137,15 +137,16 @@ namespace TechExpress.Repository.Repositories
                 .FirstOrDefaultAsync(p => p.Id == id);
         }
 
-        public async Task<Product?> FindByIdIncludeAllForPCDetailAsync(Guid id)
+        /// <summary>
+        /// Lấy Product theo id. Components lấy riêng qua ComputerComponentRepository (right join).
+        /// </summary>
+        public async Task<Product?> FindByIdIncludeCategoryImagesSpecValuesAsync(Guid id)
         {
             return await _context.Products
                 .Include(p => p.Category)
                 .Include(p => p.Images)
                 .Include(p => p.SpecValues)
                     .ThenInclude(sv => sv.SpecDefinition)
-                .Include(p => p.Components)
-                    .ThenInclude(c => c.ComponentProduct)
                 .AsSplitQuery()
                 .FirstOrDefaultAsync(p => p.Id == id);
         }
@@ -178,6 +179,16 @@ namespace TechExpress.Repository.Repositories
                 .ToListAsync();
         }
 
+        public async Task<List<Product>> FindByIdsIncludeCategoryAsync(IEnumerable<Guid> ids)
+        {
+            var idList = ids.ToList();
+            if (idList.Count == 0) return [];
+            return await _context.Products
+                .AsNoTracking()
+                .Include(p => p.Category)
+                .Where(p => idList.Contains(p.Id))
+                .ToListAsync();
+        }
 
         public async Task<bool> ExistsBySkuExcludingProductIdAsync(string sku, Guid excludeProductId)
         {

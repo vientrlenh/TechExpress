@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using TechExpress.Repository.Contexts;
 using TechExpress.Repository.Models;
 
@@ -19,6 +19,14 @@ namespace TechExpress.Repository.Repositories
                 .AsTracking()
                 .Where(x => x.ProductId == productId)
                 .ToListAsync();
+        }
+
+        public async Task<ProductSpecValue?> FindByProductIdAndSpecDefinitionIdAsync(Guid productId, Guid specDefinitionId)
+        {
+            return await _context.ProductSpecValues
+                .AsNoTracking()
+                .Include(psv => psv.SpecDefinition)
+                .FirstOrDefaultAsync(x => x.ProductId == productId && x.SpecDefinitionId == specDefinitionId);
         }
 
         public async Task AddAsync(ProductSpecValue entity)
