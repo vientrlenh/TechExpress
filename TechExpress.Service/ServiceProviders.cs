@@ -27,10 +27,10 @@ namespace TechExpress.Service
         public PaymentService PaymentService { get; }
         public InstallmentService InstallmentService { get; }
         public OrderService OrderService { get; }
+        public ComputerCompatibilityService ComputerCompatibilityService { get; }
 
-        public UserContext UserContext { get; }
 
-        public ServiceProviders(UnitOfWork unitOfWork, PayOsClient payOsClient,RedisUtils redisUtils, SmtpEmailSender emailSender, JwtUtils jwtUtils, UserContext userContext, OtpUtils otpUtils, IConnectionMultiplexer redis, IHubContext<CartHub> cartHubContext)
+        public ServiceProviders(UnitOfWork unitOfWork, PayOsClient payOsClient,RedisUtils redisUtils, SmtpEmailSender emailSender, JwtUtils jwtUtils, UserContext userContext, OtpUtils otpUtils, IConnectionMultiplexer redis)
         {
             AuthService = new AuthService(unitOfWork, jwtUtils, userContext, otpUtils, emailSender);
             UserService = new UserService(unitOfWork, userContext, redis);
@@ -42,7 +42,7 @@ namespace TechExpress.Service
             PaymentService = new PaymentService(unitOfWork, redisUtils, payOsClient);
             InstallmentService = new InstallmentService(unitOfWork);
             OrderService = new OrderService(unitOfWork, userContext);
-            UserContext = userContext;
+            ComputerCompatibilityService = new ComputerCompatibilityService(unitOfWork);
         }
     }
 }

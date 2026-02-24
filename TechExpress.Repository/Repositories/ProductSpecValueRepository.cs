@@ -30,5 +30,10 @@ namespace TechExpress.Repository.Repositories
         {
             _context.ProductSpecValues.RemoveRange(specValues);
         }
+
+        public async Task<List<ProductSpecValue>> FindByProductIdsAsync(List<Guid> productIds)
+        {
+            return await _context.ProductSpecValues.Where(p => productIds.Contains(p.ProductId)).ToListAsync();
+        }
     }
 }

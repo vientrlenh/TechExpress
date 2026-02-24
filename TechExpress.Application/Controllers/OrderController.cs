@@ -8,6 +8,7 @@ using TechExpress.Application.Dtos.Responses;
 using TechExpress.Application.DTOs.Requests;
 using TechExpress.Application.DTOs.Responses;
 using TechExpress.Service;
+using TechExpress.Service.Contexts;
 
 namespace TechExpress.Application.Controllers
 {
@@ -16,10 +17,12 @@ namespace TechExpress.Application.Controllers
     public class OrderController : ControllerBase
     {
         private readonly ServiceProviders _serviceProvider;
+        private readonly UserContext _userContext;
 
-        public OrderController(ServiceProviders serviceProviders)
+        public OrderController(ServiceProviders serviceProviders, UserContext userContext)
         {
             _serviceProvider = serviceProviders;
+            _userContext = userContext;
         }
 
         /// <summary>
@@ -77,7 +80,7 @@ namespace TechExpress.Application.Controllers
         {
             try
             {
-                var userId = _serviceProvider.UserContext.GetCurrentAuthenticatedUserId();
+                var userId = _userContext.GetCurrentAuthenticatedUserId();
 
                 // Nhận kết quả dạng Tuple (order, danh sách installments)
                 var (order, installments) = await _serviceProvider.OrderService.HandleMemberCheckoutAsync(
