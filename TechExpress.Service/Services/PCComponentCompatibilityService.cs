@@ -67,6 +67,13 @@ namespace TechExpress.Service.Services
                 System.Globalization.CultureInfo.InvariantCulture, out result);
         }
 
+        private static bool TryParseInt(string? value, out int result)
+        {
+            result = 0;
+            if (string.IsNullOrWhiteSpace(value)) return false;
+            return int.TryParse(value.Trim(), out result);
+        }
+
         /// <summary>
         /// Kiểm tra tương thích CPU và Mainboard: cùng giá trị socket (CPU: cpu_socket, Mainboard: mb_socket), vd LGA1700.
         /// </summary>
@@ -193,7 +200,7 @@ namespace TechExpress.Service.Services
             if (!TryParseDecimal(coolerHeight, out var coolerH))
                 return (false, "Tản nhiệt không có thông số chiều cao (cooler_height).");
 
-            if (caseHeight <= coolerH)
+            if (caseHeight < coolerH)
                 return (false, $"Case không đủ cao cho tản nhiệt: Case hỗ trợ tối đa {caseHeight}mm, Tản nhiệt cao {coolerH}mm.");
 
             return (true, null);
@@ -214,6 +221,157 @@ namespace TechExpress.Service.Services
 
             if (!ValueContains(coolerSocketSupport, cpuSocket))
                 return (false, $"Tản nhiệt không hỗ trợ socket của CPU: CPU ({cpuSocket}), Tản nhiệt hỗ trợ ({coolerSocketSupport}).");
+
+            return (true, null);
+        }
+
+        /// <summary>
+        /// CPU và Mainboard: loại RAM CPU hỗ trợ phải trùng loại RAM Mainboard sử dụng.
+        /// </summary>
+        public async Task<(bool IsCompatible, string? Message)> CheckCpuMainboardMemoryTypeCompatibilityAsync(Guid cpuProductId, Guid mainboardProductId)
+        {
+            var cpuMemoryType = await GetSpecValueByProductAndCodeAsync(cpuProductId, SpecCodeConstant.CpuMemoryType);
+            var mbMemoryType = await GetSpecValueByProductAndCodeAsync(mainboardProductId, SpecCodeConstant.MbMemoryType);
+
+            // Nếu thiếu spec thì bỏ qua check này để không phá dữ liệu cũ
+            if (string.IsNullOrWhiteSpace(cpuMemoryType) || string.IsNullOrWhiteSpace(mbMemoryType))
+                return (true, null);
+
+            if (!ValuesMatch(cpuMemoryType, mbMemoryType))
+                return (false, $"Loại RAM CPU hỗ trợ ({cpuMemoryType}) không khớp với loại RAM của Mainboard ({mbMemoryType}).");
+
+            return (true, null);
+        }
+
+        /// <summary>
+        /// CPU và Tản nhiệt: công suất tản nhiệt (cooler_tdp_rating) phải >= TDP CPU (cpu_tdp).
+        /// </summary>
+        public async Task<(bool IsCompatible, string? Message)> CheckCpuCoolerTdpCompatibilityAsync(Guid cpuProductId, Guid coolerProductId)
+        {
+            var cpuTdpStr = await GetSpecValueByProductAndCodeAsync(cpuProductId, SpecCodeConstant.CpuTdp);
+            var coolerTdpStr = await GetSpecValueByProductAndCodeAsync(coolerProductId, SpecCodeConstant.CoolerTdpRating);
+
+            if (!TryParseDecimal(cpuTdpStr, out var cpuTdp) || !TryParseDecimal(coolerTdpStr, out var coolerTdp))
+                return (true, null);
+
+            if (coolerTdp < cpuTdp)
+                return (false, $"Công suất tản nhiệt không đủ: CPU TDP {cpuTdp}W, tản nhiệt hỗ trợ tối đa {coolerTdp}W.");
+
+            return (true, null);
+        }
+
+        /// <summary>
+        /// PSU và Case: case_psu_form_factor phải chứa psu_form_factor.
+        /// </summary>
+        public async Task<(bool IsCompatible, string? Message)> CheckPsuCaseCompatibilityAsync(Guid psuProductId, Guid caseProductId)
+        {
+            var psuFormFactor = await GetSpecValueByProductAndCodeAsync(psuProductId, SpecCodeConstant.PsuFormFactor);
+            var casePsuFormFactor = await GetSpecValueByProductAndCodeAsync(caseProductId, SpecCodeConstant.CasePsuFormFactor);
+
+            // Nếu thiếu spec thì bỏ qua check này để không phá dữ liệu cũ
+            if (string.IsNullOrWhiteSpace(psuFormFactor) || string.IsNullOrWhiteSpace(casePsuFormFactor))
+                return (true, null);
+
+            if (!ValueContains(casePsuFormFactor, psuFormFactor))
+                return (false, $"Case không hỗ trợ chuẩn nguồn: PSU ({psuFormFactor}), Case hỗ trợ ({casePsuFormFactor}).");
+
+            return (true, null);
+        }
+
+        /// <summary>
+        /// Case và Storage (2.5"/3.5"): tổng số ổ 2.5" và 3.5" không vượt quá số bay tương ứng trên case.
+        /// Ổ M.2 được bỏ qua vì đã được check bằng khe M.2 của mainboard.
+        /// </summary>
+        public async Task<(bool IsCompatible, string? Message)> CheckCaseStorageBayCompatibilityAsync(
+            Guid caseProductId,
+            IReadOnlyList<(Guid StorageProductId, int Quantity)> storageComponents)
+        {
+            if (storageComponents == null || storageComponents.Count == 0)
+                return (true, null);
+
+            var caseDriveBays25Str = await GetSpecValueByProductAndCodeAsync(caseProductId, SpecCodeConstant.CaseDriveBays25);
+            var caseDriveBays35Str = await GetSpecValueByProductAndCodeAsync(caseProductId, SpecCodeConstant.CaseDriveBays35);
+
+            // Nếu thiếu thông số bay, bỏ qua check để không phá dữ liệu cũ
+            if (!TryParseInt(caseDriveBays25Str, out var caseDriveBays25) &&
+                !TryParseInt(caseDriveBays35Str, out var caseDriveBays35))
+            {
+                return (true, null);
+            }
+
+            int required25 = 0;
+            int required35 = 0;
+
+            foreach (var (storageProductId, quantity) in storageComponents)
+            {
+                var storInterface = await GetSpecValueByProductAndCodeAsync(storageProductId, SpecCodeConstant.StorInterface);
+                if (!string.IsNullOrWhiteSpace(storInterface) &&
+                    storInterface.Contains("M.2", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Ổ M.2 dùng khe M.2 trên mainboard, không chiếm bay 2.5"/3.5"
+                    continue;
+                }
+
+                var storType = await GetSpecValueByProductAndCodeAsync(storageProductId, SpecCodeConstant.StorType);
+                if (string.IsNullOrWhiteSpace(storType))
+                    continue;
+
+                var type = storType.Trim();
+
+                if (type.Contains("2.5", StringComparison.OrdinalIgnoreCase))
+                {
+                    required25 += quantity;
+                }
+                else if (type.Contains("3.5", StringComparison.OrdinalIgnoreCase))
+                {
+                    required35 += quantity;
+                }
+            }
+
+            if (TryParseInt(caseDriveBays25Str, out caseDriveBays25) && required25 > caseDriveBays25)
+            {
+                return (false,
+                    $"Số lượng ổ 2.5\" vượt quá số bay của Case: chọn {required25} ổ, Case hỗ trợ tối đa {caseDriveBays25} bay 2.5\".");
+            }
+
+            if (TryParseInt(caseDriveBays35Str, out caseDriveBays35) && required35 > caseDriveBays35)
+            {
+                return (false,
+                    $"Số lượng ổ 3.5\" vượt quá số bay của Case: chọn {required35} ổ, Case hỗ trợ tối đa {caseDriveBays35} bay 3.5\".");
+            }
+
+            return (true, null);
+        }
+
+        /// <summary>
+        /// Mainboard và Storage: số ổ M.2 (NVMe) không vượt quá mb_m2_slots.
+        /// </summary>
+        public async Task<(bool IsCompatible, string? Message)> CheckMainboardM2StorageCompatibilityAsync(
+            Guid mainboardProductId,
+            IReadOnlyList<(Guid StorageProductId, int Quantity)> storageComponents)
+        {
+            if (storageComponents == null || storageComponents.Count == 0)
+                return (true, null);
+
+            var mbM2SlotsStr = await GetSpecValueByProductAndCodeAsync(mainboardProductId, SpecCodeConstant.MbM2Slots);
+            if (!TryParseDecimal(mbM2SlotsStr, out var mbM2Slots) || mbM2Slots <= 0)
+                return (true, null);
+
+            decimal usedM2Slots = 0;
+            foreach (var (storageProductId, quantity) in storageComponents)
+            {
+                var storInterface = await GetSpecValueByProductAndCodeAsync(storageProductId, SpecCodeConstant.StorInterface);
+                if (string.IsNullOrWhiteSpace(storInterface))
+                    continue;
+
+                if (storInterface.Contains("M.2", StringComparison.OrdinalIgnoreCase))
+                {
+                    usedM2Slots += quantity;
+                }
+            }
+
+            if (usedM2Slots > mbM2Slots)
+                return (false, $"Số lượng ổ M.2 ({usedM2Slots}) vượt quá số khe M.2 trên Mainboard ({mbM2Slots}).");
 
             return (true, null);
         }
@@ -242,8 +400,57 @@ namespace TechExpress.Service.Services
             }
 
             var required = totalCpuTdp + totalGpuTdp + 100;
-            if (psuWattage <= required)
+            if (psuWattage < required)
                 return (false, $"Nguồn không đủ công suất: PSU {psuWattage}W, cần tối thiểu {required}W (CPU {totalCpuTdp}W + GPU {totalGpuTdp}W + 100W dự phòng).");
+
+            return (true, null);
+        }
+
+        /// <summary>
+        /// Hệ thống đồ họa: cấu hình phải có ít nhất một GPU rời hoặc CPU có iGPU.
+        /// </summary>
+        public async Task<(bool IsCompatible, string? Message)> CheckGraphicsAvailabilityAsync(
+            IReadOnlyList<Guid> cpuIds,
+            IReadOnlyList<Guid> gpuIds)
+        {
+            // Nếu đã có GPU rời thì chắc chắn có hiển thị
+            if (gpuIds != null && gpuIds.Count > 0)
+                return (true, null);
+
+            if (cpuIds == null || cpuIds.Count == 0)
+                return (true, null);
+
+            var anyCpuWithSpec = false;
+            var anyCpuWithIntegratedGpu = false;
+
+            foreach (var cpuId in cpuIds)
+            {
+                var iGpuStr = await GetSpecValueByProductAndCodeAsync(cpuId, SpecCodeConstant.CpuIntegratedGpu);
+                if (string.IsNullOrWhiteSpace(iGpuStr))
+                    continue;
+
+                anyCpuWithSpec = true;
+
+                var normalized = iGpuStr.Trim().ToLowerInvariant();
+
+                if (normalized is "true" or "1" ||
+                    normalized.Contains("yes") ||
+                    normalized.Contains("có"))
+                {
+                    anyCpuWithIntegratedGpu = true;
+                    break;
+                }
+
+            }
+
+            if (!anyCpuWithSpec)
+                return (true, null);
+
+            if (!anyCpuWithIntegratedGpu)
+            {
+                return (false,
+                    "Cấu hình không có card đồ họa rời và CPU cũng không tích hợp iGPU. Máy sẽ không xuất được hình ảnh.");
+            }
 
             return (true, null);
         }
@@ -274,6 +481,8 @@ namespace TechExpress.Service.Services
             var gpuIds = products.Where(p => p.Category?.Name == CategoryNameConstant.GPU).Select(p => p.Id).ToList();
             var coolerIds = products.Where(p => p.Category?.Name == CategoryNameConstant.CpuCooler).Select(p => p.Id).ToList();
             var psuIds = products.Where(p => p.Category?.Name == CategoryNameConstant.PSU).Select(p => p.Id).ToList();
+            var storageIds = products.Where(p => p.Category?.Name == CategoryNameConstant.Storage).Select(p => p.Id).ToHashSet();
+            var storageComponents = components.Where(c => storageIds.Contains(c.ComponentProductId)).ToList();
 
             foreach (var cpuId in cpuIds)
             {
@@ -281,11 +490,17 @@ namespace TechExpress.Service.Services
                 {
                     var (ok, msg) = await CheckCpuMainboardCompatibilityAsync(cpuId, mbId);
                     if (!ok && !string.IsNullOrEmpty(msg)) errors.Add(msg);
+
+                    var (memOk, memMsg) = await CheckCpuMainboardMemoryTypeCompatibilityAsync(cpuId, mbId);
+                    if (!memOk && !string.IsNullOrEmpty(memMsg)) errors.Add(memMsg);
                 }
                 foreach (var coolerId in coolerIds)
                 {
                     var (ok, msg) = await CheckCpuCoolerCompatibilityAsync(cpuId, coolerId);
                     if (!ok && !string.IsNullOrEmpty(msg)) errors.Add(msg);
+
+                    var (tdpOk, tdpMsg) = await CheckCpuCoolerTdpCompatibilityAsync(cpuId, coolerId);
+                    if (!tdpOk && !string.IsNullOrEmpty(tdpMsg)) errors.Add(tdpMsg);
                 }
             }
 
@@ -298,6 +513,10 @@ namespace TechExpress.Service.Services
                 }
                 var (slotsOk, slotsMsg) = await CheckMainboardRamSlotsAndCapacityAsync(mbId, ramComponents);
                 if (!slotsOk && !string.IsNullOrEmpty(slotsMsg)) errors.Add(slotsMsg);
+
+                var (m2Ok, m2Msg) = await CheckMainboardM2StorageCompatibilityAsync(mbId, storageComponents);
+                if (!m2Ok && !string.IsNullOrEmpty(m2Msg)) errors.Add(m2Msg);
+
                 foreach (var caseId in caseIds)
                 {
                     var (ok, msg) = await CheckCaseMainboardCompatibilityAsync(caseId, mbId);
@@ -317,7 +536,21 @@ namespace TechExpress.Service.Services
                     var (ok, msg) = await CheckCaseCoolerCompatibilityAsync(caseId, coolerId);
                     if (!ok && !string.IsNullOrEmpty(msg)) errors.Add(msg);
                 }
+                foreach (var psuId in psuIds)
+                {
+                    var (ok, msg) = await CheckPsuCaseCompatibilityAsync(psuId, caseId);
+                    if (!ok && !string.IsNullOrEmpty(msg)) errors.Add(msg);
+                }
             }
+
+            foreach (var caseId in caseIds)
+            {
+                var (ok, msg) = await CheckCaseStorageBayCompatibilityAsync(caseId, storageComponents);
+                if (!ok && !string.IsNullOrEmpty(msg)) errors.Add(msg);
+            }
+
+            var (graphicsOk, graphicsMsg) = await CheckGraphicsAvailabilityAsync(cpuIds, gpuIds);
+            if (!graphicsOk && !string.IsNullOrEmpty(graphicsMsg)) errors.Add(graphicsMsg);
 
             foreach (var psuId in psuIds)
             {

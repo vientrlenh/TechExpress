@@ -54,20 +54,26 @@ namespace TechExpress.Service.Services
                 throw new NotFoundException(
                     "Không tìm thấy sản phẩm linh kiện với mã: " + string.Join(", ", missingIds) + ".");
 
-            foreach (var (componentProductId, quantity) in components)
-            {
-                var componentProduct = componentProductDict[componentProductId];
-
-                var requiredQty = quantity * stock;
-                if (componentProduct.Stock < requiredQty)
-                    throw new BadRequestException(
-                        $"Linh kiện '{componentProduct.Name}' (SKU: {componentProduct.Sku}) không đủ tồn kho. Cần: {requiredQty}, Hiện có: {componentProduct.Stock}.");
-            }
-
             var compatibilityResult = await _compatibilityService.ValidatePcComponentsAsync(components);
             if (!compatibilityResult.IsCompatible)
                 throw new BadRequestException(
                     "Các linh kiện không tương thích: " + string.Join(" ", compatibilityResult.Errors));
+
+            // Giảm tồn kho linh kiện một cách an toàn, tránh race-condition bằng UPDATE có điều kiện trong DB
+            foreach (var (componentProductId, quantity) in components)
+            {
+                var requiredQty = quantity * stock;
+
+                var success = await _unitOfWork.ProductRepository
+                    .TryReserveStockAsync(componentProductId, requiredQty);
+
+                if (!success)
+                {
+                    var componentProduct = componentProductDict[componentProductId];
+                    throw new BadRequestException(
+                        $"Linh kiện '{componentProduct.Name}' (SKU: {componentProduct.Sku}) không đủ tồn kho cho {requiredQty} sản phẩm.");
+                }
+            }
 
             var pcProduct = await _productService.PrepareAndAddProductAsync(
                 name, sku, categoryId, brandId, price, stock, warrantyMonth,
@@ -82,13 +88,6 @@ namespace TechExpress.Service.Services
             }).ToList();
 
             await _unitOfWork.ComputerComponentRepository.AddRangeAsync(computerComponents);
-
-            foreach (var (componentProductId, quantity) in components)
-            {
-                var componentProduct = componentProductDict[componentProductId];
-                componentProduct.Stock -= quantity * stock;
-                componentProduct.UpdatedAt = DateTimeOffset.Now;
-            }
 
             await _unitOfWork.SaveChangesAsync();
 

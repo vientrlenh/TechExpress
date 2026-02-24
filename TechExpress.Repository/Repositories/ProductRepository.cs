@@ -249,5 +249,23 @@ namespace TechExpress.Repository.Repositories
                 .ToListAsync();
         }
 
+
+        public async Task<bool> TryReserveStockAsync(Guid productId, int quantity)
+        {
+            if (quantity <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(quantity), "Quantity must be greater than zero.");
+            }
+
+            var affected = await _context.Database.ExecuteSqlInterpolatedAsync($@"
+                UPDATE Products
+                SET Stock = Stock - {quantity},
+                    UpdatedAt = SYSDATETIMEOFFSET()
+                WHERE Id = {productId} AND Stock >= {quantity};
+            ");
+
+            return affected > 0;
+        }
+
     }
 }
