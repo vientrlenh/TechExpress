@@ -74,6 +74,32 @@ namespace TechExpress.Service.Services
             return int.TryParse(value.Trim(), out result);
         }
 
+        private static int ExtractPcieVersion(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return 0;
+
+            var s = value.Trim();
+            // Tìm số version đầu tiên xuất hiện sau chữ "PCIe" hoặc trong chuỗi
+            var idx = s.IndexOf("PCIe", StringComparison.OrdinalIgnoreCase);
+            if (idx >= 0)
+            {
+                s = s.Substring(idx + 4);
+            }
+
+            foreach (var ch in s)
+            {
+                if (char.IsDigit(ch))
+                {
+                    if (int.TryParse(ch.ToString(), out var v))
+                    {
+                        return v;
+                    }
+                }
+            }
+
+            return 0;
+        }
+
         /// <summary>
         /// Kiểm tra tương thích CPU và Mainboard: cùng giá trị socket (CPU: cpu_socket, Mainboard: mb_socket), vd LGA1700.
         /// </summary>
@@ -256,6 +282,43 @@ namespace TechExpress.Service.Services
 
             if (coolerTdp < cpuTdp)
                 return (false, $"Công suất tản nhiệt không đủ: CPU TDP {cpuTdp}W, tản nhiệt hỗ trợ tối đa {coolerTdp}W.");
+
+            return (true, null);
+        }
+
+        /// <summary>
+        /// Mainboard và GPU: kiểm tra cơ bản chuẩn PCIe giữa mainboard (mb_pcie_version) và GPU (gpu_pcie_slot).
+        /// Giả định mainboard cần có thế hệ PCIe >= GPU; nếu thiếu thông số hoặc không parse được thì bỏ qua check.
+        /// </summary>
+        public async Task<(bool IsCompatible, string? Message)> CheckMainboardGpuPcieCompatibilityAsync(
+            Guid mainboardProductId,
+            Guid gpuProductId)
+        {
+            var mbPcie = await GetSpecValueByProductAndCodeAsync(mainboardProductId, SpecCodeConstant.MbPcieVersion);
+            var gpuPcieSlot = await GetSpecValueByProductAndCodeAsync(gpuProductId, SpecCodeConstant.GpuPcieSlot);
+
+            // Thiếu spec thì bỏ qua check để không phá dữ liệu cũ
+            if (string.IsNullOrWhiteSpace(mbPcie) || string.IsNullOrWhiteSpace(gpuPcieSlot))
+                return (true, null);
+
+            // Nếu không phải PCIe thì cũng bỏ qua (tránh false positive với cách ghi lạ)
+            if (!mbPcie.Contains("PCIe", StringComparison.OrdinalIgnoreCase) &&
+                !gpuPcieSlot.Contains("PCIe", StringComparison.OrdinalIgnoreCase))
+            {
+                return (true, null);
+            }
+
+            var mbVer = ExtractPcieVersion(mbPcie);
+            var gpuVer = ExtractPcieVersion(gpuPcieSlot);
+
+            if (mbVer == 0 || gpuVer == 0)
+                return (true, null);
+
+            if (mbVer < gpuVer)
+            {
+                return (false,
+                    $"Mainboard có chuẩn PCIe ({mbPcie}) thấp hơn chuẩn khe PCIe yêu cầu của VGA ({gpuPcieSlot}). Vui lòng chọn mainboard có PCIe cùng hoặc cao hơn.");
+            }
 
             return (true, null);
         }
@@ -516,6 +579,12 @@ namespace TechExpress.Service.Services
 
                 var (m2Ok, m2Msg) = await CheckMainboardM2StorageCompatibilityAsync(mbId, storageComponents);
                 if (!m2Ok && !string.IsNullOrEmpty(m2Msg)) errors.Add(m2Msg);
+
+                foreach (var gpuId in gpuIds)
+                {
+                    var (ok, msg) = await CheckMainboardGpuPcieCompatibilityAsync(mbId, gpuId);
+                    if (!ok && !string.IsNullOrEmpty(msg)) errors.Add(msg);
+                }
 
                 foreach (var caseId in caseIds)
                 {
