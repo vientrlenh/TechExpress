@@ -32,6 +32,15 @@ public class ComputerCompatibilityService
         return components;
     }
 
+    /// <summary>
+    /// Thực hiện kiểm tra tương thích giữa các linh kiện được gửi qua request và số lượng tương ứng.
+    /// Nếu các linh kiện có sự không tương thích về hiệu năng khi kết hợp với nhau, method sẽ trả về các cảnh báo (warning).
+    /// Nếu là không tương thích khiến máy không hoạt động hay gây hỏng, method sẽ ném ra lỗi bằng message exception.
+    /// Yêu cầu: chỉ kiểm tra tương thích với duy nhất 1 bộ, trường hợp nhiều hơn như nhiều mainboard hay psu thì method sẽ ném lỗi
+    /// </summary>
+    /// <param name="componentCommands"></param>
+    /// <param name="components"></param>
+    /// <returns></returns>
     public async Task<List<string>> CheckComputerCompatibility(List<AddComputerComponentCommand> componentCommands, List<Product> components)
     {
         var warnings = new List<string>();
