@@ -32,8 +32,10 @@ public class ComputerCompatibilityService
         return components;
     }
 
-    public async Task CheckComputerCompatibility(List<AddComputerComponentCommand> componentCommands, List<Product> components)
+    public async Task<List<string>> CheckComputerCompatibility(List<AddComputerComponentCommand> componentCommands, List<Product> components)
     {
+        var warnings = new List<string>();
+
         // Lấy map sản phẩm yêu cầu được group bởi tên của Category
         var categoryMap = BuildComponentCategoryDict(componentCommands, components);
 
@@ -68,8 +70,8 @@ public class ComputerCompatibilityService
         
         // Kiểm tra và lấy spec của Storage
         ValidateStorageFromRequest(categoryMap);
-        (var totalNvMeCount, var totalSataCount) = GetNvMeCountAndSataCountFromStorageRequest(categoryMap, componentSpecDicts);
-        CheckStorageCountsWithMotherboard(totalNvMeCount, totalSataCount, mbSpec);
+        (var totalM2Count, var totalSataCount) = GetM2CountAndSataCountFromStorageRequest(categoryMap, componentSpecDicts);
+        CheckStorageCountsWithMotherboard(totalM2Count, totalSataCount, mbSpec);
 
         // Kiểm tra và lấy spec của PSU
         var psuSpec = ValidateAndGetPsuSpec(categoryMap, componentSpecDicts);
@@ -110,16 +112,19 @@ public class ComputerCompatibilityService
                 {
                     CheckCaseMaxGpuLengthWithGpuLength(caseSpec, gpuSpec);
                 }
+                CheckMainboardGpuPcieVersionCompatibility(mbSpec, gpuSpec, warnings);
             }
         }
         // Kiểm tra nếu CPU trong cấu hình không có GPU tích hợp
         CheckCpuContainsIGpu(cpuSpec, gpuDatas);
 
         // Kiểm tra tổng số làn PCIe sử dụng có vượt quá giới hạn của mainboard không
-        CheckPcieLaneBudget(mbSpec, gpuQuantity, totalNvMeCount);
+        CheckPcieLaneBudget(mbSpec, gpuQuantity, totalM2Count);
 
         // Kiểm tra lượng điện cung cấp của PSU có tương thích không
         CheckPsuPowerSupplyIsEnough(psuSpec, totalGpuTdp, cpuTdp);
+
+        return warnings;
     }
 
     private static Dictionary<string, List<ComponentData>> BuildComponentCategoryDict(List<AddComputerComponentCommand> commands, List<Product> products)
@@ -210,7 +215,7 @@ public class ComputerCompatibilityService
         {
             if (!bool.TryParse(mbDualSocketValue, out var mbDualSocket))
             {
-                throw new NotFoundException("Giá trị hiện tại của dual socket của mainboard không hợp lệ để kiểm tra tương thích.");
+                throw new BadRequestException("Giá trị hiện tại của dual socket của mainboard không hợp lệ để kiểm tra tương thích.");
             }
             if (mbDualSocket) return true;
         }
@@ -233,7 +238,15 @@ public class ComputerCompatibilityService
             {
                 throw new BadRequestException("CPU phải cùng loại");
             }
-        } 
+        }
+        else
+        {
+            var totalCpu = cpuDatas.Sum(c => c.Command.Quantity);
+            if (totalCpu != 1)
+            {
+                throw new BadRequestException("Số lượng CPU phải bằng 1.");
+            }
+        }
         if (!componentSpecDicts.TryGetValue(categoryMap[CategoryNameConstant.CPU].First().Product.Id, out var cpuSpec))
         {
             throw new NotFoundException("Không tìm thấy thông số của CPU.");
@@ -498,32 +511,40 @@ public class ComputerCompatibilityService
 
     }
 
-    private static (int, int) GetNvMeCountAndSataCountFromStorageRequest(Dictionary<string, List<ComponentData>> categoryMap, Dictionary<Guid, Dictionary<string, string>> componentSpecDicts)
+    private static (int, int) GetM2CountAndSataCountFromStorageRequest(Dictionary<string, List<ComponentData>> categoryMap, Dictionary<Guid, Dictionary<string, string>> componentSpecDicts)
     {
         var storageDatas = categoryMap[CategoryNameConstant.Storage];
-        int totalNvMeCount = 0;
+        int totalM2Count = 0;
         int totalSataCount = 0;
         foreach (var storageData in storageDatas)
         {
             var storageSpec = componentSpecDicts[storageData.Product.Id];
+
+            if (storageSpec.TryGetValue(SpecCodeConstant.StorFormFactor, out var formFactorValue) &&
+                formFactorValue.Equals("M.2", StringComparison.OrdinalIgnoreCase))
+            {
+                totalM2Count += storageData.Command.Quantity;
+                continue;
+            }
+
             if (!storageSpec.TryGetValue(SpecCodeConstant.StorType, out var storTypeValue))
             {
                 throw new NotFoundException("Không tìm thấy thông số loại ổ cứng trong sản phẩm Ổ cứng");
             }
             if (storTypeValue.Equals("nvme", StringComparison.OrdinalIgnoreCase))
             {
-                totalNvMeCount += storageData.Command.Quantity;
+                totalM2Count += storageData.Command.Quantity;
             }
             else
             {
                 totalSataCount += storageData.Command.Quantity;
             }
         }
-        return (totalNvMeCount, totalSataCount);
+        return (totalM2Count, totalSataCount);
     }
 
 
-    private static void CheckStorageCountsWithMotherboard(int totalNvMeCount, int totalSataCount, Dictionary<string, string> mbSpec)
+    private static void CheckStorageCountsWithMotherboard(int totalM2Count, int totalSataCount, Dictionary<string, string> mbSpec)
     {
         if (!mbSpec.TryGetValue(SpecCodeConstant.MbM2Slots, out var mbM2SlotValue))
         {
@@ -541,9 +562,9 @@ public class ComputerCompatibilityService
         {
             throw new NotFoundException("Thông số số cổng sata của mainboard không hợp lệ để kiểm tra tương thích.");
         }
-        if (totalNvMeCount > mbM2Slots)
+        if (totalM2Count > mbM2Slots)
         {
-            throw new BadRequestException("Số lượng ổ cứng NvMe yêu cầu vượt quá số cổng M2 cho phép của mainboard");
+            throw new BadRequestException("Số lượng ổ cứng M.2 yêu cầu vượt quá số khe M.2 cho phép của mainboard.");
         }
         if (totalSataCount > mbSataPorts)
         {
@@ -581,7 +602,7 @@ public class ComputerCompatibilityService
         }
         var totalTdp = totalGpuTdp + cpuTdp;
         var recommendedPsuWattage = totalTdp + (totalTdp * 0.2);
-        if (psuWattage <= recommendedPsuWattage)
+        if (psuWattage < recommendedPsuWattage)
         {
             throw new BadRequestException("Số watt cung cấp của PSU không đủ đối với cấu hình hiện tại");
         }
@@ -701,6 +722,36 @@ public class ComputerCompatibilityService
     }
     
 
+    private static int ExtractPcieVersion(string value)
+    {
+        var idx = value.IndexOf("PCIe", StringComparison.OrdinalIgnoreCase);
+        var s = (idx >= 0 ? value[(idx + 4)..] : value).TrimStart(' ', '\t', '.', '_');
+        var numStr = new string([..s.TakeWhile(char.IsDigit)]);
+        return int.TryParse(numStr, out var v) ? v : 0;
+    }
+
+
+    private static void CheckMainboardGpuPcieVersionCompatibility(Dictionary<string, string> mbSpec, Dictionary<string, string> gpuSpec, List<string> warnings)
+    {
+        if (!mbSpec.TryGetValue(SpecCodeConstant.MbPcieVersion, out var mbPcieValue) ||
+            !gpuSpec.TryGetValue(SpecCodeConstant.GpuPcieSlot, out var gpuPcieSlotValue))
+        {
+            return;
+        }
+
+        var mbVer = ExtractPcieVersion(mbPcieValue);
+        var gpuVer = ExtractPcieVersion(gpuPcieSlotValue);
+
+        if (mbVer == 0 || gpuVer == 0)
+            return;
+
+        if (mbVer < gpuVer)
+        {
+            warnings.Add(
+                $"Mainboard có chuẩn PCIe {mbVer} thấp hơn chuẩn PCIe {gpuVer} của GPU. GPU vẫn hoạt động nhưng băng thông sẽ bị giới hạn theo chuẩn PCIe {mbVer}.");
+        }
+    }
+
     private static void CheckCpuContainsIGpu(Dictionary<string, string> cpuSpec, List<ComponentData>? gpuDatas)
     {
         if (!cpuSpec.TryGetValue(SpecCodeConstant.CpuIntegratedGpu, out var cpuIntegratedGpuValue))
@@ -747,7 +798,7 @@ public class ComputerCompatibilityService
         {
             if (!isCpuAndMotherboardSupportEcc)
             {
-                throw new BadRequestException("Cấu hình hiện tại chứa CPU hoặc Mainboard không hỗ trợ RAM ECC.");
+                throw new BadRequestException("RAM Registered (RDIMM/LRDIMM) yêu cầu CPU và Mainboard hỗ trợ ECC. Cấu hình hiện tại không đáp ứng yêu cầu này.");
             }
         }
     }
@@ -812,7 +863,7 @@ public class ComputerCompatibilityService
         }
     }
 
-    private static void CheckPcieLaneBudget(Dictionary<string, string> mbSpec, int gpuQuantity, int totalNvMeCount)
+    private static void CheckPcieLaneBudget(Dictionary<string, string> mbSpec, int gpuQuantity, int totalM2Count)
     {
         if (!mbSpec.TryGetValue(SpecCodeConstant.MbTotalPcieLanes, out var mbTotalPcieLanesValue))
         {
@@ -822,7 +873,7 @@ public class ComputerCompatibilityService
         {
             throw new NotFoundException("Giá trị tổng số làn PCIe của mainboard không hợp lệ để kiểm tra tương thích.");
         }
-        var totalUsedLanes = (gpuQuantity * 16) + (totalNvMeCount * 4);
+        var totalUsedLanes = (gpuQuantity * 16) + (totalM2Count * 4);
         if (totalUsedLanes > mbTotalPcieLanes)
         {
             throw new BadRequestException($"Tổng số làn PCIe sử dụng ({totalUsedLanes}) vượt quá số làn PCIe của mainboard ({mbTotalPcieLanes}).");
