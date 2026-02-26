@@ -527,6 +527,7 @@ public class ResponseMapper
         return new OrderResponse
         {
             Id = order.Id,
+            UserId = order.UserId,
             OrderDate = order.OrderDate,
             Status = order.Status,
             SubTotal = order.SubTotal,
@@ -540,6 +541,8 @@ public class ResponseMapper
             ShippingAddress = order.ShippingAddress,
             TrackingPhone = order.TrackingPhone,
             Notes = order.Notes,
+            ReceiverIdentityCard = order.ReceiverIdentityCard,
+            InstallmentDurationMonth = order.InstallmentDurationMonth,
             Items = order.Items.Select(oi => new OrderItemResponse
             {
                 Id = oi.Id,
@@ -558,6 +561,118 @@ public class ResponseMapper
                 Status = i.Status,
                 DueDate = i.DueDate
             }).ToList() ?? new List<InstallmentResponse>()
+        };
+    }
+
+    public static OrderListItemResponse MapToOrderListItemResponseFromOrder(Order order)
+    {
+        return new OrderListItemResponse
+        {
+            Id = order.Id,
+            UserId = order.UserId,
+            OrderDate = order.OrderDate,
+            Status = order.Status,
+            SubTotal = order.SubTotal,
+            ShippingCost = order.ShippingCost,
+            Tax = order.Tax,
+            TotalPrice = order.TotalPrice,
+            DeliveryType = order.DeliveryType,
+            PaidType = order.PaidType,
+            ReceiverFullName = order.ReceiverFullName,
+            ReceiverEmail = order.ReceiverEmail,
+            ShippingAddress = order.ShippingAddress,
+            TrackingPhone = order.TrackingPhone,
+            Notes = order.Notes,
+            ReceiverIdentityCard = order.ReceiverIdentityCard,
+            InstallmentDurationMonth = order.InstallmentDurationMonth
+        };
+    }
+
+    public static OrderDetailResponse MapToOrderDetailResponseFromOrder(
+        Order order,
+        List<Installment>? installments,
+        List<Payment>? payments)
+    {
+        return new OrderDetailResponse
+        {
+            Id = order.Id,
+            UserId = order.UserId,
+            OrderDate = order.OrderDate,
+            Status = order.Status,
+            SubTotal = order.SubTotal,
+            ShippingCost = order.ShippingCost,
+            Tax = order.Tax,
+            TotalPrice = order.TotalPrice,
+            DeliveryType = order.DeliveryType,
+            PaidType = order.PaidType,
+            ReceiverFullName = order.ReceiverFullName,
+            ReceiverEmail = order.ReceiverEmail,
+            ShippingAddress = order.ShippingAddress,
+            TrackingPhone = order.TrackingPhone,
+            Notes = order.Notes,
+            ReceiverIdentityCard = order.ReceiverIdentityCard,
+            InstallmentDurationMonth = order.InstallmentDurationMonth,
+
+            Items = order.Items.Select(oi =>
+            {
+                ProductListResponse? product = null;
+                if (oi.Product != null)
+                {
+                    var firstImageUrl = oi.Product.Images
+                        .OrderBy(i => i.Id)
+                        .Select(i => i.ImageUrl)
+                        .FirstOrDefault();
+
+                    product = new ProductListResponse(
+                        oi.Product.Id,
+                        oi.Product.Name,
+                        oi.Product.Sku,
+                        oi.Product.CategoryId,
+                        oi.Product.BrandId,
+                        oi.Product.Category?.Name ?? string.Empty,
+                        oi.Product.Price,
+                        oi.Product.Stock,
+                        oi.Product.WarrantyMonth,
+                        oi.Product.Status,
+                        firstImageUrl,
+                        oi.Product.CreatedAt,
+                        oi.Product.UpdatedAt
+                    );
+                }
+
+                return new OrderItemDetailResponse
+                {
+                    Id = oi.Id,
+                    ProductId = oi.ProductId,
+                    Quantity = oi.Quantity,
+                    UnitPrice = oi.UnitPrice,
+                    Product = product
+                };
+            }).ToList(),
+
+            Installments = installments == null
+                ? new List<InstallmentResponse>()
+                : MapToInstallmentResponseListFromInstallmentList(installments),
+
+            Payments = payments == null
+                ? new List<PaymentResponse>()
+                : MapToPaymentResponseListFromPaymentList(payments)
+        };
+    }
+
+    public static Pagination<OrderListItemResponse> MapToOrderListResponsePaginationFromOrderPagination(
+        Pagination<Order> orderPagination)
+    {
+        var orderResponses = orderPagination.Items
+            .Select(order => MapToOrderListItemResponseFromOrder(order))
+            .ToList();
+
+        return new Pagination<OrderListItemResponse>
+        {
+            Items = orderResponses,
+            PageNumber = orderPagination.PageNumber,
+            PageSize = orderPagination.PageSize,
+            TotalCount = orderPagination.TotalCount
         };
     }
 }
