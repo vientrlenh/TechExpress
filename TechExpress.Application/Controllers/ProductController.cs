@@ -23,7 +23,6 @@ namespace TechExpress.Application.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = "Admin,Staff")]
         public async Task<IActionResult> GetProductList([FromQuery] ProductFilterRequest request)
         {
             if (request.Page < 1)
@@ -43,7 +42,8 @@ namespace TechExpress.Application.Controllers
                     request.SortDirection,
                     request.Search,
                     request.CategoryId,
-                    request.Status
+                    request.Status,
+                    request.BrandId
                 );
 
             var response = ResponseMapper
@@ -54,7 +54,6 @@ namespace TechExpress.Application.Controllers
 
 
         [HttpGet("{id}")]
-        [Authorize(Roles = "Admin,Staff")]
         public async Task<IActionResult> GetProductDetail(Guid id)
         {
             var product = await _serviceProvider.ProductService

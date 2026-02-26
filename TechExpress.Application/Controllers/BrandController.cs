@@ -42,21 +42,23 @@ public class BrandController : ControllerBase
     /// <param name="searchName">Tìm kiếm theo tên (contains)</param>
     /// <param name="createdFrom">Lọc từ thời điểm tạo (CreatedAt &gt;= createdFrom)</param>
     /// <param name="createdTo">Lọc đến thời điểm tạo (CreatedAt &lt;= createdTo)</param>
+    /// <param name="categoryId">Lọc theo ID danh mục</param>
     [HttpGet]
-    [Authorize(Roles = "Admin,Staff")]
     public async Task<IActionResult> GetPaged(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] string? searchName = null,
         [FromQuery] DateTimeOffset? createdFrom = null,
-        [FromQuery] DateTimeOffset? createdTo = null)
+        [FromQuery] DateTimeOffset? createdTo = null,
+        [FromQuery] Guid? categoryId = null)
     {
         var pagination = await _serviceProvider.BrandService.HandleGetPagedAsync(
             pageNumber,
             pageSize,
             searchName,
             createdFrom,
-            createdTo);
+            createdTo,
+            categoryId);
 
         var response = ResponseMapper.MapToBrandResponsePaginationFromBrandPagination(pagination);
         return Ok(ApiResponse<Pagination<BrandResponse>>.OkResponse(response));
@@ -66,7 +68,6 @@ public class BrandController : ControllerBase
     /// Lấy chi tiết thương hiệu
     /// </summary>
     [HttpGet("{id}")]
-    [Authorize(Roles = "Admin,Staff")]
     public async Task<IActionResult> GetById(Guid id)
     {
         var brand = await _serviceProvider.BrandService.HandleGetByIdAsync(id);

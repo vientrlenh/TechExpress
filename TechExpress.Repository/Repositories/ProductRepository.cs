@@ -21,7 +21,8 @@ namespace TechExpress.Repository.Repositories
         private IQueryable<Product> BuildFilteredQuery(
             string? search,
             List<Guid>? categoryIds,
-            ProductStatus? status)
+            ProductStatus? status,
+            Guid? brandId = null)
         {
             var query = _context.Products
                 .AsNoTracking()
@@ -31,6 +32,9 @@ namespace TechExpress.Repository.Repositories
 
             if (categoryIds != null && categoryIds.Count > 0)
                 query = query.Where(p => categoryIds.Contains(p.CategoryId));
+
+            if (brandId.HasValue)
+                query = query.Where(p => p.BrandId == brandId.Value);
 
             if (status.HasValue)
                 query = query.Where(p => p.Status == status.Value);
@@ -66,9 +70,9 @@ namespace TechExpress.Repository.Repositories
         }
 
         public async Task<(List<Product> Products, int TotalCount)> FindProductsPagedSortByPriceAsync(
-    int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds, ProductStatus? status)
+    int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds, ProductStatus? status, Guid? brandId = null)
         {
-            var query = BuildFilteredQuery(search, categoryIds, status);
+            var query = BuildFilteredQuery(search, categoryIds, status, brandId);
 
             query = isDescending ? query.OrderByDescending(p => p.Price) : query.OrderBy(p => p.Price);
 
@@ -79,9 +83,9 @@ namespace TechExpress.Repository.Repositories
 
 
         public async Task<(List<Product> Products, int TotalCount)> FindProductsPagedSortByCreatedAtAsync(
-    int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds, ProductStatus? status)
+    int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds, ProductStatus? status, Guid? brandId = null)
         {
-            var query = BuildFilteredQuery(search, categoryIds, status);
+            var query = BuildFilteredQuery(search, categoryIds, status, brandId);
 
             query = isDescending ? query.OrderByDescending(p => p.CreatedAt) : query.OrderBy(p => p.CreatedAt);
 
@@ -91,9 +95,9 @@ namespace TechExpress.Repository.Repositories
 
 
         public async Task<(List<Product> Products, int TotalCount)> FindProductsPagedSortByStockQtyAsync(
-    int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds, ProductStatus? status)
+    int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds, ProductStatus? status, Guid? brandId = null)
         {
-            var query = BuildFilteredQuery(search, categoryIds, status);
+            var query = BuildFilteredQuery(search, categoryIds, status, brandId);
 
             query = isDescending ? query.OrderByDescending(p => p.Stock) : query.OrderBy(p => p.Stock);
 
@@ -103,9 +107,9 @@ namespace TechExpress.Repository.Repositories
 
 
         public async Task<(List<Product> Products, int TotalCount)> FindProductsPagedSortByUpdatedAtAsync(
-    int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds, ProductStatus? status)
+    int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds, ProductStatus? status, Guid? brandId = null)
         {
-            var query = BuildFilteredQuery(search, categoryIds, status);
+            var query = BuildFilteredQuery(search, categoryIds, status, brandId);
 
             query = isDescending ? query.OrderByDescending(p => p.UpdatedAt) : query.OrderBy(p => p.UpdatedAt);
 

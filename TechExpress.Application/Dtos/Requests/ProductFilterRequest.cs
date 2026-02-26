@@ -7,6 +7,7 @@ namespace TechExpress.Application.Dtos.Requests
     {
         public string? Search { get; set; }
         public Guid? CategoryId { get; set; }
+        public Guid? BrandId { get; set; }
         public ProductStatus? Status { get; set; }
         public ProductSortBy SortBy { get; set; } = ProductSortBy.UpdatedAt;
 

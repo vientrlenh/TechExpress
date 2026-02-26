@@ -41,7 +41,8 @@ namespace TechExpress.Service.Services
     SortDirection sortDirection,
     string? search,
     Guid? categoryId,
-    ProductStatus? status)
+    ProductStatus? status,
+    Guid? brandId = null)
         {
             if (page < 1) page = 1;
             if (pageSize < 1 || pageSize > 100) pageSize = 20;
@@ -61,16 +62,16 @@ namespace TechExpress.Service.Services
             var (products, totalCount) = sortBy switch
             {
                 ProductSortBy.Price => await _unitOfWork.ProductRepository
-                    .FindProductsPagedSortByPriceAsync(page, pageSize, isDescending, search, categoryIds, status),
+                    .FindProductsPagedSortByPriceAsync(page, pageSize, isDescending, search, categoryIds, status, brandId),
 
                 ProductSortBy.CreatedAt => await _unitOfWork.ProductRepository
-                    .FindProductsPagedSortByCreatedAtAsync(page, pageSize, isDescending, search, categoryIds, status),
+                    .FindProductsPagedSortByCreatedAtAsync(page, pageSize, isDescending, search, categoryIds, status, brandId),
 
                 ProductSortBy.StockQty => await _unitOfWork.ProductRepository
-                    .FindProductsPagedSortByStockQtyAsync(page, pageSize, isDescending, search, categoryIds, status),
+                    .FindProductsPagedSortByStockQtyAsync(page, pageSize, isDescending, search, categoryIds, status, brandId),
 
                 _ => await _unitOfWork.ProductRepository
-                    .FindProductsPagedSortByUpdatedAtAsync(page, pageSize, isDescending, search, categoryIds, status)
+                    .FindProductsPagedSortByUpdatedAtAsync(page, pageSize, isDescending, search, categoryIds, status, brandId)
             };
 
             return new Pagination<Product>
