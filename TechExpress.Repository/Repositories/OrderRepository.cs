@@ -72,5 +72,51 @@ namespace TechExpress.Repository.Repositories
         {
             await _context.Orders.AddAsync(order);
         }
+
+        public async Task<(List<Order> Items, int TotalCount)> GetPagedByUserIdAsync(
+            Guid userId,
+            int page,
+            int pageSize,
+            OrderStatus? orderStatus,
+            PaymentStatus? paymentStatus,
+            bool sortAsc,
+            CancellationToken ct = default)
+        {
+            var query = _context.Orders
+                .AsNoTracking()
+                .Where(o => o.UserId == userId);
+
+            if (orderStatus.HasValue)
+                query = query.Where(o => o.Status == orderStatus.Value);
+
+            if (paymentStatus.HasValue)
+                query = query.Where(o => o.Payments.Any(p => p.Status == paymentStatus.Value));
+
+            var totalCount = await query.CountAsync(ct);
+
+            query = sortAsc
+                ? query.OrderBy(o => o.OrderDate)
+                : query.OrderByDescending(o => o.OrderDate);
+
+            var items = await query
+                .Include(o => o.Payments)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync(ct);
+
+            return (items, totalCount);
+        }
+
+        public async Task<Order?> FindByIdForCustomerAsync(Guid orderId, Guid userId)
+        {
+            return await _context.Orders
+                .AsNoTracking()
+                .Where(o => o.Id == orderId && o.UserId == userId)
+                .Include(o => o.Items)
+                    .ThenInclude(i => i.Product)
+                .Include(o => o.Payments)
+                .AsSplitQuery()
+                .FirstOrDefaultAsync();
+        }
     }
 }

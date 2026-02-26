@@ -42,4 +42,6 @@ public class Order
     public required OrderStatus Status { get; set; }
 
     public User? User { get; set; }
+
+    public ICollection<Payment> Payments { get; set; } = [];
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -9,6 +10,8 @@ using TechExpress.Repository.CustomExceptions;
 using TechExpress.Repository.Enums;
 using TechExpress.Repository.Models;
 using TechExpress.Service.Contexts;
+using TechExpress.Service.Enums;
+using TechExpress.Service.Utils;
 
 namespace TechExpress.Service.Services
 {
@@ -288,6 +291,39 @@ namespace TechExpress.Service.Services
                 OrderDate = DateTimeOffset.Now,
                 Items = items
             };
+        }
+
+        // ============================== CUSTOMER ORDER HISTORY ===============================
+
+        public async Task<Pagination<Order>> HandleGetMyOrdersAsync(
+            int page,
+            int pageSize,
+            OrderStatus? orderStatus,
+            PaymentStatus? paymentStatus,
+            SortDirection sortDirection = SortDirection.Desc,
+            CancellationToken ct = default)
+        {
+            var userId = _userContext.GetCurrentAuthenticatedUserId();
+
+            var (items, totalCount) = await _unitOfWork.OrderRepository.GetPagedByUserIdAsync(
+                userId, page, pageSize, orderStatus, paymentStatus,
+                sortDirection == SortDirection.Asc, ct);
+
+            return new Pagination<Order>
+            {
+                Items = items,
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalCount = totalCount
+            };
+        }
+
+        public async Task<Order> HandleGetMyOrderDetailAsync(Guid orderId, CancellationToken ct = default)
+        {
+            var userId = _userContext.GetCurrentAuthenticatedUserId();
+
+            return await _unitOfWork.OrderRepository.FindByIdForCustomerAsync(orderId, userId)
+                ?? throw new NotFoundException("Không tìm thấy đơn hàng.");
         }
     }
 }

@@ -560,4 +560,120 @@ public class ResponseMapper
             }).ToList() ?? new List<InstallmentResponse>()
         };
     }
+
+    //======================= Map Customer Order Responses =======================//
+
+    private static string BuildOrderCode(Guid orderId)
+        => "ORD-" + orderId.ToString("N")[..8].ToUpper();
+
+    public static CustomerOrderListItemResponse MapToCustomerOrderListItemResponse(Order order)
+    {
+        var latestPayment = order.Payments
+            .OrderByDescending(p => p.PaymentDate)
+            .FirstOrDefault();
+
+        return new CustomerOrderListItemResponse
+        {
+            Id = order.Id,
+            OrderCode = BuildOrderCode(order.Id),
+            TotalAmount = order.TotalPrice,
+            PaymentStatus = latestPayment?.Status,
+            OrderStatus = order.Status,
+            PaymentMethod = latestPayment?.Method,
+            CreatedAt = order.OrderDate
+        };
+    }
+
+    public static Pagination<CustomerOrderListItemResponse> MapToCustomerOrderListResponsePagination(
+        Pagination<Order> orderPagination)
+    {
+        return new Pagination<CustomerOrderListItemResponse>
+        {
+            Items = orderPagination.Items.Select(MapToCustomerOrderListItemResponse).ToList(),
+            PageNumber = orderPagination.PageNumber,
+            PageSize = orderPagination.PageSize,
+            TotalCount = orderPagination.TotalCount
+        };
+    }
+
+    public static CustomerOrderDetailResponse MapToCustomerOrderDetailResponse(Order order)
+    {
+        var latestPayment = order.Payments
+            .OrderByDescending(p => p.PaymentDate)
+            .FirstOrDefault();
+
+        return new CustomerOrderDetailResponse
+        {
+            Id = order.Id,
+            OrderCode = BuildOrderCode(order.Id),
+            CreatedAt = order.OrderDate,
+            Status = order.Status,
+            SubTotal = order.SubTotal,
+            ShippingCost = order.ShippingCost,
+            Tax = order.Tax,
+            TotalPrice = order.TotalPrice,
+            DeliveryType = order.DeliveryType,
+            PaidType = order.PaidType,
+            ReceiverFullName = order.ReceiverFullName,
+            ReceiverEmail = order.ReceiverEmail,
+            ShippingAddress = order.ShippingAddress,
+            TrackingPhone = order.TrackingPhone,
+            Notes = order.Notes,
+            LatestPaymentStatus = latestPayment?.Status,
+            LatestPaymentMethod = latestPayment?.Method,
+            Items = order.Items.Select(oi => new OrderItemResponse
+            {
+                Id = oi.Id,
+                ProductId = oi.ProductId,
+                ProductName = oi.Product?.Name ?? "Sản phẩm không xác định",
+                Quantity = oi.Quantity,
+                UnitPrice = oi.UnitPrice
+            }).ToList(),
+            Payments = order.Payments
+                .OrderByDescending(p => p.PaymentDate)
+                .Select(p => new PaymentSummaryResponse
+                {
+                    Id = p.Id,
+                    Amount = p.Amount,
+                    Method = p.Method,
+                    Status = p.Status,
+                    PaymentDate = p.PaymentDate
+                }).ToList()
+        };
+    }
+
+    //======================= Map Review Responses =======================//
+
+    public static ReviewResponse MapToReviewResponse(Review review)
+    {
+        return new ReviewResponse
+        {
+            Id = review.Id,
+            ProductId = review.ProductId,
+            UserId = review.UserId,
+            FullName = review.FullName,
+            Comment = review.Comment,
+            Rating = review.Rating,
+            Medias = review.Medias
+                .Select(m => new ReviewMediaResponse
+                {
+                    Id = m.Id,
+                    MediaUrl = m.MediaUrl,
+                    CreatedAt = m.CreatedAt
+                }).ToList(),
+            CreatedAt = review.CreatedAt,
+            UpdatedAt = review.UpdatedAt
+        };
+    }
+
+    public static Pagination<ReviewResponse> MapToReviewResponsePagination(Pagination<Review> reviewPagination)
+    {
+        return new Pagination<ReviewResponse>
+        {
+            Items = reviewPagination.Items.Select(MapToReviewResponse).ToList(),
+            PageNumber = reviewPagination.PageNumber,
+            PageSize = reviewPagination.PageSize,
+            TotalCount = reviewPagination.TotalCount
+        };
+    }
 }
