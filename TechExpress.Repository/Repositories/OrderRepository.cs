@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using System;
 using System.Linq;
 using System.Threading;
@@ -117,6 +117,13 @@ namespace TechExpress.Repository.Repositories
                 .Include(o => o.Payments)
                 .AsSplitQuery()
                 .FirstOrDefaultAsync();
+        // Quan trọng: Phải include cả Items và Product để lấy tên sản phẩm trong OrderItem
+        public async Task<Order?> GetOrderByIdAsync(Guid orderId)
+        {
+            return await _context.Orders
+                .Include(o => o.Items)
+                    .ThenInclude(i => i.Product)
+                .FirstOrDefaultAsync(o => o.Id == orderId);
         }
     }
 }

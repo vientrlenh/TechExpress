@@ -68,6 +68,8 @@ namespace TechExpress.Service.Services
                             throw new BadRequestException($"Sản phẩm '{product.Name}' vừa hết hàng hoặc không đủ tồn kho.");
 
                         subTotal += product.Price * item.Quantity;
+
+                        // FIX: Chỉ gán ProductId, không gán Product object để tránh lỗi PK Violation
                         orderItems.Add(new OrderItem { OrderId = orderId, ProductId = product.Id, Quantity = item.Quantity, UnitPrice = product.Price });
                     }
 
@@ -89,7 +91,9 @@ namespace TechExpress.Service.Services
                     await _unitOfWork.SaveChangesAsync();
                     await transaction.CommitAsync();
 
-                    return (order, installmentList);
+                    // RELOAD: Lấy lại đơn hàng đầy đủ kèm Product Name từ DB để trả về response
+                    var finalOrder = await GetOrderDetailsAsync(orderId);
+                    return (finalOrder, installmentList);
                 }
                 catch (Exception)
                 {
@@ -146,7 +150,6 @@ namespace TechExpress.Service.Services
                     // KIỂM TRA TRACKING PHONE:
                     if (string.IsNullOrWhiteSpace(user.Phone))
                     {
-                        // Nếu User chưa có phone -> Cập nhật profile từ trackingPhone gửi lên
                         if (string.IsNullOrWhiteSpace(trackingPhone))
                             throw new BadRequestException("Số điện thoại liên lạc là bắt buộc.");
 
@@ -155,7 +158,6 @@ namespace TechExpress.Service.Services
                     }
                     else
                     {
-                        // Nếu User đã có phone -> Nếu nhập thì phải khớp số cũ
                         if (!string.IsNullOrWhiteSpace(trackingPhone) && user.Phone != trackingPhone)
                         {
                             throw new BadRequestException("Số điện thoại không khớp với số điện thoại đã đăng ký tài khoản.");
@@ -182,6 +184,8 @@ namespace TechExpress.Service.Services
                             throw new BadRequestException($"Sản phẩm '{product.Name}' vừa hết hàng hoặc không đủ tồn kho.");
 
                         subTotal += product.Price * cartItem.Quantity;
+
+                        // FIX: Xóa "Product = product" để tránh lỗi PK constraint. Chỉ dùng ProductId.
                         orderItems.Add(new OrderItem { OrderId = orderId, ProductId = product.Id, Quantity = cartItem.Quantity, UnitPrice = product.Price });
                     }
 
@@ -206,7 +210,9 @@ namespace TechExpress.Service.Services
                     await _unitOfWork.SaveChangesAsync();
                     await transaction.CommitAsync();
 
-                    return (order, installmentList);
+                    // RELOAD: Lấy lại đơn hàng đầy đủ kèm Product Name từ DB để trả về response chuẩn
+                    var finalOrder = await GetOrderDetailsAsync(orderId);
+                    return (finalOrder, installmentList);
                 }
                 catch (Exception)
                 {
