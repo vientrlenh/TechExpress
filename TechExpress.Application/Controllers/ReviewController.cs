@@ -68,14 +68,15 @@ namespace TechExpress.Application.Controllers
         }
 
         /// <summary>
-        /// Tạo đánh giá mới cho sản phẩm (chỉ dành cho khách hàng đã đăng nhập).
+        /// Tạo đánh giá cho sản phẩm.
+        /// Customer đã đăng nhập: FullName và Phone tự động lấy từ profile nếu không truyền.
+        /// Guest chưa đăng nhập: Phone bắt buộc phải truyền.
+        /// Comment và Rating luôn bắt buộc.
         /// </summary>
         [HttpPost("product/{productId:guid}")]
-        [Authorize(Roles = "Customer")]
         [ProducesResponseType(typeof(ApiResponse<ReviewResponse>), StatusCodes.Status201Created)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<IActionResult> CreateReview(
             [FromRoute] Guid productId,
             [FromBody] CreateReviewRequest request,
@@ -84,6 +85,7 @@ namespace TechExpress.Application.Controllers
             var review = await _serviceProvider.ReviewService.HandleCreateReviewAsync(
                 productId,
                 request.FullName,
+                request.Phone,
                 request.Comment,
                 request.Rating,
                 request.MediaUrls,

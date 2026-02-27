@@ -33,9 +33,7 @@ namespace TechExpress.Service.Services
             SortDirection sortDirection = SortDirection.Desc,
             CancellationToken ct = default)
         {
-            var productExists = await _unitOfWork.ProductRepository.FindByIdAsync(productId);
-            if (productExists == null)
-                throw new NotFoundException("Không tìm thấy sản phẩm.");
+            await EnsureProductExistsAsync(productId);
 
             var (items, totalCount) = await _unitOfWork.ReviewRepository.GetPagedByProductIdAsync(
                 productId, page, pageSize, rating, hasMedia,
@@ -55,6 +53,7 @@ namespace TechExpress.Service.Services
         public async Task<Review> HandleCreateReviewAsync(
             Guid productId,
             string? fullName,
+            string? phone,
             string comment,
             int rating,
             List<string>? mediaUrls,
@@ -66,10 +65,38 @@ namespace TechExpress.Service.Services
             if (string.IsNullOrWhiteSpace(comment))
                 throw new BadRequestException("Nội dung đánh giá không được để trống.");
 
-            var userId = _userContext.GetCurrentAuthenticatedUserId();
+            await EnsureProductExistsAsync(productId);
 
-            var product = await _unitOfWork.ProductRepository.FindByIdAsync(productId)
-                ?? throw new NotFoundException("Không tìm thấy sản phẩm.");
+            // Validate phone format nếu được truyền từ request (áp dụng cho cả guest lẫn customer tự nhập)
+            if (!string.IsNullOrWhiteSpace(phone))
+                ValidatePhoneFormat(phone.Trim());
+
+            Guid? userId = null;
+            string? resolvedPhone = phone?.Trim();
+            string? resolvedFullName = string.IsNullOrWhiteSpace(fullName) ? null : fullName.Trim();
+
+            var userIdStr = _userContext.GetCurrentAuthenticatedUserIdIfExist();
+            if (userIdStr != null && Guid.TryParse(userIdStr, out var parsedUserId))
+            {
+                // Luồng Customer: chỉ auto-fill từ profile nếu field chưa được truyền
+                userId = parsedUserId;
+                var user = await _unitOfWork.UserRepository.FindUserByIdAsync(parsedUserId);
+                if (user != null)
+                {
+                    if (string.IsNullOrWhiteSpace(resolvedPhone))
+                        resolvedPhone = user.Phone;
+                    if (string.IsNullOrWhiteSpace(resolvedFullName))
+                        resolvedFullName = $"{user.FirstName} {user.LastName}".Trim();
+                }
+            }
+            else
+            {
+                // Luồng Guest: phone và fullName đều bắt buộc
+                if (string.IsNullOrWhiteSpace(resolvedPhone))
+                    throw new BadRequestException("Khách phải cung cấp số điện thoại.");
+                if (string.IsNullOrWhiteSpace(resolvedFullName))
+                    throw new BadRequestException("Khách phải cung cấp họ tên.");
+            }
 
             var reviewId = Guid.NewGuid();
 
@@ -78,7 +105,8 @@ namespace TechExpress.Service.Services
                 Id = reviewId,
                 ProductId = productId,
                 UserId = userId,
-                FullName = string.IsNullOrWhiteSpace(fullName) ? null : fullName.Trim(),
+                FullName = resolvedFullName,
+                Phone = resolvedPhone,
                 Comment = comment.Trim(),
                 Rating = rating,
                 IsDeleted = false,
@@ -108,6 +136,18 @@ namespace TechExpress.Service.Services
             review.UpdatedAt = DateTimeOffset.Now;
 
             await _unitOfWork.SaveChangesAsync();
+        }
+
+        private async Task EnsureProductExistsAsync(Guid productId)
+        {
+            if (await _unitOfWork.ProductRepository.FindByIdAsync(productId) == null)
+                throw new NotFoundException("Không tìm thấy sản phẩm.");
+        }
+
+        private static void ValidatePhoneFormat(string phone)
+        {
+            if (!System.Text.RegularExpressions.Regex.IsMatch(phone, @"^\d{9,12}$"))
+                throw new BadRequestException("Số điện thoại phải là chữ số và có độ dài từ 9 đến 12 ký tự.");
         }
     }
 }

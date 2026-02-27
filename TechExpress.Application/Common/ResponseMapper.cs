@@ -652,6 +652,7 @@ public class ResponseMapper
             ProductId = review.ProductId,
             UserId = review.UserId,
             FullName = review.FullName,
+            Phone = review.Phone,
             Comment = review.Comment,
             Rating = review.Rating,
             Medias = review.Medias

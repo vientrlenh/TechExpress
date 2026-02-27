@@ -13,6 +13,7 @@ namespace TechExpress.Application.Dtos.Responses
         public Guid ProductId { get; set; }
         public Guid? UserId { get; set; }
         public string? FullName { get; set; }
+        public string? Phone { get; set; }
         public string Comment { get; set; } = string.Empty;
         public int Rating { get; set; }
         public ICollection<ReviewMediaResponse> Medias { get; set; } = [];
