@@ -19,5 +19,7 @@ public class Payment
 
     public DateTimeOffset PaymentDate { get; set; } = DateTimeOffset.Now;
 
+    public Order Order { get; set; } = null!;
+
     public Installment? Installment { get; set; }
 }
