@@ -57,7 +57,6 @@ namespace TechExpress.Application.Controllers
 
         //=======================================Category List Controller =======================================//
         [HttpGet]
-        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetList([FromQuery] CategoryFilterRequest filter)
         {
             var pagination = await _serviceProvider.CategoryService.HandleGetCategories(

@@ -9,6 +9,8 @@ using TechExpress.Repository.CustomExceptions;
 using TechExpress.Repository.Enums;
 using TechExpress.Repository.Models;
 using TechExpress.Service.Contexts;
+using TechExpress.Service.Enums;
+using TechExpress.Service.Utils;
 
 namespace TechExpress.Service.Services
 {
@@ -296,6 +298,49 @@ namespace TechExpress.Service.Services
             };
         }
 
+        // ============================== LIST ORDERS ===============================
+        public async Task<Pagination<Order>> HandleGetOrderListWithPaginationAsync(
+            int page,
+            int pageSize,
+            OrderSortBy sortBy,
+            SortDirection sortDirection,
+            string? search,
+            OrderStatus? status)
+        {
+            if (page < 1) page = 1;
+            if (pageSize < 1 || pageSize > 100) pageSize = 20;
+
+            var isDescending = sortDirection == SortDirection.Desc;
+
+            var (orders, totalCount) = sortBy switch
+            {
+                OrderSortBy.TotalPrice => await _unitOfWork.OrderRepository
+                    .FindOrdersPagedSortByTotalPriceAsync(page, pageSize, isDescending, search, status),
+
+                _ => await _unitOfWork.OrderRepository
+                    .FindOrdersPagedSortByOrderDateAsync(page, pageSize, isDescending, search, status)
+            };
+
+            return new Pagination<Order>
+            {
+                Items = orders,
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalCount = totalCount
+            };
+        }
+
+        // ============================== ORDER DETAIL ===============================
+        public async Task<(Order Order, List<Installment> Installments, List<Payment> Payments)>
+            HandleGetOrderDetailAsync(Guid orderId)
+        {
+            var order = await _unitOfWork.OrderRepository.FindByIdIncludeItemsWithProductAsync(orderId)
+                        ?? throw new NotFoundException("Không tìm thấy đơn hàng.");
+
+            var installments = await _unitOfWork.InstallmentRepository.GetByOrderIdAsync(orderId);
+            var payments = await _unitOfWork.PaymentRepository.GetByOrderIdAsync(orderId);
+
+            return (order, installments, payments);
         public async Task<Order> GetOrderDetailsAsync(Guid orderId)
         {
             var order = await _unitOfWork.OrderRepository.GetOrderByIdAsync(orderId)
