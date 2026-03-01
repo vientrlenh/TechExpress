@@ -37,7 +37,6 @@ namespace TechExpress.Application.Controllers
                 request.CategoryId,
                 request.BrandId,
                 request.Price,
-                request.Stock,
                 request.WarrantyMonth,
                 request.Description.Trim(),
                 request.Images,

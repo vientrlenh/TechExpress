@@ -35,10 +35,6 @@ public class CreateProductPCRequest
     [Range(0.01, double.MaxValue, ErrorMessage = "Giá tiền phải lớn hơn 0")]
     public required decimal Price { get; set; }
 
-    [Required(ErrorMessage = "Số lượng PC cần tạo không được để trống")]
-    [Range(1, int.MaxValue, ErrorMessage = "Số lượng PC phải lớn hơn 0")]
-    public int Stock { get; set; } = 1;
-
     [Required(ErrorMessage = "Số tháng bảo hành không được để trống")]
     [Range(0, int.MaxValue, ErrorMessage = "Số tháng bảo hành phải lớn hơn hoặc bằng 0")]
     public required int WarrantyMonth { get; set; }
