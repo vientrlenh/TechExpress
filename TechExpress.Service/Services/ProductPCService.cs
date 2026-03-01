@@ -36,10 +36,8 @@ namespace TechExpress.Service.Services
             List<CreateProductSpecValueCommand> specValueCommands,
             List<(Guid ComponentProductId, int Quantity)> components)
         {
-            // Tự động set stock = 1 cho chức năng build PC
             const int stock = 1;
 
-            // Bắt đầu transaction
             await using var transaction = await _unitOfWork.BeginTransactionAsync();
             try
             {
@@ -97,7 +95,6 @@ namespace TechExpress.Service.Services
 
                 await _unitOfWork.SaveChangesAsync();
 
-                // Commit transaction nếu thành công
                 await transaction.CommitAsync();
 
                 var result = await _unitOfWork.ProductRepository.FindByIdIncludeCategoryImagesSpecValuesAsync(pcProduct.Id)
@@ -110,7 +107,6 @@ namespace TechExpress.Service.Services
             }
             catch
             {
-                // Rollback transaction nếu có lỗi
                 await transaction.RollbackAsync();
                 throw;
             }

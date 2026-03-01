@@ -291,7 +291,7 @@ namespace TechExpress.Repository.Repositories
 
             return await ExecutePagedQueryAsync(query, page, pageSize);
         }
-        
+
         private IQueryable<Product> BuildUiFilteredQuery(
             string? search,
             List<Guid>? categoryIds)
@@ -305,7 +305,7 @@ namespace TechExpress.Repository.Repositories
 
             if (categoryIds != null && categoryIds.Count > 0)
                 query = query.Where(p => categoryIds.Contains(p.CategoryId));
-            
+
             if (!string.IsNullOrWhiteSpace(search))
             {
                 var s = search.Trim().ToLower();
@@ -314,26 +314,9 @@ namespace TechExpress.Repository.Repositories
                     p.Sku.ToLower().Contains(s));
             }
 
-
-        public async Task<bool> TryReserveStockAsync(Guid productId, int quantity)
-        {
-            if (quantity <= 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(quantity), "Quantity must be greater than zero.");
-            }
-
-            var affected = await _context.Database.ExecuteSqlInterpolatedAsync($@"
-                UPDATE Products
-                SET Stock = Stock - {quantity},
-                    UpdatedAt = SYSDATETIMEOFFSET()
-                WHERE Id = {productId} AND Stock >= {quantity};
-            ");
-
-            return affected > 0;
-        }
-
             return query;
         }
+
 
 
         public async Task<List<Product>> FindTopSellingProductsAsync(int count)
