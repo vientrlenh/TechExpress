@@ -1,9 +1,11 @@
 using Microsoft.Identity.Client;
 using System;
+using TechExpress.Application.Controllers;
 using TechExpress.Application.Dtos.Responses;
 using TechExpress.Application.DTOs.Responses;
 using TechExpress.Repository.Enums;
 using TechExpress.Repository.Models;
+using TechExpress.Service.Services;
 using TechExpress.Service.Utils;
 
 namespace TechExpress.Application.Common;
@@ -389,6 +391,208 @@ public class ResponseMapper
             Items = itemResponses,
             CreatedAt = cart.CreatedAt,
             UpdatedAt = cart.UpdatedAt
+        };
+    }
+
+    // =======================
+    // Payment / Installment (API)
+    // =======================
+
+    public static SetPaymentIntentResponse MapToSetPaymentIntentResponse(Guid orderId, PaymentMethod method)
+    {
+        return new SetPaymentIntentResponse
+        {
+            OrderId = orderId,
+            PaidType = PaidType.Full,
+            Method = method
+        };
+    }
+
+    public static SetInstallmentIntentResponse MapToSetInstallmentIntentResponse(
+        Guid orderId,
+        int months,
+        List<Installment> schedule)
+    {
+        return new SetInstallmentIntentResponse
+        {
+            OrderId = orderId,
+            PaidType = PaidType.Installment,
+            Months = months,
+            Schedule = schedule
+                .OrderBy(i => i.Period)
+                .Select(i => new InstallmentItemResponse
+                {
+                    Id = i.Id,
+                    Period = i.Period,
+                    Amount = i.Amount,
+                    Status = i.Status,
+                    DueDate = i.DueDate
+                })
+                .ToList()
+        };
+    }
+
+    /// <summary>
+    /// Map Service OnlinePaymentInitResult -> API InitOnlinePaymentResponse
+    /// </summary>
+    public static InitOnlinePaymentResponse MapToInitOnlinePaymentResponse(OnlinePaymentInitResult init)
+    {
+        return new InitOnlinePaymentResponse
+        {
+            SessionId = init.SessionId,
+            RedirectUrl = init.RedirectUrl ?? string.Empty
+        };
+    }
+
+    /// <summary>
+    /// Map Service GatewayCallbackResult -> API GatewayCallbackResponse
+    /// </summary>
+    public static GatewayCallbackResponse MapToGatewayCallbackResponse(GatewayCallbackResult result)
+    {
+        return new GatewayCallbackResponse
+        {
+            Ok = result.Ok
+        };
+    }
+
+    // =======================
+    // Payment records
+    // =======================
+
+    public static PaymentResponse MapToPaymentResponseFromPayment(Payment payment)
+    {
+        return new PaymentResponse
+        {
+            Id = payment.Id,
+            OrderId = payment.OrderId,
+            InstallmentId = payment.InstallmentId,
+            Amount = payment.Amount,
+            Method = payment.Method,
+            Status = payment.Status,
+            PaymentDate = payment.PaymentDate
+        };
+    }
+
+    public static List<PaymentResponse> MapToPaymentResponseListFromPaymentList(List<Payment> payments)
+    {
+        return payments
+            .OrderByDescending(p => p.PaymentDate)
+            .Select(MapToPaymentResponseFromPayment)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Alias để bạn lỡ gọi MapToPaymentResponseList(...) trong controller vẫn chạy.
+    /// </summary>
+    public static List<PaymentResponse> MapToPaymentResponseList(List<Payment> payments)
+    {
+        return MapToPaymentResponseListFromPaymentList(payments);
+    }
+
+    public static CashPaymentResponse MapToCashPaymentResponseFromPayment(Payment payment)
+    {
+        return new CashPaymentResponse
+        {
+            PaymentId = payment.Id,
+            Status = payment.Status,
+            Method = payment.Method,
+            Amount = payment.Amount,
+            PaymentDate = payment.PaymentDate
+        };
+    }
+
+    // =======================
+    // Installment records
+    // =======================
+
+    public static InstallmentResponse MapToInstallmentResponseFromInstallment(Installment installment)
+    {
+        return new InstallmentResponse
+        {
+            Id = installment.Id,
+            OrderId = installment.OrderId,
+            Period = installment.Period,
+            Amount = installment.Amount,
+            Status = installment.Status,
+            DueDate = installment.DueDate
+        };
+    }
+
+    public static List<InstallmentResponse> MapToInstallmentResponseListFromInstallmentList(List<Installment> installments)
+    {
+        return installments
+            .OrderBy(i => i.Period)
+            .Select(MapToInstallmentResponseFromInstallment)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Alias để bạn lỡ gọi MapToInstallmentResponseList(...) vẫn chạy.
+    /// </summary>
+    public static List<InstallmentResponse> MapToInstallmentResponseList(List<Installment> installments)
+    {
+        return MapToInstallmentResponseListFromInstallmentList(installments);
+    }
+
+    // =======================
+    // Refund
+    // =======================
+
+    public static RefundPaymentResponse MapToRefundPaymentResponse(long paymentId, string? reason)
+    {
+        return new RefundPaymentResponse
+        {
+            Ok = true,
+            PaymentId = paymentId,
+            Reason = reason
+        };
+    }
+
+
+
+
+
+
+
+    //======================= Map Order Response =======================//
+    // Cập nhật từ Oder sang OrderResponse, thêm tham số List<Installment> để ánh xạ danh sách 6-12 kỳ hạn nếu có
+    public static OrderResponse MapToOrderResponseFromOrder(Order order, List<Installment>? installments = null)
+    {
+        return new OrderResponse
+        {
+            Id = order.Id,
+            OrderDate = order.OrderDate,
+            Status = order.Status,
+            SubTotal = order.SubTotal,
+            ShippingCost = order.ShippingCost,
+            Tax = order.Tax,
+            TotalPrice = order.TotalPrice,
+            DeliveryType = order.DeliveryType,
+            PaidType = order.PaidType,
+            ReceiverFullName = order.ReceiverFullName,
+            ReceiverEmail = order.ReceiverEmail,
+            ShippingAddress = order.ShippingAddress,
+            TrackingPhone = order.TrackingPhone,
+            Notes = order.Notes,
+            Items = order.Items.Select(oi => new OrderItemResponse
+            {
+                Id = oi.Id,
+                ProductId = oi.ProductId,
+                ProductName = oi.Product?.Name ?? "Sản phẩm không xác định",
+                Quantity = oi.Quantity,
+                UnitPrice = oi.UnitPrice
+            }).ToList(),
+
+            // Ánh xạ danh sách 6-12 kỳ hạn
+            Installments = installments?.Select(i => new InstallmentResponse
+            {
+                Id = i.Id,
+                Period = i.Period,
+                OrderId = i.OrderId,
+                Amount = i.Amount,
+                Status = i.Status,
+                DueDate = i.DueDate
+            }).ToList() ?? new List<InstallmentResponse>()
         };
     }
 }

@@ -248,6 +248,71 @@ namespace TechExpress.Repository.Repositories
                 .Take(number)
                 .ToListAsync();
         }
+        
+        public async Task<(List<Product> Products, int TotalCount)> FindUiProductsPagedSortByPriceAsync(
+            int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds)
+        {
+            var query = BuildUiFilteredQuery(search, categoryIds);
+
+            query = isDescending ? query.OrderByDescending(p => p.Price) : query.OrderBy(p => p.Price);
+
+            return await ExecutePagedQueryAsync(query, page, pageSize);
+        }
+
+
+
+
+        public async Task<(List<Product> Products, int TotalCount)> FindUiProductsPagedSortByCreatedAtAsync(
+            int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds)
+        {
+            var query = BuildUiFilteredQuery(search, categoryIds);
+
+            query = isDescending ? query.OrderByDescending(p => p.CreatedAt) : query.OrderBy(p => p.CreatedAt);
+
+            return await ExecutePagedQueryAsync(query, page, pageSize);
+        }
+
+        public async Task<(List<Product> Products, int TotalCount)> FindUiProductsPagedSortByUpdatedAtAsync(
+            int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds)
+        {
+            var query = BuildUiFilteredQuery(search, categoryIds);
+
+            query = isDescending ? query.OrderByDescending(p => p.UpdatedAt) : query.OrderBy(p => p.UpdatedAt);
+
+            return await ExecutePagedQueryAsync(query, page, pageSize);
+        }
+
+        public async Task<(List<Product> Products, int TotalCount)> FindUiProductsPagedSortByStockQtyAsync(
+            int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds)
+        {
+            var query = BuildUiFilteredQuery(search, categoryIds);
+
+            query = isDescending ? query.OrderByDescending(p => p.Stock) : query.OrderBy(p => p.Stock);
+
+            return await ExecutePagedQueryAsync(query, page, pageSize);
+        }
+        
+        private IQueryable<Product> BuildUiFilteredQuery(
+            string? search,
+            List<Guid>? categoryIds)
+        {
+            var query = _context.Products
+                .AsNoTracking()
+                .Include(p => p.Category)
+                .Include(p => p.Images)
+                .Where(p => p.Stock > 0 && p.Status == ProductStatus.Available)
+                .AsQueryable();
+
+            if (categoryIds != null && categoryIds.Count > 0)
+                query = query.Where(p => categoryIds.Contains(p.CategoryId));
+            
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var s = search.Trim().ToLower();
+                query = query.Where(p =>
+                    p.Name.ToLower().Contains(s) ||
+                    p.Sku.ToLower().Contains(s));
+            }
 
 
         public async Task<bool> TryReserveStockAsync(Guid productId, int quantity)
@@ -267,5 +332,48 @@ namespace TechExpress.Repository.Repositories
             return affected > 0;
         }
 
+            return query;
+        }
+
+
+        public async Task<List<Product>> FindTopSellingProductsAsync(int count)
+        {
+            return await _context.OrderItems
+                .Where(oi => oi.Order.Status == OrderStatus.Completed)
+                .GroupBy(oi => oi.ProductId) // Nhóm theo ProductId
+                .Select(g => new
+                {
+                    ProductId = g.Key,
+                    TotalSold = g.Sum(oi => oi.Quantity) // Tính tổng số lượng bán ra
+                })
+                .OrderByDescending(x => x.TotalSold) // Sắp xếp giảm dần
+                .Take(count)
+                .Join(_context.Products
+                    .Include(p => p.Category) // Bao gồm thông tin danh mục
+                    .Include(p => p.Images)   // Bao gồm hình ảnh
+                    .Where(p => p.Status == ProductStatus.Available), // Chỉ lấy sản phẩm đang kinh doanh
+                    top => top.ProductId,
+                    p => p.Id,
+                    (top, p) => p)
+                .ToListAsync();
+        }
+
+
+        // Sử dụng tính năng của auto-transaction của EF Core để thực hiện cập nhật số lượng tồn kho một cách nguyên tử, tránh tình trạng oversell khi có nhiều khách hàng mua cùng lúc.
+        public async Task<int> DecrementStockAtomicAsync(Guid productId, int quantity)
+        {
+            // ExecuteUpdateAsync (EF Core 7+) cập nhật trực tiếp xuống DB 
+            // và trả về số hàng bị ảnh hưởng.
+            return await _context.Products
+                .Where(p => p.Id == productId && p.Stock >= quantity)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(p => p.Stock, p => p.Stock - quantity)
+                    .SetProperty(p => p.UpdatedAt, DateTimeOffset.Now));
+        }
+
+        public async Task<List<Product>> FindByIdsIncludeCategoryAsync(List<Guid> ids)
+        {
+            return await _context.Products.Where(p => ids.Contains(p.Id)).ToListAsync();
+        }
     }
 }

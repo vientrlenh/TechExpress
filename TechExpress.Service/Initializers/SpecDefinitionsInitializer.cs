@@ -89,6 +89,18 @@ public static class SpecDefinitionsInitializer
                 CategoryId = cpuId, Unit = "", AcceptValueType = SpecAcceptValueType.Bool,
                 Description = "Có GPU tích hợp hay không", IsRequired = true,
             },
+            new()
+            {
+                Id = Guid.NewGuid(), Code = "cpu_ecc_support", Name = "Hỗ trợ ECC",
+                CategoryId = cpuId, Unit = "", AcceptValueType = SpecAcceptValueType.Bool,
+                Description = "Hỗ trợ bộ nhớ ECC (Error-Correcting Code)", IsRequired = false,
+            },
+            new()
+            {
+                Id = Guid.NewGuid(), Code = "cpu_pcie_lanes", Name = "Số làn PCIe",
+                CategoryId = cpuId, Unit = "lanes", AcceptValueType = SpecAcceptValueType.Number,
+                Description = "Số làn PCIe hỗ trợ", IsRequired = false,
+            },
 
             // ============= MOTHERBOARD =============
             new()
@@ -139,6 +151,48 @@ public static class SpecDefinitionsInitializer
                 CategoryId = mbId, Unit = "", AcceptValueType = SpecAcceptValueType.Text,
                 Description = "Phiên bản PCIe (VD: PCIe 5.0, PCIe 4.0)", IsRequired = false,
             },
+            new()
+            {
+                Id = Guid.NewGuid(), Code = "mb_pcie_x16_slots", Name = "Số khe PCIe x16",
+                CategoryId = mbId, Unit = "slots", AcceptValueType = SpecAcceptValueType.Number,
+                Description = "Số khe cắm PCIe x16 cho card đồ họa", IsRequired = true,
+            },
+            new()
+            {
+                Id = Guid.NewGuid(), Code = "mb_sata_ports", Name = "Số cổng SATA",
+                CategoryId = mbId, Unit = "ports", AcceptValueType = SpecAcceptValueType.Number,
+                Description = "Số cổng SATA cho ổ cứng HDD/SSD 2.5\"", IsRequired = true,
+            },
+            new()
+            {
+                Id = Guid.NewGuid(), Code = "mb_max_ram_speed", Name = "Tốc độ RAM tối đa",
+                CategoryId = mbId, Unit = "MHz", AcceptValueType = SpecAcceptValueType.Number,
+                Description = "Tốc độ RAM tối đa hỗ trợ", IsRequired = false,
+            },
+            new()
+            {
+                Id = Guid.NewGuid(), Code = "mb_dual_socket", Name = "Hỗ trợ dual CPU",
+                CategoryId = mbId, Unit = "", AcceptValueType = SpecAcceptValueType.Bool,
+                Description = "Hỗ trợ 2 CPU", IsRequired = false,
+            },
+            new()
+            {
+                Id = Guid.NewGuid(), Code = "mb_ecc_support", Name = "Hỗ trợ ECC",
+                CategoryId = mbId, Unit = "", AcceptValueType = SpecAcceptValueType.Bool,
+                Description = "Hỗ trợ RAM ECC", IsRequired = false,
+            },
+            new()
+            {
+                Id = Guid.NewGuid(), Code = "mb_ipmi_support", Name = "Hỗ trợ IPMI",
+                CategoryId = mbId, Unit = "", AcceptValueType = SpecAcceptValueType.Bool,
+                Description = "Hỗ trợ quản lý từ xa IPMI", IsRequired = false,
+            },
+            new()
+            {
+                Id = Guid.NewGuid(), Code = "mb_total_pcie_lanes", Name = "Tổng số làn PCIe",
+                CategoryId = mbId, Unit = "lanes", AcceptValueType = SpecAcceptValueType.Number,
+                Description = "Tổng số làn PCIe", IsRequired = false,
+            },
 
             // ============= RAM =============
             new()
@@ -170,6 +224,18 @@ public static class SpecDefinitionsInitializer
                 Id = Guid.NewGuid(), Code = "ram_latency", Name = "CAS Latency",
                 CategoryId = ramId, Unit = "CL", AcceptValueType = SpecAcceptValueType.Number,
                 Description = "Độ trễ CAS (VD: CL16, CL36)", IsRequired = false,
+            },
+            new()
+            {
+                Id = Guid.NewGuid(), Code = "ram_ecc", Name = "ECC",
+                CategoryId = ramId, Unit = "", AcceptValueType = SpecAcceptValueType.Bool,
+                Description = "RAM có ECC (Error-Correcting Code)", IsRequired = false,
+            },
+            new()
+            {
+                Id = Guid.NewGuid(), Code = "ram_registered", Name = "Loại Registered",
+                CategoryId = ramId, Unit = "", AcceptValueType = SpecAcceptValueType.Text,
+                Description = "Loại RAM (UDIMM, RDIMM, LRDIMM)", IsRequired = false,
             },
 
             // ============= GPU =============
@@ -203,6 +269,30 @@ public static class SpecDefinitionsInitializer
                 CategoryId = gpuId, Unit = "", AcceptValueType = SpecAcceptValueType.Text,
                 Description = "Loại đầu cắm nguồn phụ (VD: 1x 8-pin, 1x 16-pin)", IsRequired = true,
             },
+            new()
+            {
+                Id = Guid.NewGuid(), Code = "gpu_ecc_vram", Name = "ECC VRAM",
+                CategoryId = gpuId, Unit = "", AcceptValueType = SpecAcceptValueType.Bool,
+                Description = "VRAM có ECC", IsRequired = false,
+            },
+            new()
+            {
+                Id = Guid.NewGuid(), Code = "gpu_professional", Name = "GPU chuyên nghiệp",
+                CategoryId = gpuId, Unit = "", AcceptValueType = SpecAcceptValueType.Bool,
+                Description = "GPU chuyên nghiệp (Quadro, FirePro, etc.)", IsRequired = false,
+            },
+            new()
+            {
+                Id = Guid.NewGuid(), Code = "gpu_cuda_cores", Name = "Số lõi CUDA",
+                CategoryId = gpuId, Unit = "cores", AcceptValueType = SpecAcceptValueType.Number,
+                Description = "Số lõi CUDA (NVIDIA)", IsRequired = false,
+            },
+            new()
+            {
+                Id = Guid.NewGuid(), Code = "gpu_tensor_cores", Name = "Số lõi Tensor",
+                CategoryId = gpuId, Unit = "cores", AcceptValueType = SpecAcceptValueType.Number,
+                Description = "Số lõi Tensor (AI/ML)", IsRequired = false,
+            },
 
             // ============= PSU =============
             new()
@@ -229,6 +319,12 @@ public static class SpecDefinitionsInitializer
                 CategoryId = psuId, Unit = "", AcceptValueType = SpecAcceptValueType.Text,
                 Description = "Kích thước nguồn (ATX, SFX)", IsRequired = true,
             },
+            new()
+            {
+                Id = Guid.NewGuid(), Code = "psu_redundant", Name = "Hỗ trợ PSU dự phòng",
+                CategoryId = psuId, Unit = "", AcceptValueType = SpecAcceptValueType.Bool,
+                Description = "Hỗ trợ PSU dự phòng", IsRequired = false,
+            },
 
             // ============= STORAGE =============
             new()
@@ -251,6 +347,12 @@ public static class SpecDefinitionsInitializer
             },
             new()
             {
+                Id = Guid.NewGuid(), Code = "stor_form_factor", Name = "Form Factor",
+                CategoryId = storageId, Unit = "", AcceptValueType = SpecAcceptValueType.Text,
+                Description = "Kích thước vật lý (M.2, 2.5\", 3.5\")", IsRequired = true,
+            },
+            new()
+            {
                 Id = Guid.NewGuid(), Code = "stor_read_speed", Name = "Tốc độ đọc",
                 CategoryId = storageId, Unit = "MB/s", AcceptValueType = SpecAcceptValueType.Number,
                 Description = "Tốc độ đọc tuần tự", IsRequired = false,
@@ -260,6 +362,24 @@ public static class SpecDefinitionsInitializer
                 Id = Guid.NewGuid(), Code = "stor_write_speed", Name = "Tốc độ ghi",
                 CategoryId = storageId, Unit = "MB/s", AcceptValueType = SpecAcceptValueType.Number,
                 Description = "Tốc độ ghi tuần tự", IsRequired = false,
+            },
+            new()
+            {
+                Id = Guid.NewGuid(), Code = "stor_tbw", Name = "TBW",
+                CategoryId = storageId, Unit = "TB", AcceptValueType = SpecAcceptValueType.Number,
+                Description = "Độ bền ghi (Terabytes Written)", IsRequired = false,
+            },
+            new()
+            {
+                Id = Guid.NewGuid(), Code = "stor_dwpd", Name = "DWPD",
+                CategoryId = storageId, Unit = "", AcceptValueType = SpecAcceptValueType.Decimal,
+                Description = "Drive Writes Per Day", IsRequired = false,
+            },
+            new()
+            {
+                Id = Guid.NewGuid(), Code = "stor_power_loss_protection", Name = "Bảo vệ mất điện",
+                CategoryId = storageId, Unit = "", AcceptValueType = SpecAcceptValueType.Bool,
+                Description = "Bảo vệ mất điện đột ngột", IsRequired = false,
             },
 
             // ============= CASE =============
@@ -298,6 +418,12 @@ public static class SpecDefinitionsInitializer
                 Id = Guid.NewGuid(), Code = "case_drive_bays_35", Name = "Khay 3.5\"",
                 CategoryId = caseId, Unit = "slots", AcceptValueType = SpecAcceptValueType.Number,
                 Description = "Số khay ổ cứng 3.5\" cho HDD", IsRequired = false,
+            },
+            new()
+            {
+                Id = Guid.NewGuid(), Code = "case_max_fan_size", Name = "Kích thước quạt tối đa",
+                CategoryId = caseId, Unit = "mm", AcceptValueType = SpecAcceptValueType.Number,
+                Description = "Kích thước quạt tối đa hỗ trợ (VD: 120, 140)", IsRequired = false,
             },
 
             // ============= CPU COOLER =============

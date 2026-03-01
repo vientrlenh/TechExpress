@@ -172,5 +172,10 @@ public class SpecDefinitionRepository
         return await _context.SpecDefinitions.Where(s => s.CategoryId == categoryId && !s.IsDeleted).ToHashSetAsync();
     }
 
+    public async Task<Dictionary<Guid, Dictionary<Guid, SpecDefinition>>> FindDictByCategoryIdsAndIsNotDeletedAsync(List<Guid> categoryIds)
+    {
+        var specs = await _context.SpecDefinitions.Where(s => categoryIds.Contains(s.CategoryId) && !s.IsDeleted).ToListAsync();
 
+        return specs.GroupBy(s => s.CategoryId).ToDictionary(g => g.Key, g => g.ToDictionary(s => s.Id, s => s));
+    }
 }

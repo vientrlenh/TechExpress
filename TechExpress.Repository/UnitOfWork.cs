@@ -19,6 +19,10 @@ namespace TechExpress.Repository
         public CartItemRepository CartItemRepository { get; }
         public ComputerComponentRepository ComputerComponentRepository { get; }
 
+        public OrderRepository OrderRepository { get; }
+        public PaymentRepository PaymentRepository { get; }
+        public InstallmentRepository InstallmentRepository { get; }
+
 
         public UnitOfWork(ApplicationDbContext context)
         {
@@ -33,6 +37,10 @@ namespace TechExpress.Repository
             CartRepository = new CartRepository(context);
             CartItemRepository = new CartItemRepository(context);
             ComputerComponentRepository = new ComputerComponentRepository(context);
+
+            OrderRepository = new OrderRepository(context);
+            PaymentRepository = new PaymentRepository(context);
+            InstallmentRepository = new InstallmentRepository(context);
         }
 
         public async Task SaveChangesAsync()
@@ -43,6 +51,11 @@ namespace TechExpress.Repository
         public async Task<IDbContextTransaction> BeginTransactionAsync()
         {
             return await _context.Database.BeginTransactionAsync();
+        }
+
+        public IExecutionStrategy CreateExecutionStrategy()
+        {
+            return _context.Database.CreateExecutionStrategy();
         }
     }
 }

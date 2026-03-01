@@ -69,5 +69,13 @@ namespace TechExpress.Service.Utils
                 throw new Exception("Lỗi không xác định.", ex);
             }
         }
+
+        public async Task<bool> TrySetStringIfNotExists(string key, string data, TimeSpan expiration)
+        {
+            await CheckRedisAvailable();
+            var db = _redisConnection.GetDatabase();
+            return await db.StringSetAsync(key, data, expiration, When.NotExists);
+        }
+
     }
 }
