@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using System.ComponentModel.DataAnnotations;
 using TechExpress.Repository.Enums;
 
 namespace TechExpress.Repository.Models;

@@ -110,7 +110,7 @@ namespace TechExpress.Application.Controllers
 
 
         [HttpGet("ui")]
-        public async Task<IActionResult> GetUICategoryList()
+        public async Task<IActionResult> GetUiCategoryList()
         {
             var categories = await _serviceProvider.CategoryService.HandleGetUICategoryListAsync();
             var response = ResponseMapper.MapToCategoryResponseListFromCategories(categories);

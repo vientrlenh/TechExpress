@@ -15,20 +15,14 @@ namespace TechExpress.Service.Services
     public class CartService
     {
         private readonly UnitOfWork _unitOfWork;
-        private readonly UserContext _userContext;
-        private readonly IHubContext<CartHub> _cartHubContext;
 
-        public CartService(UnitOfWork unitOfWork, UserContext userContext, IHubContext<CartHub> cartHubContext)
+        public CartService(UnitOfWork unitOfWork)
         {
             _unitOfWork = unitOfWork;
-            _userContext = userContext;
-            _cartHubContext = cartHubContext;
         }
 
-        public async Task<Cart> HandleGetCurrentCartAsync()
+        public async Task<Cart> HandleGetCurrentCartAsync(Guid userId)
         {
-            var userId = _userContext.GetCurrentAuthenticatedUserId();
-
             var cart = await _unitOfWork.CartRepository.FindCartByUserIdIncludeItemsThenIncludeProductThenIncludeImagesWithSplitQueryAsync(userId);
 
             if (cart == null)
@@ -44,14 +38,12 @@ namespace TechExpress.Service.Services
             return cart;
         }
 
-        public async Task<Cart> HandleAddProductToCartAsync(Guid productId, int quantity)
+        public async Task<Cart> HandleAddProductToCartAsync(Guid userId, Guid productId, int quantity)
         {
             if (quantity <= 0)
             {
                 throw new BadRequestException("Số lượng phải lớn hơn 0.");
             }
-
-            var userId = _userContext.GetCurrentAuthenticatedUserId();
 
             var product = await _unitOfWork.ProductRepository.FindByIdAsync(productId)
                 ?? throw new NotFoundException("Không tìm thấy sản phẩm.");
@@ -103,18 +95,15 @@ namespace TechExpress.Service.Services
             await _unitOfWork.SaveChangesAsync();
 
             var newCart = await _unitOfWork.CartRepository.FindCartByUserIdIncludeItemsThenIncludeProductThenIncludeImagesWithSplitQueryAsync(userId) ?? throw new NotFoundException($"Không tìm thấy giỏ hàng của người dùng {userId}");
-            await SendCartChangesBySignalR(newCart, userId);
             return newCart;
         }
 
-        public async Task<Cart> HandleUpdateCartItemQuantityAsync(Guid cartItemId, int quantity)
+        public async Task<Cart> HandleUpdateCartItemQuantityAsync(Guid userId, Guid cartItemId, int quantity)
         {
             if (quantity < 0)
             {
                 throw new BadRequestException("Số lượng không được âm.");
             }
-
-            var userId = _userContext.GetCurrentAuthenticatedUserId();
 
             var cart = await _unitOfWork.CartRepository.FindCartByUserIdWithTrackingAsync(userId)
                 ?? throw new NotFoundException("Không tìm thấy giỏ hàng.");
@@ -154,14 +143,11 @@ namespace TechExpress.Service.Services
             await _unitOfWork.SaveChangesAsync();
 
             var updatedCart = await _unitOfWork.CartRepository.FindCartByUserIdIncludeItemsThenIncludeProductThenIncludeImagesWithSplitQueryAsync(userId) ?? throw new NotFoundException($"Không tìm thấy giỏ hàng của người dùng {userId}");
-            await SendCartChangesBySignalR(updatedCart, userId);
             return updatedCart;
         }
 
-        public async Task<Cart> HandleRemoveCartItemAsync(Guid cartItemId)
+        public async Task<Cart> HandleRemoveCartItemAsync(Guid userId, Guid cartItemId)
         {
-            var userId = _userContext.GetCurrentAuthenticatedUserId();
-
             var cart = await _unitOfWork.CartRepository.FindCartByUserIdWithTrackingAsync(userId)
                 ?? throw new NotFoundException("Không tìm thấy giỏ hàng.");
 
@@ -177,14 +163,11 @@ namespace TechExpress.Service.Services
             cart.UpdatedAt = DateTimeOffset.Now;
             await _unitOfWork.SaveChangesAsync();
             var removedCart = await _unitOfWork.CartRepository.FindCartByUserIdIncludeItemsThenIncludeProductThenIncludeImagesWithSplitQueryAsync(userId) ?? throw new NotFoundException($"Không tìm thấy giỏ hàng của người dùng {userId}");
-            await SendCartChangesBySignalR(removedCart, userId);
             return removedCart;
         }
 
-        public async Task<Cart> HandleClearCartAsync()
+        public async Task<Cart> HandleClearCartAsync(Guid userId)
         {
-            var userId = _userContext.GetCurrentAuthenticatedUserId();
-
             var cart = await _unitOfWork.CartRepository.FindCartByUserIdIncludeItemsWithTrackingAsync(userId)
                 ?? throw new NotFoundException("Không tìm thấy giỏ hàng.");
 
@@ -193,24 +176,14 @@ namespace TechExpress.Service.Services
 
             await _unitOfWork.SaveChangesAsync();
             var removedCart = await _unitOfWork.CartRepository.FindCartByUserIdIncludeItemsThenIncludeProductThenIncludeImagesWithSplitQueryAsync(userId) ?? throw new NotFoundException($"Không tìm thấy giỏ hàng của người dùng {userId}");
-            await SendCartChangesBySignalR(removedCart, userId);
             return removedCart;
         }
 
-        public async Task<int> HandleGetTotalItemsFromCartAsync()
-        {
-            var userId = _userContext.GetCurrentAuthenticatedUserId();
-            
+        public async Task<int> HandleGetTotalItemsFromCartAsync(Guid userId)
+        {            
             var cart = await _unitOfWork.CartRepository.FindCartByUserIdAsync(userId) ?? throw new NotFoundException($"Không tìm thấy giỏ hàng");
             return await _unitOfWork.CartItemRepository.GetTotalItemsFromCartIdAsync(cart.Id);
         }
 
-        public async Task SendCartChangesBySignalR(Cart cart, Guid userId)
-        {
-            var totalItems = cart.Items.Sum(ci => ci.Quantity);
-            var user = userId.ToString();
-            await _cartHubContext.Clients.User(user).SendAsync(SignalRMessageConstant.NewCartItemList, user, cart.Items);
-            await _cartHubContext.Clients.User(user).SendAsync(SignalRMessageConstant.CartItemQuantityUpdate, user, totalItems);
-        }
     }
 }

@@ -17,7 +17,10 @@ using TechExpress.Service;
 using TechExpress.Service.Contexts;
 using TechExpress.Service.Hubs;
 using TechExpress.Service.Initializers;
+using TechExpress.Service.Services;
 using TechExpress.Service.Utils;
+using TechExpress.Service.Utils.TechExpress.Service.Utils;
+using TechExpress.Service.Workers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -72,6 +75,7 @@ builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
 // SQL Server configuration
 var sqlConnectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
+
 builder.Services.AddDbContext<ApplicationDbContext>(options => {
     options.UseSqlServer(sqlConnectionString, sqlServerOptionsAction: sqlOpt =>
     {
@@ -91,6 +95,8 @@ builder.Services.AddScoped<ApplicationDbContext>();
 builder.Services.AddScoped<UnitOfWork>();
 
 builder.Services.AddScoped<SmtpEmailSender>();
+builder.Services.AddScoped<PayOsClient>();     
+
 
 
 builder.Services.AddScoped<ServiceProviders>();
@@ -206,6 +212,9 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(redisConnection);
 builder.Services.AddScoped<RedisUtils>();
 builder.Services.AddScoped<OtpUtils>();
 builder.Services.AddScoped<SmtpEmailSender>();
+
+builder.Services.AddHostedService<CleanOrderWorkerService>();
+
 
 builder.Services.AddCors(options =>
 {

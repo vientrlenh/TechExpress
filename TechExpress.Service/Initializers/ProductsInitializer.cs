@@ -1351,7 +1351,7 @@ public static class ProductsInitializer
             Status = ProductStatus.Available,
         });
         AddGpuSpecs(specValues, gpuSpecs, msi7700xtId, vram: 12, tdp: 245, length: 325, pcieSlot: "PCIe 4.0 x16", powerConnector: "2x 8-pin");
-        productImages.Add(new ProductImage { ProductId = msi7700xtId, ImageUrl = "https://asset.msi.com/resize/image/global/product/product_1693391282a71f6a3c6c19a1c1c7e4e3e5c1e5e4.png62405b38c58fe0f07fcef2367d8a9ba1/1024.png" });
+        productImages.Add(new ProductImage { ProductId = msi7700xtId, ImageUrl = "https://firebasestorage.googleapis.com/v0/b/tech-express-storage-3f755.firebasestorage.app/o/products%2Fcd2bd72a-224e-4ddc-8488-029769b01d3c%2Fimages%2F1770380448566_0.png?alt=media&token=608c1977-26d8-4eba-ab8d-2d94b9b999a6" });
 
         // ============= AMD RADEON RX 7600 =============
 
@@ -1371,7 +1371,28 @@ public static class ProductsInitializer
             Status = ProductStatus.Available,
         });
         AddGpuSpecs(specValues, gpuSpecs, sapphire7600Id, vram: 8, tdp: 165, length: 260, pcieSlot: "PCIe 4.0 x16", powerConnector: "1x 8-pin");
-        productImages.Add(new ProductImage { ProductId = sapphire7600Id, ImageUrl = "https://www.sapphiretech.com/images/products/7600-pulse.png" });
+        productImages.AddRange([
+            new ProductImage
+            {
+                ProductId = sapphire7600Id,
+                ImageUrl = "https://firebasestorage.googleapis.com/v0/b/tech-express-storage-3f755.firebasestorage.app/o/products%2F2d057a06-7c34-4af9-a2e7-a6c2a946c2bd%2Fimages%2F1770380695870_0.webp?alt=media&token=3cd985a0-44f3-457a-8d24-c57fecb4c5e6",
+            },
+            new ProductImage
+            {
+                ProductId = sapphire7600Id,
+                ImageUrl = "https://firebasestorage.googleapis.com/v0/b/tech-express-storage-3f755.firebasestorage.app/o/products%2F2d057a06-7c34-4af9-a2e7-a6c2a946c2bd%2Fimages%2F1770380695871_1.webp?alt=media&token=88e46f69-7b99-4da7-aaca-b4bc58baf385",
+            },
+            new ProductImage
+            {
+                ProductId = sapphire7600Id,
+                ImageUrl = "https://firebasestorage.googleapis.com/v0/b/tech-express-storage-3f755.firebasestorage.app/o/products%2F2d057a06-7c34-4af9-a2e7-a6c2a946c2bd%2Fimages%2F1770380695871_2.webp?alt=media&token=57de3ba4-c5da-4161-9507-b437b126c962"
+            },
+            new ProductImage
+            {
+                ProductId = sapphire7600Id,
+                ImageUrl = "https://firebasestorage.googleapis.com/v0/b/tech-express-storage-3f755.firebasestorage.app/o/products%2F2d057a06-7c34-4af9-a2e7-a6c2a946c2bd%2Fimages%2F1770380695872_3.webp?alt=media&token=8ce0e0f5-5e62-49eb-bf5f-091cb7fb325f"
+            }
+        ]);
 
         // PowerColor Fighter RX 7600
         var powercolor7600Id = Guid.NewGuid();
@@ -1389,7 +1410,23 @@ public static class ProductsInitializer
             Status = ProductStatus.Available,
         });
         AddGpuSpecs(specValues, gpuSpecs, powercolor7600Id, vram: 8, tdp: 165, length: 256, pcieSlot: "PCIe 4.0 x16", powerConnector: "1x 8-pin");
-        productImages.Add(new ProductImage { ProductId = powercolor7600Id, ImageUrl = "https://www.powercolor.com/images/products/rx-7600-fighter.png" });
+        productImages.AddRange([
+            new ProductImage
+            {
+                ProductId = powercolor7600Id,
+                ImageUrl = "https://firebasestorage.googleapis.com/v0/b/tech-express-storage-3f755.firebasestorage.app/o/products%2Fe8d59ae9-a1e8-4c62-bd92-3ad129cd845e%2Fimages%2F1770380887432_0.jpg?alt=media&token=92f6caa0-3f7d-4339-a1a4-9d52a494a83e",
+            },
+            new ProductImage
+            {
+                ProductId = powercolor7600Id,
+                ImageUrl = "https://firebasestorage.googleapis.com/v0/b/tech-express-storage-3f755.firebasestorage.app/o/products%2Fe8d59ae9-a1e8-4c62-bd92-3ad129cd845e%2Fimages%2F1770380887433_1.jpg?alt=media&token=1fdc7008-d5f9-4f1a-b038-4a7f1db44a90",
+            },
+            new ProductImage
+            {
+                ProductId = powercolor7600Id,
+                ImageUrl = "https://firebasestorage.googleapis.com/v0/b/tech-express-storage-3f755.firebasestorage.app/o/products%2Fe8d59ae9-a1e8-4c62-bd92-3ad129cd845e%2Fimages%2F1770380887433_2.jpg?alt=media&token=09380c2f-df85-41fe-bfd6-873738dba110"
+            }
+        ]);
 
         // XFX SWFT 210 RX 7600
         var xfx7600Id = Guid.NewGuid();
@@ -1407,7 +1444,23 @@ public static class ProductsInitializer
             Status = ProductStatus.Available,
         });
         AddGpuSpecs(specValues, gpuSpecs, xfx7600Id, vram: 8, tdp: 165, length: 240, pcieSlot: "PCIe 4.0 x16", powerConnector: "1x 8-pin");
-        productImages.Add(new ProductImage { ProductId = xfx7600Id, ImageUrl = "https://www.xfxforce.com/images/products/rx-7600-swft-210.png" });
+        productImages.AddRange([
+            new ProductImage
+            {
+                ProductId = xfx7600Id,
+                ImageUrl = "https://firebasestorage.googleapis.com/v0/b/tech-express-storage-3f755.firebasestorage.app/o/products%2F88a37c98-8169-4beb-b666-5ac86d27b8e3%2Fimages%2F1770381050261_0.jpg?alt=media&token=41a1abee-40a9-4426-92d6-2868bdafc83f",
+            },
+            new ProductImage
+            {
+                ProductId = xfx7600Id,
+                ImageUrl = "https://firebasestorage.googleapis.com/v0/b/tech-express-storage-3f755.firebasestorage.app/o/products%2F88a37c98-8169-4beb-b666-5ac86d27b8e3%2Fimages%2F1770381050262_1.jpg?alt=media&token=6a67253d-7171-491b-8666-2590b72433e1",
+            },
+            new ProductImage 
+            {
+                ProductId = xfx7600Id,
+                ImageUrl = "https://firebasestorage.googleapis.com/v0/b/tech-express-storage-3f755.firebasestorage.app/o/products%2F88a37c98-8169-4beb-b666-5ac86d27b8e3%2Fimages%2F1770381050263_2.jpg?alt=media&token=ad76cbeb-2806-4b3a-b267-fe2544b23e8c"
+            }
+        ]);
 
         // ============= AMD RADEON RX 6700 XT =============
 
@@ -1427,7 +1480,33 @@ public static class ProductsInitializer
             Status = ProductStatus.Available,
         });
         AddGpuSpecs(specValues, gpuSpecs, sapphire6700xtId, vram: 12, tdp: 230, length: 310, pcieSlot: "PCIe 4.0 x16", powerConnector: "1x 8-pin + 1x 6-pin");
-        productImages.Add(new ProductImage { ProductId = sapphire6700xtId, ImageUrl = "https://www.sapphiretech.com/images/products/6700xt-nitro.png" });
+        productImages.AddRange([
+            new ProductImage
+            {
+                ProductId = sapphire6700xtId,
+                ImageUrl = "https://firebasestorage.googleapis.com/v0/b/tech-express-storage-3f755.firebasestorage.app/o/products%2Fbcc48a31-bd28-4582-ae67-033cbd9ae713%2Fimages%2F1770381230135_0.jpg?alt=media&token=eab931c1-523d-4ec3-8a97-310ce07f4d51",
+            },
+            new ProductImage
+            {
+                ProductId = sapphire6700xtId,
+                ImageUrl = "https://firebasestorage.googleapis.com/v0/b/tech-express-storage-3f755.firebasestorage.app/o/products%2Fbcc48a31-bd28-4582-ae67-033cbd9ae713%2Fimages%2F1770381230136_1.jpg?alt=media&token=61d7f002-30cf-413e-a7f2-761f16033ca9",
+            },
+            new ProductImage
+            {
+                ProductId = sapphire6700xtId,
+                ImageUrl = "https://firebasestorage.googleapis.com/v0/b/tech-express-storage-3f755.firebasestorage.app/o/products%2Fbcc48a31-bd28-4582-ae67-033cbd9ae713%2Fimages%2F1770381230136_2.jpg?alt=media&token=d78efce6-620a-462d-a508-b787b6d9e410",
+            },
+            new ProductImage
+            {
+                ProductId = sapphire6700xtId,
+                ImageUrl = "https://firebasestorage.googleapis.com/v0/b/tech-express-storage-3f755.firebasestorage.app/o/products%2Fbcc48a31-bd28-4582-ae67-033cbd9ae713%2Fimages%2F1770381230137_3.jpg?alt=media&token=a773446f-3b67-4a3e-a792-171a5a9c5f9b",
+            },
+            new ProductImage
+            {
+                ProductId = sapphire6700xtId,
+                ImageUrl = "https://firebasestorage.googleapis.com/v0/b/tech-express-storage-3f755.firebasestorage.app/o/products%2Fbcc48a31-bd28-4582-ae67-033cbd9ae713%2Fimages%2F1770381230137_4.jpg?alt=media&token=a377261a-e4e4-4301-a364-2b580f6a002e"
+            }
+        ]);
 
         // ============= AMD RADEON RX 6600 =============
 
@@ -1447,7 +1526,33 @@ public static class ProductsInitializer
             Status = ProductStatus.Available,
         });
         AddGpuSpecs(specValues, gpuSpecs, powercolor6600Id, vram: 8, tdp: 132, length: 230, pcieSlot: "PCIe 4.0 x16", powerConnector: "1x 8-pin");
-        productImages.Add(new ProductImage { ProductId = powercolor6600Id, ImageUrl = "https://www.powercolor.com/images/products/rx-6600-fighter.png" });
+        productImages.AddRange([
+            new ProductImage
+            {
+                ProductId = powercolor6600Id,
+                ImageUrl = "https://firebasestorage.googleapis.com/v0/b/tech-express-storage-3f755.firebasestorage.app/o/products%2F20b7a191-43b6-48e5-b936-fd74c07db05d%2Fimages%2F1770381575698_0.jpg?alt=media&token=b53b1a07-7a6c-4ded-805f-a4639f8283b3",
+            },
+            new ProductImage 
+            {
+                ProductId = powercolor6600Id,
+                ImageUrl = "https://firebasestorage.googleapis.com/v0/b/tech-express-storage-3f755.firebasestorage.app/o/products%2F20b7a191-43b6-48e5-b936-fd74c07db05d%2Fimages%2F1770381575699_1.jpg?alt=media&token=6c015867-2692-452a-aeb2-ebe061016701",
+            },
+            new ProductImage
+            {
+                ProductId = powercolor6600Id,
+                ImageUrl = "https://firebasestorage.googleapis.com/v0/b/tech-express-storage-3f755.firebasestorage.app/o/products%2F20b7a191-43b6-48e5-b936-fd74c07db05d%2Fimages%2F1770381575699_2.jpg?alt=media&token=e264001f-9900-4300-b4b7-8beef40cb95f",
+            },
+            new ProductImage
+            {
+                ProductId = powercolor6600Id,
+                ImageUrl = "https://firebasestorage.googleapis.com/v0/b/tech-express-storage-3f755.firebasestorage.app/o/products%2F20b7a191-43b6-48e5-b936-fd74c07db05d%2Fimages%2F1770381575700_3.jpg?alt=media&token=1d004073-bce3-4a95-9335-823bc320dbb1",
+            },
+            new ProductImage
+            {
+                ProductId = powercolor6600Id,
+                ImageUrl = "https://firebasestorage.googleapis.com/v0/b/tech-express-storage-3f755.firebasestorage.app/o/products%2F20b7a191-43b6-48e5-b936-fd74c07db05d%2Fimages%2F1770381575700_4.jpg?alt=media&token=b6617040-3b42-4c1c-85a6-d2a642316c7e"
+            }
+        ]);
 
         // XFX SWFT 210 RX 6600
         var xfx6600Id = Guid.NewGuid();
@@ -1465,7 +1570,18 @@ public static class ProductsInitializer
             Status = ProductStatus.Available,
         });
         AddGpuSpecs(specValues, gpuSpecs, xfx6600Id, vram: 8, tdp: 132, length: 235, pcieSlot: "PCIe 4.0 x16", powerConnector: "1x 8-pin");
-        productImages.Add(new ProductImage { ProductId = xfx6600Id, ImageUrl = "https://www.xfxforce.com/images/products/rx-6600-swft-210.png" });
+        productImages.AddRange([
+            new ProductImage
+            {
+                ProductId = xfx6600Id,
+                ImageUrl = "https://firebasestorage.googleapis.com/v0/b/tech-express-storage-3f755.firebasestorage.app/o/products%2Fd08a4dcc-f3d3-43eb-bc39-764acda665d2%2Fimages%2F1770382033222_0.jpg?alt=media&token=6364b26b-d43f-4882-9460-561352ec774b",
+            },
+            new ProductImage
+            {
+                ProductId = xfx6600Id,
+                ImageUrl = "https://firebasestorage.googleapis.com/v0/b/tech-express-storage-3f755.firebasestorage.app/o/products%2Fd08a4dcc-f3d3-43eb-bc39-764acda665d2%2Fimages%2F1770382033223_1.jpg?alt=media&token=6a207190-f60b-4340-8c21-5762fb35739e"
+            }
+        ]);
     }
 
     private static async Task InitCpuProducts(ApplicationDbContext context, List<ProductSpecValue> specValues, List<ProductImage> productImages)
@@ -1930,7 +2046,7 @@ public static class ProductsInitializer
             WarrantyMonth = 36,
             Status = ProductStatus.Available,
         });
-        AddMotherboardSpecs(specValues, mbSpecs, asusZ790HeroId, socket: "LGA1700", chipset: "Z790", formFactor: "ATX", memoryType: "DDR5", memorySlots: 4, maxMemory: 192, m2Slots: 5, pcieVersion: "PCIe 5.0");
+        AddMotherboardSpecs(specValues, mbSpecs, asusZ790HeroId, socket: "LGA1700", chipset: "Z790", formFactor: "ATX", memoryType: "DDR5", memorySlots: 4, maxMemory: 192, m2Slots: 5, pcieVersion: "PCIe 5.0", pcieX16Slots: 2, sataPorts: 6, maxRamSpeed: 7800);
         productImages.Add(new ProductImage { ProductId = asusZ790HeroId, ImageUrl = "https://dlcdnwebimgs.asus.com/gain/z790-maximus-hero/w800" });
 
         // MSI MEG Z790 ACE
@@ -1948,7 +2064,7 @@ public static class ProductsInitializer
             WarrantyMonth = 36,
             Status = ProductStatus.Available,
         });
-        AddMotherboardSpecs(specValues, mbSpecs, msiZ790AceId, socket: "LGA1700", chipset: "Z790", formFactor: "ATX", memoryType: "DDR5", memorySlots: 4, maxMemory: 192, m2Slots: 5, pcieVersion: "PCIe 5.0");
+        AddMotherboardSpecs(specValues, mbSpecs, msiZ790AceId, socket: "LGA1700", chipset: "Z790", formFactor: "ATX", memoryType: "DDR5", memorySlots: 4, maxMemory: 192, m2Slots: 5, pcieVersion: "PCIe 5.0", pcieX16Slots: 2, sataPorts: 6, maxRamSpeed: 7600);
         productImages.Add(new ProductImage { ProductId = msiZ790AceId, ImageUrl = "https://asset.msi.com/resize/image/global/product/product_z790ace.png" });
 
         // Gigabyte Z790 AORUS MASTER
@@ -1966,7 +2082,7 @@ public static class ProductsInitializer
             WarrantyMonth = 36,
             Status = ProductStatus.Available,
         });
-        AddMotherboardSpecs(specValues, mbSpecs, gigabyteZ790MasterId, socket: "LGA1700", chipset: "Z790", formFactor: "ATX", memoryType: "DDR5", memorySlots: 4, maxMemory: 192, m2Slots: 5, pcieVersion: "PCIe 5.0");
+        AddMotherboardSpecs(specValues, mbSpecs, gigabyteZ790MasterId, socket: "LGA1700", chipset: "Z790", formFactor: "ATX", memoryType: "DDR5", memorySlots: 4, maxMemory: 192, m2Slots: 5, pcieVersion: "PCIe 5.0", pcieX16Slots: 2, sataPorts: 6, maxRamSpeed: 7600);
         productImages.Add(new ProductImage { ProductId = gigabyteZ790MasterId, ImageUrl = "https://www.gigabyte.com/FileUpload/Global/KeyFeature/z790-aorus-master.png" });
 
         // ============= INTEL LGA1700 Z790 (MID-HIGH) =============
@@ -1986,7 +2102,7 @@ public static class ProductsInitializer
             WarrantyMonth = 36,
             Status = ProductStatus.Available,
         });
-        AddMotherboardSpecs(specValues, mbSpecs, asrockZ790SteelId, socket: "LGA1700", chipset: "Z790", formFactor: "ATX", memoryType: "DDR5", memorySlots: 4, maxMemory: 128, m2Slots: 4, pcieVersion: "PCIe 5.0");
+        AddMotherboardSpecs(specValues, mbSpecs, asrockZ790SteelId, socket: "LGA1700", chipset: "Z790", formFactor: "ATX", memoryType: "DDR5", memorySlots: 4, maxMemory: 128, m2Slots: 4, pcieVersion: "PCIe 5.0", pcieX16Slots: 2, sataPorts: 8, maxRamSpeed: 7200);
         productImages.Add(new ProductImage { ProductId = asrockZ790SteelId, ImageUrl = "https://www.asrock.com/mb/photo/Z790%20Steel%20Legend%20WiFi.png" });
 
         // ============= INTEL LGA1700 B760 (MID-RANGE) =============
@@ -2006,7 +2122,7 @@ public static class ProductsInitializer
             WarrantyMonth = 36,
             Status = ProductStatus.Available,
         });
-        AddMotherboardSpecs(specValues, mbSpecs, asusB760StrixId, socket: "LGA1700", chipset: "B760", formFactor: "ATX", memoryType: "DDR5", memorySlots: 4, maxMemory: 192, m2Slots: 4, pcieVersion: "PCIe 5.0");
+        AddMotherboardSpecs(specValues, mbSpecs, asusB760StrixId, socket: "LGA1700", chipset: "B760", formFactor: "ATX", memoryType: "DDR5", memorySlots: 4, maxMemory: 192, m2Slots: 4, pcieVersion: "PCIe 5.0", pcieX16Slots: 1, sataPorts: 4, maxRamSpeed: 7200);
         productImages.Add(new ProductImage { ProductId = asusB760StrixId, ImageUrl = "https://dlcdnwebimgs.asus.com/gain/b760-strix-f-gaming-wifi/w800" });
 
         // MSI MAG B760M MORTAR WIFI
@@ -2024,7 +2140,7 @@ public static class ProductsInitializer
             WarrantyMonth = 36,
             Status = ProductStatus.Available,
         });
-        AddMotherboardSpecs(specValues, mbSpecs, msiB760MortarId, socket: "LGA1700", chipset: "B760", formFactor: "mATX", memoryType: "DDR5", memorySlots: 4, maxMemory: 128, m2Slots: 2, pcieVersion: "PCIe 4.0");
+        AddMotherboardSpecs(specValues, mbSpecs, msiB760MortarId, socket: "LGA1700", chipset: "B760", formFactor: "mATX", memoryType: "DDR5", memorySlots: 4, maxMemory: 128, m2Slots: 2, pcieVersion: "PCIe 4.0", pcieX16Slots: 1, sataPorts: 4, maxRamSpeed: 6800);
         productImages.Add(new ProductImage { ProductId = msiB760MortarId, ImageUrl = "https://asset.msi.com/resize/image/global/product/product_b760m-mortar-wifi.png" });
 
         // ============= INTEL LGA1700 B760 (BUDGET) =============
@@ -2044,7 +2160,7 @@ public static class ProductsInitializer
             WarrantyMonth = 36,
             Status = ProductStatus.Available,
         });
-        AddMotherboardSpecs(specValues, mbSpecs, gigabyteB760MDs3hId, socket: "LGA1700", chipset: "B760", formFactor: "mATX", memoryType: "DDR4", memorySlots: 2, maxMemory: 64, m2Slots: 2, pcieVersion: "PCIe 4.0");
+        AddMotherboardSpecs(specValues, mbSpecs, gigabyteB760MDs3hId, socket: "LGA1700", chipset: "B760", formFactor: "mATX", memoryType: "DDR4", memorySlots: 2, maxMemory: 64, m2Slots: 2, pcieVersion: "PCIe 4.0", pcieX16Slots: 1, sataPorts: 4, maxRamSpeed: 5333);
         productImages.Add(new ProductImage { ProductId = gigabyteB760MDs3hId, ImageUrl = "https://www.gigabyte.com/FileUpload/Global/KeyFeature/b760m-ds3h-ddr4.png" });
 
         // Biostar B760MX-E PRO
@@ -2062,7 +2178,7 @@ public static class ProductsInitializer
             WarrantyMonth = 24,
             Status = ProductStatus.Available,
         });
-        AddMotherboardSpecs(specValues, mbSpecs, biostarB760MxId, socket: "LGA1700", chipset: "B760", formFactor: "mATX", memoryType: "DDR4", memorySlots: 2, maxMemory: 64, m2Slots: 1, pcieVersion: "PCIe 4.0");
+        AddMotherboardSpecs(specValues, mbSpecs, biostarB760MxId, socket: "LGA1700", chipset: "B760", formFactor: "mATX", memoryType: "DDR4", memorySlots: 2, maxMemory: 64, m2Slots: 1, pcieVersion: "PCIe 4.0", pcieX16Slots: 1, sataPorts: 4, maxRamSpeed: 4800);
         productImages.Add(new ProductImage { ProductId = biostarB760MxId, ImageUrl = "https://www.biostar.com.tw/upload/Mainboard/b760mx-e-pro.png" });
 
         // ============= AMD AM5 X670E (HIGH-END) =============
@@ -2082,7 +2198,7 @@ public static class ProductsInitializer
             WarrantyMonth = 36,
             Status = ProductStatus.Available,
         });
-        AddMotherboardSpecs(specValues, mbSpecs, asusX670EHeroId, socket: "AM5", chipset: "X670E", formFactor: "ATX", memoryType: "DDR5", memorySlots: 4, maxMemory: 128, m2Slots: 5, pcieVersion: "PCIe 5.0");
+        AddMotherboardSpecs(specValues, mbSpecs, asusX670EHeroId, socket: "AM5", chipset: "X670E", formFactor: "ATX", memoryType: "DDR5", memorySlots: 4, maxMemory: 128, m2Slots: 5, pcieVersion: "PCIe 5.0", pcieX16Slots: 2, sataPorts: 6, maxRamSpeed: 6400);
         productImages.Add(new ProductImage { ProductId = asusX670EHeroId, ImageUrl = "https://dlcdnwebimgs.asus.com/gain/x670e-crosshair-hero/w800" });
 
         // MSI MEG X670E ACE
@@ -2100,7 +2216,7 @@ public static class ProductsInitializer
             WarrantyMonth = 36,
             Status = ProductStatus.Available,
         });
-        AddMotherboardSpecs(specValues, mbSpecs, msiX670EAceId, socket: "AM5", chipset: "X670E", formFactor: "ATX", memoryType: "DDR5", memorySlots: 4, maxMemory: 128, m2Slots: 4, pcieVersion: "PCIe 5.0");
+        AddMotherboardSpecs(specValues, mbSpecs, msiX670EAceId, socket: "AM5", chipset: "X670E", formFactor: "ATX", memoryType: "DDR5", memorySlots: 4, maxMemory: 128, m2Slots: 4, pcieVersion: "PCIe 5.0", pcieX16Slots: 2, sataPorts: 6, maxRamSpeed: 6600);
         productImages.Add(new ProductImage { ProductId = msiX670EAceId, ImageUrl = "https://asset.msi.com/resize/image/global/product/product_x670e-ace.png" });
 
         // Gigabyte X670E AORUS MASTER
@@ -2118,7 +2234,7 @@ public static class ProductsInitializer
             WarrantyMonth = 36,
             Status = ProductStatus.Available,
         });
-        AddMotherboardSpecs(specValues, mbSpecs, gigabyteX670EMasterId, socket: "AM5", chipset: "X670E", formFactor: "ATX", memoryType: "DDR5", memorySlots: 4, maxMemory: 128, m2Slots: 4, pcieVersion: "PCIe 5.0");
+        AddMotherboardSpecs(specValues, mbSpecs, gigabyteX670EMasterId, socket: "AM5", chipset: "X670E", formFactor: "ATX", memoryType: "DDR5", memorySlots: 4, maxMemory: 128, m2Slots: 4, pcieVersion: "PCIe 5.0", pcieX16Slots: 2, sataPorts: 6, maxRamSpeed: 6600);
         productImages.Add(new ProductImage { ProductId = gigabyteX670EMasterId, ImageUrl = "https://www.gigabyte.com/FileUpload/Global/KeyFeature/x670e-aorus-master.png" });
 
         // ============= AMD AM5 B650 (MID-RANGE) =============
@@ -2138,7 +2254,7 @@ public static class ProductsInitializer
             WarrantyMonth = 36,
             Status = ProductStatus.Available,
         });
-        AddMotherboardSpecs(specValues, mbSpecs, asusB650TufId, socket: "AM5", chipset: "B650", formFactor: "ATX", memoryType: "DDR5", memorySlots: 4, maxMemory: 128, m2Slots: 3, pcieVersion: "PCIe 4.0");
+        AddMotherboardSpecs(specValues, mbSpecs, asusB650TufId, socket: "AM5", chipset: "B650", formFactor: "ATX", memoryType: "DDR5", memorySlots: 4, maxMemory: 128, m2Slots: 3, pcieVersion: "PCIe 4.0", pcieX16Slots: 1, sataPorts: 4, maxRamSpeed: 6400);
         productImages.Add(new ProductImage { ProductId = asusB650TufId, ImageUrl = "https://dlcdnwebimgs.asus.com/gain/b650-tuf-gaming-plus-wifi/w800" });
 
         // MSI MAG B650 TOMAHAWK WIFI
@@ -2156,7 +2272,7 @@ public static class ProductsInitializer
             WarrantyMonth = 36,
             Status = ProductStatus.Available,
         });
-        AddMotherboardSpecs(specValues, mbSpecs, msiB650TomahawkId, socket: "AM5", chipset: "B650", formFactor: "ATX", memoryType: "DDR5", memorySlots: 4, maxMemory: 128, m2Slots: 2, pcieVersion: "PCIe 4.0");
+        AddMotherboardSpecs(specValues, mbSpecs, msiB650TomahawkId, socket: "AM5", chipset: "B650", formFactor: "ATX", memoryType: "DDR5", memorySlots: 4, maxMemory: 128, m2Slots: 2, pcieVersion: "PCIe 4.0", pcieX16Slots: 1, sataPorts: 4, maxRamSpeed: 6400);
         productImages.Add(new ProductImage { ProductId = msiB650TomahawkId, ImageUrl = "https://asset.msi.com/resize/image/global/product/product_b650-tomahawk-wifi.png" });
 
         // ASRock B650M PG Riptide WiFi
@@ -2174,7 +2290,7 @@ public static class ProductsInitializer
             WarrantyMonth = 36,
             Status = ProductStatus.Available,
         });
-        AddMotherboardSpecs(specValues, mbSpecs, asrockB650MRiptideId, socket: "AM5", chipset: "B650", formFactor: "mATX", memoryType: "DDR5", memorySlots: 4, maxMemory: 128, m2Slots: 2, pcieVersion: "PCIe 4.0");
+        AddMotherboardSpecs(specValues, mbSpecs, asrockB650MRiptideId, socket: "AM5", chipset: "B650", formFactor: "mATX", memoryType: "DDR5", memorySlots: 4, maxMemory: 128, m2Slots: 2, pcieVersion: "PCIe 4.0", pcieX16Slots: 1, sataPorts: 4, maxRamSpeed: 6200);
         productImages.Add(new ProductImage { ProductId = asrockB650MRiptideId, ImageUrl = "https://www.asrock.com/mb/photo/B650M%20PG%20Riptide%20WiFi.png" });
 
         // ============= AMD AM5 B650 (BUDGET) =============
@@ -2194,11 +2310,11 @@ public static class ProductsInitializer
             WarrantyMonth = 36,
             Status = ProductStatus.Available,
         });
-        AddMotherboardSpecs(specValues, mbSpecs, gigabyteB650MDs3hId, socket: "AM5", chipset: "B650", formFactor: "mATX", memoryType: "DDR5", memorySlots: 2, maxMemory: 96, m2Slots: 2, pcieVersion: "PCIe 4.0");
+        AddMotherboardSpecs(specValues, mbSpecs, gigabyteB650MDs3hId, socket: "AM5", chipset: "B650", formFactor: "mATX", memoryType: "DDR5", memorySlots: 2, maxMemory: 96, m2Slots: 2, pcieVersion: "PCIe 4.0", pcieX16Slots: 1, sataPorts: 4, maxRamSpeed: 6000);
         productImages.Add(new ProductImage { ProductId = gigabyteB650MDs3hId, ImageUrl = "https://www.gigabyte.com/FileUpload/Global/KeyFeature/b650m-ds3h.png" });
     }
 
-    private static void AddMotherboardSpecs(List<ProductSpecValue> specValues, List<SpecDefinition> specs, Guid productId, string socket, string chipset, string formFactor, string memoryType, int memorySlots, int maxMemory, int m2Slots, string pcieVersion)
+    private static void AddMotherboardSpecs(List<ProductSpecValue> specValues, List<SpecDefinition> specs, Guid productId, string socket, string chipset, string formFactor, string memoryType, int memorySlots, int maxMemory, int m2Slots, string pcieVersion, int pcieX16Slots, int sataPorts, int maxRamSpeed)
     {
         var socketSpec = specs.FirstOrDefault(s => s.Code == "mb_socket");
         if (socketSpec != null) specValues.Add(new ProductSpecValue { ProductId = productId, SpecDefinitionId = socketSpec.Id, TextValue = socket });
@@ -2223,6 +2339,15 @@ public static class ProductsInitializer
 
         var pcieVersionSpec = specs.FirstOrDefault(s => s.Code == "mb_pcie_version");
         if (pcieVersionSpec != null) specValues.Add(new ProductSpecValue { ProductId = productId, SpecDefinitionId = pcieVersionSpec.Id, TextValue = pcieVersion });
+
+        var pcieX16SlotsSpec = specs.FirstOrDefault(s => s.Code == "mb_pcie_x16_slots");
+        if (pcieX16SlotsSpec != null) specValues.Add(new ProductSpecValue { ProductId = productId, SpecDefinitionId = pcieX16SlotsSpec.Id, NumberValue = pcieX16Slots });
+
+        var sataPortsSpec = specs.FirstOrDefault(s => s.Code == "mb_sata_ports");
+        if (sataPortsSpec != null) specValues.Add(new ProductSpecValue { ProductId = productId, SpecDefinitionId = sataPortsSpec.Id, NumberValue = sataPorts });
+
+        var maxRamSpeedSpec = specs.FirstOrDefault(s => s.Code == "mb_max_ram_speed");
+        if (maxRamSpeedSpec != null) specValues.Add(new ProductSpecValue { ProductId = productId, SpecDefinitionId = maxRamSpeedSpec.Id, NumberValue = maxRamSpeed });
     }
 
     private static async Task InitRamProducts(ApplicationDbContext context, List<ProductSpecValue> specValues, List<ProductImage> productImages)
@@ -2679,7 +2804,7 @@ public static class ProductsInitializer
             WarrantyMonth = 60,
             Status = ProductStatus.Available,
         });
-        AddStorageSpecs(specValues, storageSpecs, samsung990Pro2TBId, type: "NVMe", capacity: 2000, interfaceType: "M.2", readSpeed: 7450, writeSpeed: 6900);
+        AddStorageSpecs(specValues, storageSpecs, samsung990Pro2TBId, type: "NVMe", capacity: 2000, interfaceType: "M.2", formFactor: "M.2", readSpeed: 7450, writeSpeed: 6900);
         productImages.Add(new ProductImage { ProductId = samsung990Pro2TBId, ImageUrl = "https://images.samsung.com/is/image/samsung/p6pim/uk/mz-v9p2t0bw/gallery/uk-990-pro-nvme-m2-ssd-mz-v9p2t0bw-thumb-534862489" });
 
         // Samsung 980 Pro 1TB
@@ -2697,7 +2822,7 @@ public static class ProductsInitializer
             WarrantyMonth = 60,
             Status = ProductStatus.Available,
         });
-        AddStorageSpecs(specValues, storageSpecs, samsung980Pro1TBId, type: "NVMe", capacity: 1000, interfaceType: "M.2", readSpeed: 7000, writeSpeed: 5000);
+        AddStorageSpecs(specValues, storageSpecs, samsung980Pro1TBId, type: "NVMe", capacity: 1000, interfaceType: "M.2", formFactor: "M.2", readSpeed: 7000, writeSpeed: 5000);
         productImages.Add(new ProductImage { ProductId = samsung980Pro1TBId, ImageUrl = "https://images.samsung.com/is/image/samsung/p6pim/uk/mz-v8p1t0bw/gallery/uk-980-pro-nvme-m2-ssd-mz-v8p1t0bw-thumb-368338925" });
 
         // Samsung 870 EVO 1TB SATA
@@ -2715,7 +2840,7 @@ public static class ProductsInitializer
             WarrantyMonth = 60,
             Status = ProductStatus.Available,
         });
-        AddStorageSpecs(specValues, storageSpecs, samsung870Evo1TBId, type: "SATA SSD", capacity: 1000, interfaceType: "2.5\"", readSpeed: 560, writeSpeed: 530);
+        AddStorageSpecs(specValues, storageSpecs, samsung870Evo1TBId, type: "SATA SSD", capacity: 1000, interfaceType: "2.5\"", formFactor: "2.5\"", readSpeed: 560, writeSpeed: 530);
         productImages.Add(new ProductImage { ProductId = samsung870Evo1TBId, ImageUrl = "https://images.samsung.com/is/image/samsung/p6pim/uk/mz-77e1t0b-eu/gallery/uk-870-evo-sata-3-2-5-ssd-mz-77e1t0b-eu-thumb-368338546" });
 
         // ============= WESTERN DIGITAL SSDs =============
@@ -2735,7 +2860,7 @@ public static class ProductsInitializer
             WarrantyMonth = 60,
             Status = ProductStatus.Available,
         });
-        AddStorageSpecs(specValues, storageSpecs, wdSn850x2TBId, type: "NVMe", capacity: 2000, interfaceType: "M.2", readSpeed: 7300, writeSpeed: 6600);
+        AddStorageSpecs(specValues, storageSpecs, wdSn850x2TBId, type: "NVMe", capacity: 2000, interfaceType: "M.2", formFactor: "M.2", readSpeed: 7300, writeSpeed: 6600);
         productImages.Add(new ProductImage { ProductId = wdSn850x2TBId, ImageUrl = "https://www.westerndigital.com/content/dam/store/en-us/assets/products/internal-storage/wd-black-sn850x-nvme-ssd/gallery/wd-black-sn850x-nvme-ssd-hero.png" });
 
         // WD Black SN770 1TB
@@ -2753,7 +2878,7 @@ public static class ProductsInitializer
             WarrantyMonth = 60,
             Status = ProductStatus.Available,
         });
-        AddStorageSpecs(specValues, storageSpecs, wdSn7701TBId, type: "NVMe", capacity: 1000, interfaceType: "M.2", readSpeed: 5150, writeSpeed: 4900);
+        AddStorageSpecs(specValues, storageSpecs, wdSn7701TBId, type: "NVMe", capacity: 1000, interfaceType: "M.2", formFactor: "M.2", readSpeed: 5150, writeSpeed: 4900);
         productImages.Add(new ProductImage { ProductId = wdSn7701TBId, ImageUrl = "https://www.westerndigital.com/content/dam/store/en-us/assets/products/internal-storage/wd-black-sn770-nvme-ssd/gallery/wd-black-sn770-nvme-ssd-hero.png" });
 
         // ============= CRUCIAL SSDs =============
@@ -2773,7 +2898,7 @@ public static class ProductsInitializer
             WarrantyMonth = 60,
             Status = ProductStatus.Available,
         });
-        AddStorageSpecs(specValues, storageSpecs, crucialT7002TBId, type: "NVMe", capacity: 2000, interfaceType: "M.2", readSpeed: 12400, writeSpeed: 11800);
+        AddStorageSpecs(specValues, storageSpecs, crucialT7002TBId, type: "NVMe", capacity: 2000, interfaceType: "M.2", formFactor: "M.2", readSpeed: 12400, writeSpeed: 11800);
         productImages.Add(new ProductImage { ProductId = crucialT7002TBId, ImageUrl = "https://content.crucial.com/content/dam/crucial/ssd-products/t700/images/in-use/crucial-t700-ssd-image.png" });
 
         // Crucial P3 Plus 1TB
@@ -2791,7 +2916,7 @@ public static class ProductsInitializer
             WarrantyMonth = 60,
             Status = ProductStatus.Available,
         });
-        AddStorageSpecs(specValues, storageSpecs, crucialP3Plus1TBId, type: "NVMe", capacity: 1000, interfaceType: "M.2", readSpeed: 5000, writeSpeed: 4200);
+        AddStorageSpecs(specValues, storageSpecs, crucialP3Plus1TBId, type: "NVMe", capacity: 1000, interfaceType: "M.2", formFactor: "M.2", readSpeed: 5000, writeSpeed: 4200);
         productImages.Add(new ProductImage { ProductId = crucialP3Plus1TBId, ImageUrl = "https://content.crucial.com/content/dam/crucial/ssd-products/p3-plus/images/in-use/crucial-p3plus-ssd-image.png" });
 
         // ============= SK HYNIX SSD =============
@@ -2811,7 +2936,7 @@ public static class ProductsInitializer
             WarrantyMonth = 60,
             Status = ProductStatus.Available,
         });
-        AddStorageSpecs(specValues, storageSpecs, skHynixP411TBId, type: "NVMe", capacity: 1000, interfaceType: "M.2", readSpeed: 7000, writeSpeed: 6500);
+        AddStorageSpecs(specValues, storageSpecs, skHynixP411TBId, type: "NVMe", capacity: 1000, interfaceType: "M.2", formFactor: "M.2", readSpeed: 7000, writeSpeed: 6500);
         productImages.Add(new ProductImage { ProductId = skHynixP411TBId, ImageUrl = "https://ssd.skhynix.com/wp-content/uploads/2022/06/platinum_p41_image.png" });
 
         // ============= KINGSTON SSD =============
@@ -2831,7 +2956,7 @@ public static class ProductsInitializer
             WarrantyMonth = 36,
             Status = ProductStatus.Available,
         });
-        AddStorageSpecs(specValues, storageSpecs, kingstonNv21TBId, type: "NVMe", capacity: 1000, interfaceType: "M.2", readSpeed: 3500, writeSpeed: 2100);
+        AddStorageSpecs(specValues, storageSpecs, kingstonNv21TBId, type: "NVMe", capacity: 1000, interfaceType: "M.2", formFactor: "M.2", readSpeed: 3500, writeSpeed: 2100);
         productImages.Add(new ProductImage { ProductId = kingstonNv21TBId, ImageUrl = "https://media.kingston.com/kingston/product/ktc-product-ssd-snv2-1-background-zm-lg.jpg" });
 
         // ============= SEAGATE HDD =============
@@ -2851,11 +2976,11 @@ public static class ProductsInitializer
             WarrantyMonth = 24,
             Status = ProductStatus.Available,
         });
-        AddStorageSpecs(specValues, storageSpecs, seagateBarracuda2TBId, type: "HDD", capacity: 2000, interfaceType: "3.5\"", readSpeed: 190, writeSpeed: 190);
+        AddStorageSpecs(specValues, storageSpecs, seagateBarracuda2TBId, type: "HDD", capacity: 2000, interfaceType: "3.5\"", formFactor: "3.5\"", readSpeed: 190, writeSpeed: 190);
         productImages.Add(new ProductImage { ProductId = seagateBarracuda2TBId, ImageUrl = "https://www.seagate.com/content/dam/seagate/migrated-assets/www-content/product-content/barracuda-background-drives/barracuda-background-drives-lineup-background/barracuda-background-drives-lineup-background-background-image.png" });
     }
 
-    private static void AddStorageSpecs(List<ProductSpecValue> specValues, List<SpecDefinition> specs, Guid productId, string type, int capacity, string interfaceType, int readSpeed, int writeSpeed)
+    private static void AddStorageSpecs(List<ProductSpecValue> specValues, List<SpecDefinition> specs, Guid productId, string type, int capacity, string interfaceType, string formFactor, int readSpeed, int writeSpeed)
     {
         var typeSpec = specs.FirstOrDefault(s => s.Code == "stor_type");
         if (typeSpec != null) specValues.Add(new ProductSpecValue { ProductId = productId, SpecDefinitionId = typeSpec.Id, TextValue = type });
@@ -2865,6 +2990,9 @@ public static class ProductsInitializer
 
         var interfaceSpec = specs.FirstOrDefault(s => s.Code == "stor_interface");
         if (interfaceSpec != null) specValues.Add(new ProductSpecValue { ProductId = productId, SpecDefinitionId = interfaceSpec.Id, TextValue = interfaceType });
+
+        var formFactorSpec = specs.FirstOrDefault(s => s.Code == "stor_form_factor");
+        if (formFactorSpec != null) specValues.Add(new ProductSpecValue { ProductId = productId, SpecDefinitionId = formFactorSpec.Id, TextValue = formFactor });
 
         var readSpeedSpec = specs.FirstOrDefault(s => s.Code == "stor_read_speed");
         if (readSpeedSpec != null) specValues.Add(new ProductSpecValue { ProductId = productId, SpecDefinitionId = readSpeedSpec.Id, NumberValue = readSpeed });
@@ -3170,7 +3298,7 @@ public static class ProductsInitializer
             WarrantyMonth = 24,
             Status = ProductStatus.Available,
         });
-        AddCaseSpecs(specValues, caseSpecs, lianLiO11EvoId, formFactor: "ATX,mATX,ITX", maxGpuLength: 422, maxCoolerHeight: 167, psuFormFactor: "ATX", driveBays25: 6, driveBays35: 3);
+        AddCaseSpecs(specValues, caseSpecs, lianLiO11EvoId, formFactor: "ATX,mATX,ITX", maxGpuLength: 422, maxCoolerHeight: 167, psuFormFactor: "ATX", driveBays25: 6, driveBays35: 3, maxFanSize: 140);
         productImages.Add(new ProductImage { ProductId = lianLiO11EvoId, ImageUrl = "https://lian-li.com/wp-content/uploads/2022/01/O11-EVO-1.jpg" });
 
         // NZXT H7 Flow
@@ -3188,7 +3316,7 @@ public static class ProductsInitializer
             WarrantyMonth = 24,
             Status = ProductStatus.Available,
         });
-        AddCaseSpecs(specValues, caseSpecs, nzxtH7FlowId, formFactor: "ATX,mATX,ITX", maxGpuLength: 400, maxCoolerHeight: 185, psuFormFactor: "ATX", driveBays25: 4, driveBays35: 2);
+        AddCaseSpecs(specValues, caseSpecs, nzxtH7FlowId, formFactor: "ATX,mATX,ITX", maxGpuLength: 400, maxCoolerHeight: 185, psuFormFactor: "ATX", driveBays25: 4, driveBays35: 2, maxFanSize: 140);
         productImages.Add(new ProductImage { ProductId = nzxtH7FlowId, ImageUrl = "https://nzxt.com/assets/cms/34299/1663791631-h7-flow-white-hero.png" });
 
         // Fractal Design North
@@ -3206,7 +3334,7 @@ public static class ProductsInitializer
             WarrantyMonth = 24,
             Status = ProductStatus.Available,
         });
-        AddCaseSpecs(specValues, caseSpecs, fractalNorthId, formFactor: "ATX,mATX,ITX", maxGpuLength: 355, maxCoolerHeight: 170, psuFormFactor: "ATX", driveBays25: 4, driveBays35: 2);
+        AddCaseSpecs(specValues, caseSpecs, fractalNorthId, formFactor: "ATX,mATX,ITX", maxGpuLength: 355, maxCoolerHeight: 170, psuFormFactor: "ATX", driveBays25: 4, driveBays35: 2, maxFanSize: 140);
         productImages.Add(new ProductImage { ProductId = fractalNorthId, ImageUrl = "https://www.fractal-design.com/app/uploads/2022/09/North-Charcoal-Black-TG-Dark-Left-Front-Angled-scaled.jpg" });
 
         // ============= MID-RANGE CASES =============
@@ -3226,7 +3354,7 @@ public static class ProductsInitializer
             WarrantyMonth = 24,
             Status = ProductStatus.Available,
         });
-        AddCaseSpecs(specValues, caseSpecs, corsair4000dId, formFactor: "ATX,mATX,ITX", maxGpuLength: 360, maxCoolerHeight: 170, psuFormFactor: "ATX", driveBays25: 4, driveBays35: 2);
+        AddCaseSpecs(specValues, caseSpecs, corsair4000dId, formFactor: "ATX,mATX,ITX", maxGpuLength: 360, maxCoolerHeight: 170, psuFormFactor: "ATX", driveBays25: 4, driveBays35: 2, maxFanSize: 140);
         productImages.Add(new ProductImage { ProductId = corsair4000dId, ImageUrl = "https://assets.corsair.com/image/upload/c_pad,q_auto,h_1024,w_1024,f_auto/products/Cases/CC-9011200-WW/Gallery/4000D_AF_BLK_01.webp" });
 
         // Phanteks Eclipse G360A
@@ -3244,7 +3372,7 @@ public static class ProductsInitializer
             WarrantyMonth = 24,
             Status = ProductStatus.Available,
         });
-        AddCaseSpecs(specValues, caseSpecs, phanteksG360aId, formFactor: "ATX,mATX,ITX", maxGpuLength: 400, maxCoolerHeight: 163, psuFormFactor: "ATX", driveBays25: 4, driveBays35: 2);
+        AddCaseSpecs(specValues, caseSpecs, phanteksG360aId, formFactor: "ATX,mATX,ITX", maxGpuLength: 400, maxCoolerHeight: 163, psuFormFactor: "ATX", driveBays25: 4, driveBays35: 2, maxFanSize: 140);
         productImages.Add(new ProductImage { ProductId = phanteksG360aId, ImageUrl = "https://phanteks.com/images/product/Eclipse-G360A/Eclipse-G360A-1.jpg" });
 
         // be quiet! Pure Base 500DX
@@ -3262,7 +3390,7 @@ public static class ProductsInitializer
             WarrantyMonth = 24,
             Status = ProductStatus.Available,
         });
-        AddCaseSpecs(specValues, caseSpecs, beQuietPureBase500dxId, formFactor: "ATX,mATX,ITX", maxGpuLength: 369, maxCoolerHeight: 190, psuFormFactor: "ATX", driveBays25: 5, driveBays35: 2);
+        AddCaseSpecs(specValues, caseSpecs, beQuietPureBase500dxId, formFactor: "ATX,mATX,ITX", maxGpuLength: 369, maxCoolerHeight: 190, psuFormFactor: "ATX", driveBays25: 5, driveBays35: 2, maxFanSize: 140);
         productImages.Add(new ProductImage { ProductId = beQuietPureBase500dxId, ImageUrl = "https://www.bequiet.com/admin/ImageServer.php?ID=a8da9a52a26@be-quiet.net&omitaliases=true" });
 
         // ============= BUDGET CASES =============
@@ -3282,7 +3410,7 @@ public static class ProductsInitializer
             WarrantyMonth = 24,
             Status = ProductStatus.Available,
         });
-        AddCaseSpecs(specValues, caseSpecs, cmTd500MeshId, formFactor: "ATX,mATX,ITX", maxGpuLength: 410, maxCoolerHeight: 165, psuFormFactor: "ATX", driveBays25: 4, driveBays35: 2);
+        AddCaseSpecs(specValues, caseSpecs, cmTd500MeshId, formFactor: "ATX,mATX,ITX", maxGpuLength: 410, maxCoolerHeight: 165, psuFormFactor: "ATX", driveBays25: 4, driveBays35: 2, maxFanSize: 140);
         productImages.Add(new ProductImage { ProductId = cmTd500MeshId, ImageUrl = "https://cdn.coolermaster.com/media/assets/1035/td500-mesh-gallery-1-image.png" });
 
         // Montech Air 903 Max
@@ -3300,7 +3428,7 @@ public static class ProductsInitializer
             WarrantyMonth = 24,
             Status = ProductStatus.Available,
         });
-        AddCaseSpecs(specValues, caseSpecs, montechAir903MaxId, formFactor: "ATX,mATX,ITX", maxGpuLength: 400, maxCoolerHeight: 175, psuFormFactor: "ATX", driveBays25: 4, driveBays35: 2);
+        AddCaseSpecs(specValues, caseSpecs, montechAir903MaxId, formFactor: "ATX,mATX,ITX", maxGpuLength: 400, maxCoolerHeight: 175, psuFormFactor: "ATX", driveBays25: 4, driveBays35: 2, maxFanSize: 140);
         productImages.Add(new ProductImage { ProductId = montechAir903MaxId, ImageUrl = "https://www.montech.co/wp-content/uploads/2023/05/AIR-903-MAX-Black-1.png" });
 
         // Thermaltake S100 TG
@@ -3318,7 +3446,7 @@ public static class ProductsInitializer
             WarrantyMonth = 24,
             Status = ProductStatus.Available,
         });
-        AddCaseSpecs(specValues, caseSpecs, ttS100TgId, formFactor: "mATX,ITX", maxGpuLength: 330, maxCoolerHeight: 165, psuFormFactor: "ATX", driveBays25: 3, driveBays35: 2);
+        AddCaseSpecs(specValues, caseSpecs, ttS100TgId, formFactor: "mATX,ITX", maxGpuLength: 330, maxCoolerHeight: 165, psuFormFactor: "ATX", driveBays25: 3, driveBays35: 2, maxFanSize: 120);
         productImages.Add(new ProductImage { ProductId = ttS100TgId, ImageUrl = "https://www.thermaltake.com/media/catalog/product/cache/36a91ccfb2a23eaa18b14da3adc33e51/s/1/s100_tg_snow_1.jpg" });
 
         // ============= COMPACT/SFF CASES =============
@@ -3338,11 +3466,11 @@ public static class ProductsInitializer
             WarrantyMonth = 24,
             Status = ProductStatus.Available,
         });
-        AddCaseSpecs(specValues, caseSpecs, jonsboD31MeshId, formFactor: "mATX,ITX", maxGpuLength: 325, maxCoolerHeight: 168, psuFormFactor: "ATX,SFX", driveBays25: 2, driveBays35: 1);
+        AddCaseSpecs(specValues, caseSpecs, jonsboD31MeshId, formFactor: "mATX,ITX", maxGpuLength: 325, maxCoolerHeight: 168, psuFormFactor: "ATX,SFX", driveBays25: 2, driveBays35: 1, maxFanSize: 140);
         productImages.Add(new ProductImage { ProductId = jonsboD31MeshId, ImageUrl = "https://www.jonsbo.com/Public/Uploads/uploadfile/images/20221014/D31%20MESH-01.jpg" });
     }
 
-    private static void AddCaseSpecs(List<ProductSpecValue> specValues, List<SpecDefinition> specs, Guid productId, string formFactor, int maxGpuLength, int maxCoolerHeight, string psuFormFactor, int driveBays25, int driveBays35)
+    private static void AddCaseSpecs(List<ProductSpecValue> specValues, List<SpecDefinition> specs, Guid productId, string formFactor, int maxGpuLength, int maxCoolerHeight, string psuFormFactor, int driveBays25, int driveBays35, int maxFanSize)
     {
         var formFactorSpec = specs.FirstOrDefault(s => s.Code == "case_form_factor");
         if (formFactorSpec != null) specValues.Add(new ProductSpecValue { ProductId = productId, SpecDefinitionId = formFactorSpec.Id, TextValue = formFactor });
@@ -3361,6 +3489,9 @@ public static class ProductsInitializer
 
         var driveBays35Spec = specs.FirstOrDefault(s => s.Code == "case_drive_bays_35");
         if (driveBays35Spec != null) specValues.Add(new ProductSpecValue { ProductId = productId, SpecDefinitionId = driveBays35Spec.Id, NumberValue = driveBays35 });
+
+        var maxFanSizeSpec = specs.FirstOrDefault(s => s.Code == "case_max_fan_size");
+        if (maxFanSizeSpec != null) specValues.Add(new ProductSpecValue { ProductId = productId, SpecDefinitionId = maxFanSizeSpec.Id, NumberValue = maxFanSize });
     }
 
     private static async Task InitCoolerProducts(ApplicationDbContext context, List<ProductSpecValue> specValues, List<ProductImage> productImages)
