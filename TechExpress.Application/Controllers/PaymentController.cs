@@ -127,7 +127,7 @@ namespace TechExpress.Application.Controllers
             }
 
             var init = await _serviceProvider.PaymentService
-                .HandleInitInstallmentOnlinePaymentAsync(installmentId, request.Method, ct);
+                .HandleInitInstallmentOnlinePaymentAsync(installmentId, request.Method, request.ReturnUrl, ct);
 
             var response = ResponseMapper.MapToInitOnlinePaymentResponse(init);
 

@@ -13,4 +13,9 @@ public class InitInstallmentOnlinePaymentRequest
     /// </summary>
     [Required]
     public PaymentMethod Method { get; set; }
+
+    /// <summary>
+    /// URL client muốn nhận kết quả (optional). Nếu null thì backend dùng default return url.
+    /// </summary>
+    public string? ReturnUrl { get; set; }
 }

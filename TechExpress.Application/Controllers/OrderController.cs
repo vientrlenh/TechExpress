@@ -188,39 +188,6 @@ namespace TechExpress.Application.Controllers
             return Ok(ApiResponse<SetPaymentIntentResponse>.OkResponse(response));
         }
 
-        /// <summary>
-        /// Checkout: chọn trả góp (Installment) + tạo schedule theo kỳ.
-        /// </summary>
-        [HttpPut("{orderId:guid}/installment-intent")]
-        [Authorize]
-        [ProducesResponseType(typeof(ApiResponse<SetInstallmentIntentResponse>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> SetInstallmentIntent(
-            [FromRoute] Guid orderId,
-            [FromBody] SetInstallmentIntentRequest request,
-            CancellationToken ct)
-        {
-            var schedule = await _serviceProvider.InstallmentService
-    .HandleCreateInstallmentScheduleAsync(orderId, request.Months, ct);
 
-            if (schedule == null || schedule.Count == 0)
-            {
-                return BadRequest(new ErrorResponse
-                {
-                    StatusCode = StatusCodes.Status400BadRequest,
-                    Message = "Không tạo được lịch trả góp."
-                });
-            }
-
-            var response = ResponseMapper.MapToSetInstallmentIntentResponse(
-                orderId,
-                request.Months,
-                schedule);
-
-            return Ok(ApiResponse<SetInstallmentIntentResponse>.OkResponse(response));
-
-        }
     }
 }

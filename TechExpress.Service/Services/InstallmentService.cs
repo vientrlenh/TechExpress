@@ -43,7 +43,7 @@ namespace TechExpress.Service.Services
             }
 
             // Set intent cho order
-            order.PaidType = PaidType.Installment;
+            order.PaidType = PaidType.Pending;
             order.InstallmentDurationMonth = months;
 
             // ===== Chia tiền: chia đều + dồn dư vào kỳ cuối =====

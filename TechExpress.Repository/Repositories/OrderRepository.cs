@@ -51,6 +51,21 @@ namespace TechExpress.Repository.Repositories
                 order.PaidType = paidType;
         }
 
+        public async Task<List<Order>> FindExpiredUnpaidOrdersWithItemsAsync(
+            DateTimeOffset cutoff,
+            CancellationToken ct = default)
+        {
+            return await _context.Orders
+                .AsNoTracking()
+                .Include(o => o.Items)
+                .Where(o =>
+                    o.Status == OrderStatus.Pending &&
+                    o.OrderDate <= cutoff &&
+                    !_context.Payments.Any(p => p.OrderId == o.Id)
+                )
+                .ToListAsync(ct);
+        }
+
         public Task<int> DeleteExpiredUnpaidOrdersAsync(
             DateTimeOffset now,
             CancellationToken ct = default)
@@ -65,7 +80,16 @@ namespace TechExpress.Repository.Repositories
                     !_context.Payments.Any(p => p.OrderId == o.Id)
                 )
                 .ExecuteDeleteAsync(ct);
-                }
+        }
+
+        public Task<int> DeleteOrdersByIdsAsync(
+            List<Guid> orderIds,
+            CancellationToken ct = default)
+        {
+            return _context.Orders
+                .Where(o => orderIds.Contains(o.Id))
+                .ExecuteDeleteAsync(ct);
+        }
         
 
         public async Task AddOrderAsync(Order order)

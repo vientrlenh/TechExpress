@@ -143,6 +143,7 @@ namespace TechExpress.Service.Services
         public async Task<OnlinePaymentInitResult> HandleInitInstallmentOnlinePaymentAsync(
     Guid installmentId,
     PaymentMethod method,
+    string? returnUrl,
     CancellationToken ct = default)
         {
             if (method != PaymentMethod.PayOs)
@@ -175,12 +176,14 @@ namespace TechExpress.Service.Services
         new ItemData($"Thanh toán trả góp kỳ {installment.Period}", 1, amount)
     };
 
+            var finalReturnUrl = string.IsNullOrWhiteSpace(returnUrl) ? _payOs.ReturnUrl : returnUrl;
+
             var paymentData = new PaymentData(
                 orderCode: orderCode,
                 amount: amount,
                 description: $"Trả góp kỳ {installment.Period}",
                 items: items,
-                returnUrl: _payOs.ReturnUrl,
+                returnUrl: finalReturnUrl,
                 cancelUrl: _payOs.CancelUrl,
                 expiredAt: expiredAt
             );

@@ -317,5 +317,15 @@ namespace TechExpress.Repository.Repositories
                     .SetProperty(p => p.Stock, p => p.Stock - quantity)
                     .SetProperty(p => p.UpdatedAt, DateTimeOffset.Now));
         }
+
+        // Tăng số lượng tồn kho một cách nguyên tử khi hủy đơn hàng.
+        public async Task<int> IncrementStockAtomicAsync(Guid productId, int quantity)
+        {
+            return await _context.Products
+                .Where(p => p.Id == productId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(p => p.Stock, p => p.Stock + quantity)
+                    .SetProperty(p => p.UpdatedAt, DateTimeOffset.Now));
+        }
     }
 }
