@@ -1,4 +1,4 @@
-using Microsoft.Identity.Client;
+﻿using Microsoft.Identity.Client;
 using System;
 using TechExpress.Application.Controllers;
 using TechExpress.Application.Dtos.Responses;
@@ -295,6 +295,14 @@ public class ResponseMapper
             baseDetail.UpdatedAt,
             baseDetail.SpecValues,
             componentResponses
+        );
+    }
+
+    public static PCDetailsWithCompatibilityWarningResponse MapToPCDetailsWithCompatibilityWarningResponse(Product product, List<ComputerComponent> components, List<string>? compatibilityWarning)
+    {
+        return new PCDetailsWithCompatibilityWarningResponse(
+            MapToProductPCDetailResponseFromProduct(product, components),
+            compatibilityWarning
         );
     }
 

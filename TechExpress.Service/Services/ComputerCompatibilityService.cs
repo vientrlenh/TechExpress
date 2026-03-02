@@ -224,7 +224,7 @@ public class ComputerCompatibilityService
         {
             if (!bool.TryParse(mbDualSocketValue, out var mbDualSocket))
             {
-                throw new BadRequestException("Giá trị hiện tại của dual socket của mainboard không hợp lệ để kiểm tra tương thích.");
+                throw new BadRequestException($"Giá trị hiện tại của dual socket của mainboard {mbDualSocketValue} không hợp lệ để kiểm tra tương thích.");
             }
             if (mbDualSocket) return true;
         }
@@ -369,7 +369,7 @@ public class ComputerCompatibilityService
         }
         if (gpuQuantity > mbPciex16Slots)
         {
-            throw new BadRequestException("Số lượng GPU vượt quá số khe cắm Pcie mà mainboard hỗ trợ");
+            throw new BadRequestException($"Số lượng GPU ({gpuQuantity}) vượt quá số khe cắm PCIe x16 mà mainboard hỗ trợ ({mbPciex16Slots}).");
         }
     }
 
@@ -391,7 +391,7 @@ public class ComputerCompatibilityService
         }
         if (cpuSocketValue != mbSocketValue)
         {
-            throw new BadRequestException("Socket của CPU không tương thích với mainboard.");
+            throw new BadRequestException($"Socket của CPU ({cpuSocketValue}) không tương thích với socket của mainboard ({mbSocketValue}).");
         }
     }
 
@@ -408,7 +408,7 @@ public class ComputerCompatibilityService
         var cpuMemTypes = cpuMemTypeValue.Split(",").Select(s => s.Trim());
         if (!cpuMemTypes.Contains(mbMemTypeValue))
         {
-            throw new BadRequestException("Loại bộ nhớ của CPU không tương thích với loại bộ nhớ của mainboard.");
+            throw new BadRequestException($"Loại bộ nhớ CPU hỗ trợ ({cpuMemTypeValue}) không tương thích với loại bộ nhớ của mainboard ({mbMemTypeValue}).");
         }
     }
 
@@ -457,7 +457,7 @@ public class ComputerCompatibilityService
         }
         if (mbMemTypeValue != ramTypeValue)
         {
-            throw new BadRequestException("Loại RAM không tương thích với mainboard.");
+            throw new BadRequestException($"Loại RAM ({ramTypeValue}) không tương thích với loại bộ nhớ mainboard hỗ trợ ({mbMemTypeValue}).");
         }
     }
 
@@ -473,7 +473,7 @@ public class ComputerCompatibilityService
         }
         if (!int.TryParse(mbMemorySlotValue, out var mbMemorySlot))
         {
-            throw new NotFoundException("Thông số số slot bộ nhớ của mainboard hiện tại không phù hợp để kiểm tra tương thích.");
+            throw new NotFoundException("Thông số số slot bộ nhớ của mainboard:  hiện tại không phù hợp để kiểm tra tương thích.");
         }
         if (!int.TryParse(ramStickValue, out var ramStick))
         {
@@ -482,7 +482,7 @@ public class ComputerCompatibilityService
         var totalStick = ramStick * ramRequestedQuantity;
         if (totalStick > mbMemorySlot)
         {
-            throw new BadRequestException("Số lượng thanh RAM yêu cầu vượt quá số khe cắm cho phép của mainboard.");
+            throw new BadRequestException($"Số lượng thanh RAM: {totalStick} yêu cầu vượt quá số khe cắm cho phép của mainboard: {mbMemorySlot}.");
         }
     }
 
@@ -515,7 +515,7 @@ public class ComputerCompatibilityService
         var ramTotalCapacity = ramStick * ramRequestedQuantity * ramCapacity;
         if (ramTotalCapacity > mbMaxMemory)
         {
-            throw new BadRequestException("Dung lượng RAM yêu cầu vượt quá bộ nhớ tối đa của mainboard.");
+            throw new BadRequestException($"Tổng dung lượng RAM ({ramTotalCapacity}GB) vượt quá bộ nhớ tối đa mainboard hỗ trợ ({mbMaxMemory}GB).");
         }
 
     }
@@ -573,11 +573,11 @@ public class ComputerCompatibilityService
         }
         if (totalM2Count > mbM2Slots)
         {
-            throw new BadRequestException("Số lượng ổ cứng M.2 yêu cầu vượt quá số khe M.2 cho phép của mainboard.");
+            throw new BadRequestException($"Số lượng ổ cứng M.2 ({totalM2Count}) vượt quá số khe M.2 mainboard hỗ trợ ({mbM2Slots}).");
         }
         if (totalSataCount > mbSataPorts)
         {
-            throw new BadRequestException("Số lượng ổ cứng SATA và HDD vượt quá số cổng SATA cho phép của mainboard.");
+            throw new BadRequestException($"Số lượng ổ cứng SATA/HDD ({totalSataCount}) vượt quá số cổng SATA mainboard hỗ trợ ({mbSataPorts}).");
         }
 
     }
@@ -595,7 +595,7 @@ public class ComputerCompatibilityService
         var casePsuFormFactors = casePsuFormFactorValue.Split(",").Select(s => s.Trim());
         if (!casePsuFormFactors.Contains(psuFormFactorValue))
         {
-            throw new BadRequestException("Thông số form factor giữa case và PSU không trùng khớp.");
+            throw new BadRequestException($"Form factor của PSU ({psuFormFactorValue}) không được Case hỗ trợ (Case hỗ trợ: {casePsuFormFactorValue}).");
         }
     }
 
@@ -613,7 +613,7 @@ public class ComputerCompatibilityService
         var recommendedPsuWattage = totalTdp + (totalTdp * 0.2);
         if (psuWattage < recommendedPsuWattage)
         {
-            throw new BadRequestException("Số watt cung cấp của PSU không đủ đối với cấu hình hiện tại");
+            throw new BadRequestException($"Công suất PSU ({psuWattage}W) không đủ cho cấu hình hiện tại. Khuyến nghị tối thiểu: {(int)recommendedPsuWattage}W (CPU: {cpuTdp}W + GPU: {totalGpuTdp}W + 20% dự phòng).");
         }
     }
 
@@ -636,7 +636,7 @@ public class ComputerCompatibilityService
         var coolerSocketSupports = coolerSocketSupportValue.Split(",").Select(c => c.Trim());
         if (!coolerSocketSupports.Contains(cpuSocketValue))
         {
-            throw new BadRequestException("Tản nhiệt CPU không đáp ứng được socket của CPU.");
+            throw new BadRequestException($"Tản nhiệt CPU không hỗ trợ socket {cpuSocketValue} (tản nhiệt hỗ trợ: {coolerSocketSupportValue}).");
         }
     }
 
@@ -661,7 +661,7 @@ public class ComputerCompatibilityService
         }
         if (cpuTdp > coolerTdpRating)
         {
-            throw new BadRequestException("Tản nhiệt CPU không đủ tiêu chuẩn cho CPU hiện tại.");
+            throw new BadRequestException($"TDP rating của tản nhiệt CPU ({coolerTdpRating}W) không đủ so với TDP của CPU ({cpuTdp}W).");
         }
     }
 
@@ -685,7 +685,7 @@ public class ComputerCompatibilityService
         }
         if (coolerHeight > caseMaxCoolerHeight)
         {
-            throw new BadRequestException("Tản nhiệt CPU hiện tại có chiều cao quá cao so với chiều cao tối đa của Case.");
+            throw new BadRequestException($"Chiều cao tản nhiệt CPU ({coolerHeight}mm) vượt quá chiều cao tối đa mà Case hỗ trợ ({caseMaxCoolerHeight}mm).");
         }
     }
 
@@ -702,7 +702,7 @@ public class ComputerCompatibilityService
         var caseFormFactors = caseFormFactorValue.Split(",").Select(s => s.Trim());
         if (!caseFormFactors.Contains(mbFormFactorValue))
         {
-            throw new BadRequestException("Form factor của Mainboard không tương thích với Case.");
+            throw new BadRequestException($"Form factor của Mainboard ({mbFormFactorValue}) không được Case hỗ trợ (Case hỗ trợ: {caseFormFactorValue}).");
         }
     }
 
@@ -726,7 +726,7 @@ public class ComputerCompatibilityService
         }
         if (caseMaxGpuLength < gpuLength)
         {
-            throw new BadRequestException("Chiều dài của GPU hiện tại đang vượt quá kích thước so với Case.");
+            throw new BadRequestException($"Chiều dài của GPU ({gpuLength}mm) vượt quá chiều dài tối đa mà Case hỗ trợ ({caseMaxGpuLength}mm).");
         }
     }
     

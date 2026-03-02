@@ -27,11 +27,9 @@ namespace TechExpress.Application.Controllers
         {
             var specValueCmds = RequestMapper.MapToCreateProductSpecValueCommandsFromRequests(request.SpecValues);
 
-            var components = request.Components
-                .Select(c => (c.ComponentProductId, c.Quantity))
-                .ToList();
+            var componentCommands = RequestMapper.MapToAddComputerComponentCommandListFromRequest(request.Components);
 
-            var (product, pcComponents) = await _serviceProvider.ProductPCService.HandleCreateProductPCAsync(
+            var (product, pcComponents, compatibilityWarning) = await _serviceProvider.ProductPCService.HandleCreateProductPCAsync(
                 request.Name.Trim(),
                 request.Sku.Trim(),
                 request.CategoryId,
@@ -41,12 +39,12 @@ namespace TechExpress.Application.Controllers
                 request.Description.Trim(),
                 request.Images,
                 specValueCmds,
-                components
+                componentCommands
             );
 
-            var response = ResponseMapper.MapToProductPCDetailResponseFromProduct(product, pcComponents);
+            var response = ResponseMapper.MapToPCDetailsWithCompatibilityWarningResponse(product, pcComponents, compatibilityWarning);
 
-            return CreatedAtAction(nameof(CreateProductPC), ApiResponse<ProductPCDetailResponse>.CreatedResponse(response));
+            return CreatedAtAction(nameof(CreateProductPC), ApiResponse<PCDetailsWithCompatibilityWarningResponse>.CreatedResponse(response));
         }
     }
 }
