@@ -812,7 +812,7 @@ namespace TechExpress.Repository.Contexts
                 pm.HasIndex(p => p.InstallmentId)
                     .HasDatabaseName("idx_payment_installment");
 
-                pm.HasOne(p => p.Order)
+                pm.HasOne<Order>()
                     .WithMany()
                     .HasForeignKey(p => p.OrderId)
                     .OnDelete(DeleteBehavior.NoAction);

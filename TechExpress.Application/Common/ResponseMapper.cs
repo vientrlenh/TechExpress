@@ -547,13 +547,6 @@ public class ResponseMapper
             Reason = reason
         };
     }
-
-
-
-
-
-
-
     //======================= Map Order Response =======================//
     // Cập nhật từ Oder sang OrderResponse, thêm tham số List<Installment> để ánh xạ danh sách 6-12 kỳ hạn nếu có
     public static OrderResponse MapToOrderResponseFromOrder(Order order, List<Installment>? installments = null)
@@ -599,7 +592,7 @@ public class ResponseMapper
         };
     }
 
-    public static OrderListItemResponse MapToOrderListItemResponseFromOrder(Order order)
+        public static OrderListItemResponse MapToOrderListItemResponseFromOrder(Order order)
     {
         return new OrderListItemResponse
         {
