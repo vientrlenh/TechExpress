@@ -226,16 +226,48 @@ namespace TechExpress.Service.Services
         private async Task<List<Installment>> CreateInstallmentRecords(Order order, int duration)
         {
             var installments = new List<Installment>();
-            decimal monthlyAmount = Math.Round(order.TotalPrice / duration, 0);
+            decimal totalPrice = order.TotalPrice;
+
+            // 1. Tính kỳ đầu tiên: 20% tổng giá trị
+            decimal firstMonthAmount = Math.Round(totalPrice * 0.20m, 0);
+
+            // 2. Số tiền còn lại (80%) và số kỳ còn lại
+            decimal remainingTotal = totalPrice - firstMonthAmount;
+            int remainingPeriods = duration - 1;
+
+            // 3. Số tiền trung bình cho các kỳ sau (làm tròn)
+            decimal monthlyAmountForRest = Math.Round(remainingTotal / remainingPeriods, 0);
+
+            decimal allocatedTotal = 0; // Biến theo dõi tổng tiền đã gán vào các kỳ
 
             for (int i = 1; i <= duration; i++)
             {
+                decimal currentPeriodAmount;
+
+                if (i == 1)
+                {
+                    // Kỳ đầu: 20%
+                    currentPeriodAmount = firstMonthAmount;
+                }
+                else if (i == duration)
+                {
+                    // Kỳ cuối: Lấy tổng trừ đi tất cả các kỳ trước để bù sai số làm tròn (khớp 100%)
+                    currentPeriodAmount = totalPrice - allocatedTotal;
+                }
+                else
+                {
+                    // Các kỳ giữa (từ kỳ 2 đến kỳ sát cuối)
+                    currentPeriodAmount = monthlyAmountForRest;
+                }
+
+                allocatedTotal += currentPeriodAmount;
+
                 var installment = new Installment
                 {
                     Id = Guid.NewGuid(),
                     OrderId = order.Id,
                     Period = i,
-                    Amount = monthlyAmount,
+                    Amount = currentPeriodAmount,
                     Status = InstallmentStatus.Pending,
                     DueDate = DateTimeOffset.Now.AddMonths(i)
                 };
