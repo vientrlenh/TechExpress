@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using TechExpress.Repository.Contexts;
 using TechExpress.Repository.Enums;
@@ -140,6 +141,20 @@ namespace TechExpress.Repository.Repositories
                 .FirstOrDefaultAsync(p => p.Id == id);
         }
 
+        /// <summary>
+        /// Lấy Product theo id. Components lấy riêng qua ComputerComponentRepository (right join).
+        /// </summary>
+        public async Task<Product?> FindByIdIncludeCategoryImagesSpecValuesAsync(Guid id)
+        {
+            return await _context.Products
+                .Include(p => p.Category)
+                .Include(p => p.Images)
+                .Include(p => p.SpecValues)
+                    .ThenInclude(sv => sv.SpecDefinition)
+                .AsSplitQuery()
+                .FirstOrDefaultAsync(p => p.Id == id);
+        }
+
         public async Task<Product?> FindByIdAsync(Guid id)
         {
             return await _context.Products.FirstOrDefaultAsync(p => p.Id == id);
@@ -158,6 +173,26 @@ namespace TechExpress.Repository.Repositories
                 .FirstOrDefaultAsync(p => p.Id == id);
         }
 
+        public async Task<List<Product>> FindByIdsWithTrackingAsync(IEnumerable<Guid> ids)
+        {
+            var idList = ids.ToList();
+            if (idList.Count == 0) return [];
+            return await _context.Products
+                .AsTracking()
+                .Where(p => idList.Contains(p.Id))
+                .ToListAsync();
+        }
+
+        public async Task<List<Product>> FindByIdsIncludeCategoryAsync(IEnumerable<Guid> ids)
+        {
+            var idList = ids.ToList();
+            if (idList.Count == 0) return [];
+            return await _context.Products
+                .AsNoTracking()
+                .Include(p => p.Category)
+                .Where(p => idList.Contains(p.Id))
+                .ToListAsync();
+        }
 
         public async Task<bool> ExistsBySkuExcludingProductIdAsync(string sku, Guid excludeProductId)
         {
@@ -260,7 +295,7 @@ namespace TechExpress.Repository.Repositories
 
             return await ExecutePagedQueryAsync(query, page, pageSize);
         }
-        
+
         private IQueryable<Product> BuildUiFilteredQuery(
             string? search,
             List<Guid>? categoryIds)
@@ -274,7 +309,7 @@ namespace TechExpress.Repository.Repositories
 
             if (categoryIds != null && categoryIds.Count > 0)
                 query = query.Where(p => categoryIds.Contains(p.CategoryId));
-            
+
             if (!string.IsNullOrWhiteSpace(search))
             {
                 var s = search.Trim().ToLower();
@@ -285,6 +320,7 @@ namespace TechExpress.Repository.Repositories
 
             return query;
         }
+
 
 
         public async Task<List<Product>> FindTopSellingProductsAsync(int count)

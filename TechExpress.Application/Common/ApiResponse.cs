@@ -6,7 +6,6 @@
 
         public T? Value { get; set; }
 
-
         public static ApiResponse<T> OkResponse(T value)
         {
             return new ApiResponse<T>

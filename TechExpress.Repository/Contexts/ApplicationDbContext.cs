@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Security.Authentication;
@@ -374,11 +374,6 @@ namespace TechExpress.Repository.Contexts
                     .WithMany()
                     .HasForeignKey(p => p.BrandId)
                     .OnDelete(DeleteBehavior.NoAction);
-
-                pd.ToTable(p => {
-                    p.HasCheckConstraint("ck_product_stock", "[stock] >= 0");
-                    p.HasCheckConstraint("ck_product_price", "[price] > 0.00");
-                });
             });
 
 
@@ -551,11 +546,6 @@ namespace TechExpress.Repository.Contexts
                     .WithMany()
                     .HasForeignKey(c => c.ProductId)
                     .OnDelete(DeleteBehavior.NoAction);
-
-                ci.ToTable(t => {
-                    t.HasCheckConstraint("ck_cart_item_quantity", "[quantity] > 0");
-                    t.HasCheckConstraint("ck_cart_item_unit_price", "[unit_price] >= 0.00");
-                });
             });
 
             // db-schema for ComputerComponent model
@@ -601,10 +591,6 @@ namespace TechExpress.Repository.Contexts
                     .WithMany()
                     .HasForeignKey(c => c.ComponentProductId)
                     .OnDelete(DeleteBehavior.NoAction);
-
-                cc.ToTable(t => {
-                    t.HasCheckConstraint("ck_computer_component_quantity", "[quantity] >= 1");
-                });
             });
 
 
@@ -742,11 +728,6 @@ namespace TechExpress.Repository.Contexts
                     .WithMany()
                     .HasForeignKey(o => o.ProductId)
                     .OnDelete(DeleteBehavior.NoAction);
-
-                oi.ToTable(t => {
-                    t.HasCheckConstraint("ck_order_item_quantity", "[quantity] > 0");
-                    t.HasCheckConstraint("ck_order_item_unit_price", "[unit_price] >= 0.00");
-                });
             });
 
 
@@ -788,10 +769,6 @@ namespace TechExpress.Repository.Contexts
                     .WithMany()
                     .HasForeignKey(i => i.OrderId)
                     .OnDelete(DeleteBehavior.Cascade);
-
-                ins.ToTable(t => {
-                    t.HasCheckConstraint("ck_installment_amount", "[amount] > 0.00");
-                });
             });
 
 
@@ -844,10 +821,6 @@ namespace TechExpress.Repository.Contexts
                     .WithMany()
                     .HasForeignKey(p => p.InstallmentId)
                     .OnDelete(DeleteBehavior.NoAction);
-
-                pm.ToTable(t => {
-                    t.HasCheckConstraint("ck_payment_amount", "[amount] > 0.00");
-                });
             });
 
 
@@ -911,10 +884,6 @@ namespace TechExpress.Repository.Contexts
                     .WithMany()
                     .HasForeignKey(r => r.UserId)
                     .OnDelete(DeleteBehavior.NoAction);
-
-                rv.ToTable(t => {
-                    t.HasCheckConstraint("ck_review_rating", "[rating] BETWEEN 1 AND 5");
-                });
             });
 
 

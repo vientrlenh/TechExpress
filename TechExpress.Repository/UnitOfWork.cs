@@ -17,6 +17,7 @@ namespace TechExpress.Repository
         public BrandRepository BrandRepository { get; }
         public CartRepository CartRepository { get; }
         public CartItemRepository CartItemRepository { get; }
+        public ComputerComponentRepository ComputerComponentRepository { get; }
 
         public OrderRepository OrderRepository { get; }
         public PaymentRepository PaymentRepository { get; }
@@ -35,6 +36,7 @@ namespace TechExpress.Repository
             BrandRepository = new BrandRepository(context);
             CartRepository = new CartRepository(context);
             CartItemRepository = new CartItemRepository(context);
+            ComputerComponentRepository = new ComputerComponentRepository(context);
 
             OrderRepository = new OrderRepository(context);
             PaymentRepository = new PaymentRepository(context);

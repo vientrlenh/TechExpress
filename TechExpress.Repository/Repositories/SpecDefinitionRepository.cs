@@ -118,6 +118,13 @@ public class SpecDefinitionRepository
             .AnyAsync(s => s.Code == code && !s.IsDeleted);
     }
 
+    public async Task<SpecDefinition?> FindByCodeAsync(string code)
+    {
+        return await _context.SpecDefinitions
+            .AsNoTracking()
+            .FirstOrDefaultAsync(s => s.Code == code && !s.IsDeleted);
+    }
+
     public async Task<bool> ExistsByCodeExcludingIdAsync(string code, Guid excludeId)
     {
         return await _context.SpecDefinitions
