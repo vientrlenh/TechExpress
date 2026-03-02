@@ -151,7 +151,7 @@ namespace TechExpress.Service.Services
 
         public async Task HandleResetPassword(string email, string otp, string newPassword, string confirmNewPassword)
         {
-            var user = await _unitOfWork.UserRepository.FindUserByEmailAsync(email) ?? throw new UnauthorizedException("Không tìm thấy người dùng.");
+            var user = await _unitOfWork.UserRepository.FindUserByEmailWithTrackingAsync(email) ?? throw new UnauthorizedException("Không tìm thấy người dùng.");
 
             if (newPassword != confirmNewPassword)
             {
