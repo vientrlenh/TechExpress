@@ -1,4 +1,4 @@
-﻿using Microsoft.Identity.Client;
+using Microsoft.Identity.Client;
 using System;
 using TechExpress.Application.Controllers;
 using TechExpress.Application.Dtos.Responses;
@@ -264,6 +264,40 @@ public class ResponseMapper
         );
     }
 
+    public static ProductPCDetailResponse MapToProductPCDetailResponseFromProduct(Product product, List<ComputerComponent> components)
+    {
+        var baseDetail = MapToProductDetailResponseFromProduct(product);
+
+        var componentResponses = (components ?? [])
+            .OrderBy(c => c.Id)
+            .Select(c => new ProductPCComponentResponse(
+                c.ComponentProductId,
+                c.ComponentProduct?.Name ?? string.Empty,
+                c.ComponentProduct?.Sku ?? string.Empty,
+                c.Quantity
+            ))
+            .ToList();
+
+        return new ProductPCDetailResponse(
+            baseDetail.Id,
+            baseDetail.Name,
+            baseDetail.Sku,
+            baseDetail.CategoryId,
+            baseDetail.BrandId,
+            baseDetail.CategoryName,
+            baseDetail.Price,
+            baseDetail.Stock,
+            baseDetail.WarrantyMonth,
+            baseDetail.Status,
+            baseDetail.Description,
+            baseDetail.ThumbnailUrl,
+            baseDetail.CreatedAt,
+            baseDetail.UpdatedAt,
+            baseDetail.SpecValues,
+            componentResponses
+        );
+    }
+
 
 
 
@@ -520,6 +554,7 @@ public class ResponseMapper
         return new OrderResponse
         {
             Id = order.Id,
+            UserId = order.UserId,
             OrderDate = order.OrderDate,
             Status = order.Status,
             SubTotal = order.SubTotal,
@@ -533,6 +568,8 @@ public class ResponseMapper
             ShippingAddress = order.ShippingAddress,
             TrackingPhone = order.TrackingPhone,
             Notes = order.Notes,
+            ReceiverIdentityCard = order.ReceiverIdentityCard,
+            InstallmentDurationMonth = order.InstallmentDurationMonth,
             Items = order.Items.Select(oi => new OrderItemResponse
             {
                 Id = oi.Id,

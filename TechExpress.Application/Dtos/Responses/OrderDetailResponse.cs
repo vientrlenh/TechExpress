@@ -1,8 +1,21 @@
-﻿using TechExpress.Repository.Enums;
+using TechExpress.Application.Dtos.Responses;
+using TechExpress.Repository.Enums;
 
 namespace TechExpress.Application.DTOs.Responses
 {
-    public class OrderResponse
+    public class OrderItemDetailResponse
+    {
+        public long Id { get; set; }
+        public Guid ProductId { get; set; }
+        public int Quantity { get; set; }
+        public decimal UnitPrice { get; set; }
+        public decimal TotalPrice => Quantity * UnitPrice;
+
+        // Product basic info
+        public ProductListResponse? Product { get; set; }
+    }
+
+    public class OrderDetailResponse
     {
         public Guid Id { get; set; }
         public Guid? UserId { get; set; }
@@ -21,10 +34,10 @@ namespace TechExpress.Application.DTOs.Responses
         public string? Notes { get; set; }
         public string? ReceiverIdentityCard { get; set; }
         public int? InstallmentDurationMonth { get; set; }
-        public ICollection<OrderItemResponse> Items { get; set; } = [];
 
+        public ICollection<OrderItemDetailResponse> Items { get; set; } = [];
         public ICollection<InstallmentResponse> Installments { get; set; } = [];
-
- 
+        public ICollection<PaymentResponse> Payments { get; set; } = [];
     }
 }
+

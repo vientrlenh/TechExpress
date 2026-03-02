@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using TechExpress.Repository.Contexts;
 using TechExpress.Repository.Enums;
@@ -21,7 +22,8 @@ namespace TechExpress.Repository.Repositories
         private IQueryable<Product> BuildFilteredQuery(
             string? search,
             List<Guid>? categoryIds,
-            ProductStatus? status)
+            ProductStatus? status,
+            Guid? brandId = null)
         {
             var query = _context.Products
                 .AsNoTracking()
@@ -31,6 +33,9 @@ namespace TechExpress.Repository.Repositories
 
             if (categoryIds != null && categoryIds.Count > 0)
                 query = query.Where(p => categoryIds.Contains(p.CategoryId));
+
+            if (brandId.HasValue)
+                query = query.Where(p => p.BrandId == brandId.Value);
 
             if (status.HasValue)
                 query = query.Where(p => p.Status == status.Value);
@@ -66,9 +71,9 @@ namespace TechExpress.Repository.Repositories
         }
 
         public async Task<(List<Product> Products, int TotalCount)> FindProductsPagedSortByPriceAsync(
-    int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds, ProductStatus? status)
+    int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds, ProductStatus? status, Guid? brandId = null)
         {
-            var query = BuildFilteredQuery(search, categoryIds, status);
+            var query = BuildFilteredQuery(search, categoryIds, status, brandId);
 
             query = isDescending ? query.OrderByDescending(p => p.Price) : query.OrderBy(p => p.Price);
 
@@ -79,9 +84,9 @@ namespace TechExpress.Repository.Repositories
 
 
         public async Task<(List<Product> Products, int TotalCount)> FindProductsPagedSortByCreatedAtAsync(
-    int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds, ProductStatus? status)
+    int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds, ProductStatus? status, Guid? brandId = null)
         {
-            var query = BuildFilteredQuery(search, categoryIds, status);
+            var query = BuildFilteredQuery(search, categoryIds, status, brandId);
 
             query = isDescending ? query.OrderByDescending(p => p.CreatedAt) : query.OrderBy(p => p.CreatedAt);
 
@@ -91,9 +96,9 @@ namespace TechExpress.Repository.Repositories
 
 
         public async Task<(List<Product> Products, int TotalCount)> FindProductsPagedSortByStockQtyAsync(
-    int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds, ProductStatus? status)
+    int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds, ProductStatus? status, Guid? brandId = null)
         {
-            var query = BuildFilteredQuery(search, categoryIds, status);
+            var query = BuildFilteredQuery(search, categoryIds, status, brandId);
 
             query = isDescending ? query.OrderByDescending(p => p.Stock) : query.OrderBy(p => p.Stock);
 
@@ -103,9 +108,9 @@ namespace TechExpress.Repository.Repositories
 
 
         public async Task<(List<Product> Products, int TotalCount)> FindProductsPagedSortByUpdatedAtAsync(
-    int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds, ProductStatus? status)
+    int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds, ProductStatus? status, Guid? brandId = null)
         {
-            var query = BuildFilteredQuery(search, categoryIds, status);
+            var query = BuildFilteredQuery(search, categoryIds, status, brandId);
 
             query = isDescending ? query.OrderByDescending(p => p.UpdatedAt) : query.OrderBy(p => p.UpdatedAt);
 
@@ -136,6 +141,20 @@ namespace TechExpress.Repository.Repositories
                 .FirstOrDefaultAsync(p => p.Id == id);
         }
 
+        /// <summary>
+        /// Lấy Product theo id. Components lấy riêng qua ComputerComponentRepository (right join).
+        /// </summary>
+        public async Task<Product?> FindByIdIncludeCategoryImagesSpecValuesAsync(Guid id)
+        {
+            return await _context.Products
+                .Include(p => p.Category)
+                .Include(p => p.Images)
+                .Include(p => p.SpecValues)
+                    .ThenInclude(sv => sv.SpecDefinition)
+                .AsSplitQuery()
+                .FirstOrDefaultAsync(p => p.Id == id);
+        }
+
         public async Task<Product?> FindByIdAsync(Guid id)
         {
             return await _context.Products.FirstOrDefaultAsync(p => p.Id == id);
@@ -154,6 +173,26 @@ namespace TechExpress.Repository.Repositories
                 .FirstOrDefaultAsync(p => p.Id == id);
         }
 
+        public async Task<List<Product>> FindByIdsWithTrackingAsync(IEnumerable<Guid> ids)
+        {
+            var idList = ids.ToList();
+            if (idList.Count == 0) return [];
+            return await _context.Products
+                .AsTracking()
+                .Where(p => idList.Contains(p.Id))
+                .ToListAsync();
+        }
+
+        public async Task<List<Product>> FindByIdsIncludeCategoryAsync(IEnumerable<Guid> ids)
+        {
+            var idList = ids.ToList();
+            if (idList.Count == 0) return [];
+            return await _context.Products
+                .AsNoTracking()
+                .Include(p => p.Category)
+                .Where(p => idList.Contains(p.Id))
+                .ToListAsync();
+        }
 
         public async Task<bool> ExistsBySkuExcludingProductIdAsync(string sku, Guid excludeProductId)
         {
@@ -256,7 +295,7 @@ namespace TechExpress.Repository.Repositories
 
             return await ExecutePagedQueryAsync(query, page, pageSize);
         }
-        
+
         private IQueryable<Product> BuildUiFilteredQuery(
             string? search,
             List<Guid>? categoryIds)
@@ -270,7 +309,7 @@ namespace TechExpress.Repository.Repositories
 
             if (categoryIds != null && categoryIds.Count > 0)
                 query = query.Where(p => categoryIds.Contains(p.CategoryId));
-            
+
             if (!string.IsNullOrWhiteSpace(search))
             {
                 var s = search.Trim().ToLower();
@@ -281,6 +320,7 @@ namespace TechExpress.Repository.Repositories
 
             return query;
         }
+
 
 
         public async Task<List<Product>> FindTopSellingProductsAsync(int count)

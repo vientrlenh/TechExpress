@@ -29,7 +29,8 @@ public class BrandRepository
         int pageSize,
         string? searchName,
         DateTimeOffset? createdFrom,
-        DateTimeOffset? createdTo)
+        DateTimeOffset? createdTo,
+        Guid? categoryId = null)
     {
         var query = _context.Brands
             .AsNoTracking();
@@ -48,6 +49,14 @@ public class BrandRepository
         if (createdTo.HasValue)
         {
             query = query.Where(b => b.CreatedAt <= createdTo.Value);
+        }
+
+        if (categoryId.HasValue)
+        {
+            query = query.Where(b => _context.BrandCategories
+                .Where(bc => bc.CategoryId == categoryId.Value)
+                .Select(bc => bc.BrandId)
+                .Contains(b.Id));
         }
 
         var totalCount = await query.CountAsync();

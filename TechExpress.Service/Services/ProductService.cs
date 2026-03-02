@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -41,7 +41,8 @@ namespace TechExpress.Service.Services
     SortDirection sortDirection,
     string? search,
     Guid? categoryId,
-    ProductStatus? status)
+    ProductStatus? status,
+    Guid? brandId = null)
         {
             if (page < 1) page = 1;
             if (pageSize < 1 || pageSize > 100) pageSize = 20;
@@ -61,16 +62,16 @@ namespace TechExpress.Service.Services
             var (products, totalCount) = sortBy switch
             {
                 ProductSortBy.Price => await _unitOfWork.ProductRepository
-                    .FindProductsPagedSortByPriceAsync(page, pageSize, isDescending, search, categoryIds, status),
+                    .FindProductsPagedSortByPriceAsync(page, pageSize, isDescending, search, categoryIds, status, brandId),
 
                 ProductSortBy.CreatedAt => await _unitOfWork.ProductRepository
-                    .FindProductsPagedSortByCreatedAtAsync(page, pageSize, isDescending, search, categoryIds, status),
+                    .FindProductsPagedSortByCreatedAtAsync(page, pageSize, isDescending, search, categoryIds, status, brandId),
 
                 ProductSortBy.StockQty => await _unitOfWork.ProductRepository
-                    .FindProductsPagedSortByStockQtyAsync(page, pageSize, isDescending, search, categoryIds, status),
+                    .FindProductsPagedSortByStockQtyAsync(page, pageSize, isDescending, search, categoryIds, status, brandId),
 
                 _ => await _unitOfWork.ProductRepository
-                    .FindProductsPagedSortByUpdatedAtAsync(page, pageSize, isDescending, search, categoryIds, status)
+                    .FindProductsPagedSortByUpdatedAtAsync(page, pageSize, isDescending, search, categoryIds, status, brandId)
             };
 
             return new Pagination<Product>
@@ -94,27 +95,38 @@ namespace TechExpress.Service.Services
               List<string> imageUrls,
               List<CreateProductSpecValueCommand> specValueCommands)
         {
+            var product = await PrepareAndAddProductAsync(name, sku, categoryId, brandId, price, stockQty, warrantyMonth, description, imageUrls, specValueCommands);
+            await _unitOfWork.SaveChangesAsync();
+            product = await _unitOfWork.ProductRepository.FindByIdIncludeCategoryAndImagesAndSpecValuesThenIncludeSpecDefinitionWithSplitQueryAsync(product.Id) ?? throw new NotFoundException($"Không tìm thấy sản phẩm đã tạo xong");
+            return product;
+        }
 
-            //check availablity
+
+        public async Task<Product> PrepareAndAddProductAsync(
+              string name,
+              string sku,
+              Guid categoryId,
+              Guid brandId,
+              decimal price,
+              int stockQty,
+              int warrantyMonth,
+              string description,
+              List<string> imageUrls,
+              List<CreateProductSpecValueCommand> specValueCommands)
+        {
             if (await _unitOfWork.ProductRepository.ExistsBySkuAsync(sku))
                 throw new BadRequestException("Mã định danh đã được sử dụng.");
 
             if (await _unitOfWork.ProductRepository.ExistsByNameAsync(name))
-            {
                 throw new BadRequestException("Tên sản phẩm đã được sử dụng.");
-            }
 
             if (!await _unitOfWork.BrandRepository.ExistsByIdAsync(brandId))
-            {
                 throw new BadRequestException("Không tìm thấy thương hiệu.");
-            }
-
 
             var category = await _unitOfWork.CategoryRepository.FindCategoryByIdAsync(categoryId);
             if (category == null || category.IsDeleted)
                 throw new NotFoundException("Không tìm thấy danh mục.");
 
-            // Create product 
             var product = new Product
             {
                 Id = Guid.NewGuid(),
@@ -129,7 +141,6 @@ namespace TechExpress.Service.Services
                 Description = description
             };
 
-            // Images (URLs)
             if (imageUrls.Count > 0)
             {
                 foreach (var imageUrl in imageUrls)
@@ -142,16 +153,12 @@ namespace TechExpress.Service.Services
                 }
             }
 
-            // SpecValues
             if (specValueCommands.Count > 0)
             {
                 await BuildNewProductSpecValues(categoryId, specValueCommands, product, false);
             }
+
             await _unitOfWork.ProductRepository.AddProductAsync(product);
-            await _unitOfWork.SaveChangesAsync();;
-
-            product = await _unitOfWork.ProductRepository.FindByIdIncludeCategoryAndImagesAndSpecValuesThenIncludeSpecDefinitionWithSplitQueryAsync(product.Id) ?? throw new NotFoundException($"Không tìm thấy sản phẩm đã tạo xong");
-
             return product;
         }
 
@@ -332,6 +339,19 @@ namespace TechExpress.Service.Services
             var product = await _unitOfWork.ProductRepository
                 .FindByIdWithNoTrackingAsync(productId)
                 ?? throw new NotFoundException("Không tìm thấy sản phẩm.");
+
+            var components = await _unitOfWork.ComputerComponentRepository
+                .FindByComputerProductIdWithComponentProductTrackingAsync(productId);
+
+            if (components.Count > 0)
+            {
+                foreach (var component in components)
+                {
+                    var qtyToRestore = component.Quantity * product.Stock;
+                    component.ComponentProduct.Stock += qtyToRestore;
+                    component.ComponentProduct.UpdatedAt = DateTimeOffset.Now;
+                }
+            }
 
             try
             {
