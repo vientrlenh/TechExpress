@@ -40,7 +40,8 @@ public class BrandService
         int pageSize = 20,
         string? searchName = null,
         DateTimeOffset? createdFrom = null,
-        DateTimeOffset? createdTo = null)
+        DateTimeOffset? createdTo = null,
+        Guid? categoryId = null)
     {
         if (pageNumber < 1) pageNumber = 1;
         if (pageSize < 1 || pageSize > 100) pageSize = 20;
@@ -50,7 +51,8 @@ public class BrandService
             pageSize,
             searchName,
             createdFrom,
-            createdTo);
+            createdTo,
+            categoryId);
 
         return new Pagination<Brand>
         {

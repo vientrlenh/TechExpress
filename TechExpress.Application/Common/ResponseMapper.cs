@@ -1,4 +1,4 @@
-﻿using Microsoft.Identity.Client;
+using Microsoft.Identity.Client;
 using System;
 using TechExpress.Application.Controllers;
 using TechExpress.Application.Dtos.Responses;
@@ -261,6 +261,40 @@ public class ResponseMapper
             product.CreatedAt,
             product.UpdatedAt,
             specResponses
+        );
+    }
+
+    public static ProductPCDetailResponse MapToProductPCDetailResponseFromProduct(Product product, List<ComputerComponent> components)
+    {
+        var baseDetail = MapToProductDetailResponseFromProduct(product);
+
+        var componentResponses = (components ?? [])
+            .OrderBy(c => c.Id)
+            .Select(c => new ProductPCComponentResponse(
+                c.ComponentProductId,
+                c.ComponentProduct?.Name ?? string.Empty,
+                c.ComponentProduct?.Sku ?? string.Empty,
+                c.Quantity
+            ))
+            .ToList();
+
+        return new ProductPCDetailResponse(
+            baseDetail.Id,
+            baseDetail.Name,
+            baseDetail.Sku,
+            baseDetail.CategoryId,
+            baseDetail.BrandId,
+            baseDetail.CategoryName,
+            baseDetail.Price,
+            baseDetail.Stock,
+            baseDetail.WarrantyMonth,
+            baseDetail.Status,
+            baseDetail.Description,
+            baseDetail.ThumbnailUrl,
+            baseDetail.CreatedAt,
+            baseDetail.UpdatedAt,
+            baseDetail.SpecValues,
+            componentResponses
         );
     }
 
@@ -527,6 +561,7 @@ public class ResponseMapper
         return new OrderResponse
         {
             Id = order.Id,
+            UserId = order.UserId,
             OrderDate = order.OrderDate,
             Status = order.Status,
             SubTotal = order.SubTotal,
@@ -540,6 +575,8 @@ public class ResponseMapper
             ShippingAddress = order.ShippingAddress,
             TrackingPhone = order.TrackingPhone,
             Notes = order.Notes,
+            ReceiverIdentityCard = order.ReceiverIdentityCard,
+            InstallmentDurationMonth = order.InstallmentDurationMonth,
             Items = order.Items.Select(oi => new OrderItemResponse
             {
                 Id = oi.Id,
@@ -554,6 +591,7 @@ public class ResponseMapper
             {
                 Id = i.Id,
                 Period = i.Period,
+                OrderId = i.OrderId,
                 Amount = i.Amount,
                 Status = i.Status,
                 DueDate = i.DueDate
@@ -561,52 +599,13 @@ public class ResponseMapper
         };
     }
 
-    //======================= Map Customer Order Responses =======================//
-
-    private static string BuildOrderCode(Guid orderId)
-        => "ORD-" + orderId.ToString("N")[..8].ToUpper();
-
-    public static CustomerOrderListItemResponse MapToCustomerOrderListItemResponse(Order order)
+    public static OrderListItemResponse MapToOrderListItemResponseFromOrder(Order order)
     {
-        var latestPayment = order.Payments
-            .OrderByDescending(p => p.PaymentDate)
-            .FirstOrDefault();
-
-        return new CustomerOrderListItemResponse
+        return new OrderListItemResponse
         {
             Id = order.Id,
-            OrderCode = BuildOrderCode(order.Id),
-            TotalAmount = order.TotalPrice,
-            PaymentStatus = latestPayment?.Status,
-            OrderStatus = order.Status,
-            PaymentMethod = latestPayment?.Method,
-            CreatedAt = order.OrderDate
-        };
-    }
-
-    public static Pagination<CustomerOrderListItemResponse> MapToCustomerOrderListResponsePagination(
-        Pagination<Order> orderPagination)
-    {
-        return new Pagination<CustomerOrderListItemResponse>
-        {
-            Items = orderPagination.Items.Select(MapToCustomerOrderListItemResponse).ToList(),
-            PageNumber = orderPagination.PageNumber,
-            PageSize = orderPagination.PageSize,
-            TotalCount = orderPagination.TotalCount
-        };
-    }
-
-    public static CustomerOrderDetailResponse MapToCustomerOrderDetailResponse(Order order)
-    {
-        var latestPayment = order.Payments
-            .OrderByDescending(p => p.PaymentDate)
-            .FirstOrDefault();
-
-        return new CustomerOrderDetailResponse
-        {
-            Id = order.Id,
-            OrderCode = BuildOrderCode(order.Id),
-            CreatedAt = order.OrderDate,
+            UserId = order.UserId,
+            OrderDate = order.OrderDate,
             Status = order.Status,
             SubTotal = order.SubTotal,
             ShippingCost = order.ShippingCost,
@@ -619,61 +618,96 @@ public class ResponseMapper
             ShippingAddress = order.ShippingAddress,
             TrackingPhone = order.TrackingPhone,
             Notes = order.Notes,
-            LatestPaymentStatus = latestPayment?.Status,
-            LatestPaymentMethod = latestPayment?.Method,
-            Items = order.Items.Select(oi => new OrderItemResponse
+            ReceiverIdentityCard = order.ReceiverIdentityCard,
+            InstallmentDurationMonth = order.InstallmentDurationMonth
+        };
+    }
+
+    public static OrderDetailResponse MapToOrderDetailResponseFromOrder(
+        Order order,
+        List<Installment>? installments,
+        List<Payment>? payments)
+    {
+        return new OrderDetailResponse
+        {
+            Id = order.Id,
+            UserId = order.UserId,
+            OrderDate = order.OrderDate,
+            Status = order.Status,
+            SubTotal = order.SubTotal,
+            ShippingCost = order.ShippingCost,
+            Tax = order.Tax,
+            TotalPrice = order.TotalPrice,
+            DeliveryType = order.DeliveryType,
+            PaidType = order.PaidType,
+            ReceiverFullName = order.ReceiverFullName,
+            ReceiverEmail = order.ReceiverEmail,
+            ShippingAddress = order.ShippingAddress,
+            TrackingPhone = order.TrackingPhone,
+            Notes = order.Notes,
+            ReceiverIdentityCard = order.ReceiverIdentityCard,
+            InstallmentDurationMonth = order.InstallmentDurationMonth,
+
+            Items = order.Items.Select(oi =>
             {
-                Id = oi.Id,
-                ProductId = oi.ProductId,
-                ProductName = oi.Product?.Name ?? "Sản phẩm không xác định",
-                Quantity = oi.Quantity,
-                UnitPrice = oi.UnitPrice
+                ProductListResponse? product = null;
+                if (oi.Product != null)
+                {
+                    var firstImageUrl = oi.Product.Images
+                        .OrderBy(i => i.Id)
+                        .Select(i => i.ImageUrl)
+                        .FirstOrDefault();
+
+                    product = new ProductListResponse(
+                        oi.Product.Id,
+                        oi.Product.Name,
+                        oi.Product.Sku,
+                        oi.Product.CategoryId,
+                        oi.Product.BrandId,
+                        oi.Product.Category?.Name ?? string.Empty,
+                        oi.Product.Price,
+                        oi.Product.Stock,
+                        oi.Product.WarrantyMonth,
+                        oi.Product.Status,
+                        firstImageUrl,
+                        oi.Product.CreatedAt,
+                        oi.Product.UpdatedAt
+                    );
+                }
+
+                return new OrderItemDetailResponse
+                {
+                    Id = oi.Id,
+                    ProductId = oi.ProductId,
+                    Quantity = oi.Quantity,
+                    UnitPrice = oi.UnitPrice,
+                    Product = product
+                };
             }).ToList(),
-            Payments = order.Payments
-                .OrderByDescending(p => p.PaymentDate)
-                .Select(p => new PaymentSummaryResponse
-                {
-                    Id = p.Id,
-                    Amount = p.Amount,
-                    Method = p.Method,
-                    Status = p.Status,
-                    PaymentDate = p.PaymentDate
-                }).ToList()
+
+            Installments = installments == null
+                ? new List<InstallmentResponse>()
+                : MapToInstallmentResponseListFromInstallmentList(installments),
+
+            Payments = payments == null
+                ? new List<PaymentResponse>()
+                : MapToPaymentResponseListFromPaymentList(payments)
         };
     }
 
-    //======================= Map Review Responses =======================//
-
-    public static ReviewResponse MapToReviewResponse(Review review)
+    public static Pagination<OrderListItemResponse> MapToOrderListResponsePaginationFromOrderPagination(
+        Pagination<Order> orderPagination)
     {
-        return new ReviewResponse
-        {
-            Id = review.Id,
-            ProductId = review.ProductId,
-            UserId = review.UserId,
-            FullName = review.FullName,
-            Comment = review.Comment,
-            Rating = review.Rating,
-            Medias = review.Medias
-                .Select(m => new ReviewMediaResponse
-                {
-                    Id = m.Id,
-                    MediaUrl = m.MediaUrl,
-                    CreatedAt = m.CreatedAt
-                }).ToList(),
-            CreatedAt = review.CreatedAt,
-            UpdatedAt = review.UpdatedAt
-        };
-    }
+        var orderResponses = orderPagination.Items
+            .Select(order => MapToOrderListItemResponseFromOrder(order))
+            .ToList();
 
-    public static Pagination<ReviewResponse> MapToReviewResponsePagination(Pagination<Review> reviewPagination)
-    {
-        return new Pagination<ReviewResponse>
+        return new Pagination<OrderListItemResponse>
         {
-            Items = reviewPagination.Items.Select(MapToReviewResponse).ToList(),
-            PageNumber = reviewPagination.PageNumber,
-            PageSize = reviewPagination.PageSize,
-            TotalCount = reviewPagination.TotalCount
+            Items = orderResponses,
+            PageNumber = orderPagination.PageNumber,
+            PageSize = orderPagination.PageSize,
+            TotalCount = orderPagination.TotalCount
         };
     }
 }
