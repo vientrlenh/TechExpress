@@ -1,4 +1,3 @@
-using System;
 using TechExpress.Repository.Enums;
 
 namespace TechExpress.Repository.Models;
@@ -20,6 +19,8 @@ public class Order
     public required decimal Tax { get; set; }
 
     public required decimal TotalPrice { get; set; }
+
+    public decimal DiscountAmount { get; set; }
 
     public string? ReceiverEmail { get; set; }
 
