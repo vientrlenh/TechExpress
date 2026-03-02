@@ -95,7 +95,8 @@ builder.Services.AddScoped<ApplicationDbContext>();
 builder.Services.AddScoped<UnitOfWork>();
 
 builder.Services.AddScoped<SmtpEmailSender>();
-builder.Services.AddScoped<PayOsClient>();     
+builder.Services.AddScoped<PayOsClient>();
+builder.Services.AddScoped<GoogleAuthUtils>();
 
 
 

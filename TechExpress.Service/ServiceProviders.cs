@@ -32,9 +32,9 @@ namespace TechExpress.Service
         public ComputerCompatibilityService ComputerCompatibilityService { get; }
 
 
-        public ServiceProviders(UnitOfWork unitOfWork, PayOsClient payOsClient,RedisUtils redisUtils, SmtpEmailSender emailSender, JwtUtils jwtUtils, UserContext userContext, OtpUtils otpUtils, IConnectionMultiplexer redis)
+        public ServiceProviders(UnitOfWork unitOfWork, PayOsClient payOsClient, RedisUtils redisUtils, SmtpEmailSender emailSender, JwtUtils jwtUtils, UserContext userContext, OtpUtils otpUtils, GoogleAuthUtils googleAuthUtils, IConnectionMultiplexer redis)
         {
-            AuthService = new AuthService(unitOfWork, jwtUtils, userContext, otpUtils, emailSender);
+            AuthService = new AuthService(unitOfWork, jwtUtils, userContext, otpUtils, emailSender, googleAuthUtils);
             UserService = new UserService(unitOfWork, userContext, redis);
             ProductService = new ProductService(unitOfWork);
             PCComponentCompatibilityService = new PCComponentCompatibilityService(unitOfWork);

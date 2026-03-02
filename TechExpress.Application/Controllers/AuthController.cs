@@ -96,5 +96,67 @@ namespace TechExpress.Application.Controllers
             var response = await _serviceProvider.AuthService.HandleRefreshNewToken(request.RefreshToken);
             return Ok(ApiResponse<string>.OkResponse(response));
         }
+
+        /// <summary>
+        /// Lấy URL đăng nhập Google
+        /// </summary>
+        [HttpGet("google-login")]
+        public IActionResult GetGoogleLoginUrl([FromQuery] string? redirectUri = null)
+        {
+            var callbackUrl = redirectUri ?? "https://localhost:7194/api/auth/google-callback";
+            
+            var googleAuthUtils = new TechExpress.Service.Utils.GoogleAuthUtils(HttpContext.RequestServices.GetRequiredService<IConfiguration>());
+            var loginUrl = googleAuthUtils.GetGoogleAuthUrl(callbackUrl);
+
+            return Ok(ApiResponse<string>.OkResponse(loginUrl));
+        }
+
+        /// <summary>
+        /// Callback từ Google OAuth
+        /// </summary>
+        [ApiExplorerSettings(IgnoreApi = true)]
+        [HttpGet("google-callback")]
+        public async Task<IActionResult> GoogleCallback(
+            [FromQuery] string? code,
+            [FromQuery] string? state,
+            [FromQuery] string? error,
+            [FromQuery] string? redirectUri = null)
+        {
+            if (!string.IsNullOrEmpty(error))
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    StatusCode = StatusCodes.Status400BadRequest,
+                    Message = $"Google login error: {error}"
+                });
+            }
+
+            if (string.IsNullOrEmpty(code))
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    StatusCode = StatusCodes.Status400BadRequest,
+                    Message = "Authorization code not found"
+                });
+            }
+
+            try
+            {
+                var callbackUrl = redirectUri ?? "https://localhost:7194/api/auth/google-callback";
+                var (user, accessToken, refreshToken) = await _serviceProvider.AuthService.HandleGoogleCallbackAsync(code, callbackUrl);
+
+                var response = ResponseMapper.MapToAuthResponse(accessToken, refreshToken, user);
+
+                return Ok(ApiResponse<AuthResponse>.OkResponse(response));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    StatusCode = StatusCodes.Status400BadRequest,
+                    Message = ex.Message
+                });
+            }
+        }
     }
 }
