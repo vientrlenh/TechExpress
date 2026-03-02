@@ -8,6 +8,9 @@ using TechExpress.Application.Dtos.Responses;
 using TechExpress.Application.DTOs.Requests;
 using TechExpress.Application.DTOs.Responses;
 using TechExpress.Service;
+using TechExpress.Service.Contexts;
+using TechExpress.Service.Utils;
+using TechExpress.Repository.Enums;
 
 namespace TechExpress.Application.Controllers
 {
@@ -16,10 +19,66 @@ namespace TechExpress.Application.Controllers
     public class OrderController : ControllerBase
     {
         private readonly ServiceProviders _serviceProvider;
+        private readonly UserContext _userContext;
 
-        public OrderController(ServiceProviders serviceProviders)
+        public OrderController(ServiceProviders serviceProviders, UserContext userContext)
         {
             _serviceProvider = serviceProviders;
+            _userContext = userContext;
+        }
+
+        /// <summary>
+        /// Danh sách OrderStatus để FE render combo box filter.
+        /// </summary>
+        [HttpGet("status-options")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(ApiResponse<List<EnumOptionResponse>>), StatusCodes.Status200OK)]
+        public IActionResult GetOrderStatusOptions()
+        {
+            var values = Enum.GetValues(typeof(OrderStatus))
+                .Cast<OrderStatus>()
+                .Select(s => new EnumOptionResponse
+                {
+                    Value = (int)s,
+                    Name = s.ToString()
+                })
+                .ToList();
+
+            return Ok(ApiResponse<List<EnumOptionResponse>>.OkResponse(values));
+        }
+
+        /// <summary>
+        /// Lấy danh sách đơn hàng với search, filter và sort
+        /// </summary>
+        [HttpGet]
+
+        [ProducesResponseType(typeof(ApiResponse<Pagination<OrderListItemResponse>>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> GetOrderList([FromQuery] OrderFilterRequest request)
+        {
+            if (request.Page < 1)
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    StatusCode = StatusCodes.Status400BadRequest,
+                    Message = "Page must be greater than 0"
+                });
+            }
+
+            var orderPagination = await _serviceProvider.OrderService
+                .HandleGetOrderListWithPaginationAsync(
+                    request.Page,
+                    request.PageSize,
+                    request.SortBy,
+                    request.SortDirection,
+                    request.Search,
+                    request.Status
+                );
+
+            var response = ResponseMapper
+                .MapToOrderListResponsePaginationFromOrderPagination(orderPagination);
+
+            return Ok(ApiResponse<Pagination<OrderListItemResponse>>.OkResponse(response));
         }
 
         /// <summary>
@@ -77,7 +136,7 @@ namespace TechExpress.Application.Controllers
         {
             try
             {
-                var userId = _serviceProvider.UserContext.GetCurrentAuthenticatedUserId();
+                var userId = _userContext.GetCurrentAuthenticatedUserId();
 
                 // Nhận kết quả dạng Tuple (order, danh sách installments)
                 var (order, installments) = await _serviceProvider.OrderService.HandleMemberCheckoutAsync(
@@ -189,5 +248,21 @@ namespace TechExpress.Application.Controllers
         }
 
 
+
+        /// <summary>
+        /// Lấy chi tiết đơn hàng: đầy đủ thuộc tính Order
+        /// </summary>
+        [HttpGet("getOrderDetail/{orderId:guid}")]
+        [ProducesResponseType(typeof(ApiResponse<OrderDetailResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetOrderDetail([FromRoute] Guid orderId, CancellationToken ct)
+        {
+            var (order, installments, payments) = await _serviceProvider.OrderService
+                .HandleGetOrderDetailAsync(orderId);
+
+            var response = ResponseMapper.MapToOrderDetailResponseFromOrder(order, installments, payments);
+            return Ok(ApiResponse<OrderDetailResponse>.OkResponse(response));
+        }
     }
 }

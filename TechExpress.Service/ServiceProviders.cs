@@ -21,19 +21,23 @@ namespace TechExpress.Service
         public SpecDefinitionService SpecDefinitionService { get; }
         public BrandService BrandService { get; }
         public ProductService ProductService { get; }
+        public ProductPCService ProductPCService { get; }
+        public PCComponentCompatibilityService PCComponentCompatibilityService { get; }
         public CategoryService CategoryService { get; }
         public CartService CartService { get; }
         public PaymentService PaymentService { get; }
         public InstallmentService InstallmentService { get; }
         public OrderService OrderService { get; }
+        public ComputerCompatibilityService ComputerCompatibilityService { get; }
 
-        public UserContext UserContext { get; }
 
-        public ServiceProviders(UnitOfWork unitOfWork, PayOsClient payOsClient,RedisUtils redisUtils, SmtpEmailSender emailSender, JwtUtils jwtUtils, UserContext userContext, OtpUtils otpUtils, IConnectionMultiplexer redis, IHubContext<CartHub> cartHubContext)
+        public ServiceProviders(UnitOfWork unitOfWork, PayOsClient payOsClient,RedisUtils redisUtils, SmtpEmailSender emailSender, JwtUtils jwtUtils, UserContext userContext, OtpUtils otpUtils, IConnectionMultiplexer redis)
         {
             AuthService = new AuthService(unitOfWork, jwtUtils, userContext, otpUtils, emailSender);
             UserService = new UserService(unitOfWork, userContext, redis);
             ProductService = new ProductService(unitOfWork);
+            PCComponentCompatibilityService = new PCComponentCompatibilityService(unitOfWork);
+            ProductPCService = new ProductPCService(unitOfWork, ProductService, PCComponentCompatibilityService);
             CategoryService = new CategoryService(unitOfWork);
             SpecDefinitionService = new SpecDefinitionService(unitOfWork);
             BrandService = new BrandService(unitOfWork);
@@ -41,7 +45,7 @@ namespace TechExpress.Service
             PaymentService = new PaymentService(unitOfWork, redisUtils, payOsClient);
             InstallmentService = new InstallmentService(unitOfWork);
             OrderService = new OrderService(unitOfWork, userContext);
-            UserContext = userContext;
+            ComputerCompatibilityService = new ComputerCompatibilityService(unitOfWork);
         }
     }
 }
