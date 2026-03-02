@@ -145,6 +145,8 @@ namespace TechExpress.Repository.Repositories
                 .ToListAsync();
 
             return (orders, totalCount);
+        }
+        
         // Quan trọng: Phải include cả Items và Product để lấy tên sản phẩm trong OrderItem
         public async Task<Order?> GetOrderByIdAsync(Guid orderId)
         {

@@ -341,6 +341,8 @@ namespace TechExpress.Service.Services
             var payments = await _unitOfWork.PaymentRepository.GetByOrderIdAsync(orderId);
 
             return (order, installments, payments);
+        }
+        
         public async Task<Order> GetOrderDetailsAsync(Guid orderId)
         {
             var order = await _unitOfWork.OrderRepository.GetOrderByIdAsync(orderId)
