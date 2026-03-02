@@ -22,7 +22,6 @@ namespace TechExpress.Repository
         public OrderRepository OrderRepository { get; }
         public PaymentRepository PaymentRepository { get; }
         public InstallmentRepository InstallmentRepository { get; }
-        public ReviewRepository ReviewRepository { get; }
 
 
         public UnitOfWork(ApplicationDbContext context)
@@ -42,7 +41,6 @@ namespace TechExpress.Repository
             OrderRepository = new OrderRepository(context);
             PaymentRepository = new PaymentRepository(context);
             InstallmentRepository = new InstallmentRepository(context);
-            ReviewRepository = new ReviewRepository(context);
         }
 
         public async Task SaveChangesAsync()
