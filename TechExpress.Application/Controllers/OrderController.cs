@@ -297,5 +297,46 @@ namespace TechExpress.Application.Controllers
             var response = ResponseMapper.MapToOrderDetailResponseFromOrder(order, installments, payments);
             return Ok(ApiResponse<OrderDetailResponse>.OkResponse(response));
         }
+
+        /// <summary>
+        /// Cập nhật trạng thái đơn hàng theo luồng nghiệp vụ.
+        /// Luồng Shipping: Confirmed → Processing → Shipping → Delivered → Completed/Installing
+        /// Luồng PickUp: Confirmed → Processing → ReadyForPickup → PickedUp → Completed/Installing
+        /// </summary>
+        [HttpPut("{orderId:guid}/status")]
+        [Authorize(Roles = "Admin,Staff,Customer")]
+        [ProducesResponseType(typeof(ApiResponse<OrderResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateOrderStatus(
+            [FromRoute] Guid orderId,
+            [FromBody] UpdateOrderStatusRequest request)
+        {
+            var order = await _serviceProvider.OrderService
+                .HandleUpdateOrderStatusAsync(orderId, request.Status);
+
+            var response = ResponseMapper.MapToOrderResponseFromOrder(order);
+            return Ok(ApiResponse<OrderResponse>.OkResponse(response));
+        }
+
+        /// <summary>
+        /// Hủy đơn hàng. Chỉ có thể hủy trước trạng thái Processing.
+        /// Hoàn lại 90% số tiền đã thanh toán.
+        /// </summary>
+        [HttpPut("{orderId:guid}/cancel")]
+        [Authorize(Roles = "Admin,Staff,Customer")]
+        [ProducesResponseType(typeof(ApiResponse<OrderResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> CancelOrder([FromRoute] Guid orderId)
+        {
+            var order = await _serviceProvider.OrderService
+                .HandleCancelOrderAsync(orderId);
+
+            var response = ResponseMapper.MapToOrderResponseFromOrder(order);
+            return Ok(ApiResponse<OrderResponse>.OkResponse(response));
+        }
     }
 }
