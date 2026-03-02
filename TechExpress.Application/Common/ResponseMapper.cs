@@ -514,6 +514,19 @@ public class ResponseMapper
         };
     }
 
+    public static CancelOrderRefundResponse MapToCancelOrderRefundResponse(CancelOrderRefundResult result)
+    {
+        return new CancelOrderRefundResponse
+        {
+            OrderId = result.OrderId,
+            Status = result.Status,
+            RefundAmount = result.RefundAmount,
+            PayoutId = result.PayoutId,
+            Reason = result.Reason,
+            Message = result.Message
+        };
+    }
+
 
 
 

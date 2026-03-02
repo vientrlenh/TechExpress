@@ -19,7 +19,6 @@ using TechExpress.Service.Hubs;
 using TechExpress.Service.Initializers;
 using TechExpress.Service.Services;
 using TechExpress.Service.Utils;
-using TechExpress.Service.Utils.TechExpress.Service.Utils;
 using TechExpress.Service.Workers;
 
 var builder = WebApplication.CreateBuilder(args);

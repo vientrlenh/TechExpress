@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using PayOS.Models.Webhooks;
 using System.Text.Json;
 using TechExpress.Application.Common;
 using TechExpress.Application.Dtos.Requests;
@@ -134,15 +135,18 @@ namespace TechExpress.Application.Controllers
             return Ok(ApiResponse<InitOnlinePaymentResponse>.OkResponse(response));
         }
 
-        // =========================
-        // 3) GATEWAY CALLBACK
-        // =========================
-        [HttpPost("payments/gateways/payos/callback")]
-        [AllowAnonymous]
-        [ProducesResponseType(typeof(ApiResponse<GatewayCallbackResponse>), StatusCodes.Status200OK)]
+        /// <summary>
+        /// Tất toán: Thanh toán toàn bộ số tiền còn lại của đơn hàng trả góp trước thời hạn.
+        /// </summary>
+        [HttpPost("payments/orders/{orderId:guid}/full-settlement/init")]
+        [Authorize]
+        [ProducesResponseType(typeof(ApiResponse<InitOnlinePaymentResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> PayOsWebhookCallback(
-            [FromBody] PayOsWebhookRequest request,
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> InitFullSettlement(
+            [FromRoute] Guid orderId,
+            [FromBody] InitOrderOnlinePaymentRequest request,
             CancellationToken ct)
         {
             if (request == null)
@@ -154,10 +158,47 @@ namespace TechExpress.Application.Controllers
                 });
             }
 
-            _logger.LogInformation("PayOS Webhook RAW: {Payload}",
-                JsonSerializer.Serialize(request));
+            if (request.Method is not (PaymentMethod.PayOs or PaymentMethod.VnPay))
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    StatusCode = StatusCodes.Status400BadRequest,
+                    Message = "Online payment only supports PayOs or VnPay."
+                });
+            }
 
-            var result = await _serviceProvider.PaymentService.HandlePayOsWebhookAsync(request, ct);
+            var init = await _serviceProvider.PaymentService
+                .HandleInitFullSettlementAsync(orderId, request.Method, request.ReturnUrl, ct);
+
+            var response = ResponseMapper.MapToInitOnlinePaymentResponse(init);
+
+            return Ok(ApiResponse<InitOnlinePaymentResponse>.OkResponse(response));
+        }
+
+        // =========================
+        // 3) GATEWAY CALLBACK
+        // =========================
+        [HttpPost("payments/gateways/payos/webhook")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(ApiResponse<GatewayCallbackResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> PayOsWebhookCallback(
+            [FromBody] Webhook webhook,
+            CancellationToken ct)
+        {
+            if (webhook == null)
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    StatusCode = StatusCodes.Status400BadRequest,
+                    Message = "Request body is required."
+                });
+            }
+
+            _logger.LogInformation("PayOS Webhook RAW: {Payload}",
+                JsonSerializer.Serialize(webhook));
+
+            var result = await _serviceProvider.PaymentService.HandlePayOsWebhookAsync(webhook, ct);
 
             var response = new GatewayCallbackResponse { Ok = result.Ok };
             return Ok(ApiResponse<GatewayCallbackResponse>.OkResponse(response));
@@ -250,7 +291,75 @@ namespace TechExpress.Application.Controllers
         }
 
         // =========================
-        // 5) QUERY
+        // 5) CANCEL ORDER & REFUND
+        // =========================
+
+        /// <summary>
+        /// Hủy đơn hàng và hoàn tiền 90% số tiền đã thanh toán.
+        /// Chỉ có thể hủy trước khi đơn hàng ở trạng thái Processing.
+        /// </summary>
+        [HttpPost("orders/{orderId:guid}/cancel-refund")]
+        [Authorize]
+        [ProducesResponseType(typeof(ApiResponse<CancelOrderRefundResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> CancelOrderAndRefund(
+            [FromRoute] Guid orderId,
+            [FromBody] CancelOrderRefundRequest request,
+            CancellationToken ct)
+        {
+            if (request == null)
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    StatusCode = StatusCodes.Status400BadRequest,
+                    Message = "Request body is required."
+                });
+            }
+
+            if (request.OrderId != orderId)
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    StatusCode = StatusCodes.Status400BadRequest,
+                    Message = "OrderId in route and body must match."
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.ToBin))
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    StatusCode = StatusCodes.Status400BadRequest,
+                    Message = "ToBin is required."
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.ToAccountNumber))
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    StatusCode = StatusCodes.Status400BadRequest,
+                    Message = "ToAccountNumber is required."
+                });
+            }
+
+            var result = await _serviceProvider.PaymentService
+                .HandleCancelOrderAndRefundAsync(
+                    orderId,
+                    request.ToBin,
+                    request.ToAccountNumber,
+                    request.Reason,
+                    ct);
+
+            var response = ResponseMapper.MapToCancelOrderRefundResponse(result);
+
+            return Ok(ApiResponse<CancelOrderRefundResponse>.OkResponse(response));
+        }
+
+        // =========================
+        // 6) QUERY
         // =========================
 
         
