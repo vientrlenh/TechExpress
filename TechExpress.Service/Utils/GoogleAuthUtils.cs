@@ -26,8 +26,8 @@ namespace TechExpress.Service.Utils
 
         public async Task<string?> ExchangeCodeForTokenAsync(string code, string redirectUri)
         {
-            var clientId = _config["Authentication:Google:ClientId"];
-            var clientSecret = _config["Authentication:Google:ClientSecret"];
+            var clientId = _config["Authentication:Google:ClientId"]!;
+            var clientSecret = _config["Authentication:Google:ClientSecret"]!;
 
             using var client = new HttpClient();
 
