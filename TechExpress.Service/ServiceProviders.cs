@@ -30,6 +30,7 @@ namespace TechExpress.Service
         public InstallmentService InstallmentService { get; }
         public OrderService OrderService { get; }
         public ComputerCompatibilityService ComputerCompatibilityService { get; }
+        public ReviewService ReviewService { get; }
 
 
         public ServiceProviders(UnitOfWork unitOfWork, PayOsClient payOsClient,RedisUtils redisUtils, SmtpEmailSender emailSender, JwtUtils jwtUtils, UserContext userContext, OtpUtils otpUtils, IConnectionMultiplexer redis)
@@ -47,6 +48,7 @@ namespace TechExpress.Service
             OrderService = new OrderService(unitOfWork, userContext);
             ComputerCompatibilityService = new ComputerCompatibilityService(unitOfWork);
             ProductPCService = new ProductPCService(unitOfWork, ProductService, ComputerCompatibilityService);
+            ReviewService = new ReviewService(unitOfWork, userContext);
         }
     }
 }
