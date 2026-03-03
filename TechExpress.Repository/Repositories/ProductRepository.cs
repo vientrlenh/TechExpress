@@ -358,6 +358,15 @@ namespace TechExpress.Repository.Repositories
                     .SetProperty(p => p.UpdatedAt, DateTimeOffset.Now));
         }
 
+        public async Task<int> IncrementStockAtomicAsync(Guid productId, int quantity)
+        {
+            return await _context.Products
+                .Where(p => p.Id == productId)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(p => p.Stock, p => p.Stock + quantity)
+                    .SetProperty(p => p.UpdatedAt, DateTimeOffset.Now));
+        }
+
         public async Task<List<Product>> FindByIdsIncludeCategoryAsync(List<Guid> ids)
         {
             return await _context.Products.Include(p => p.Category).Where(p => ids.Contains(p.Id)).ToListAsync();
