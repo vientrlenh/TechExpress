@@ -1,8 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Security.Authentication;
-using System.Text;
 using TechExpress.Repository.Models;
 
 namespace TechExpress.Repository.Contexts
@@ -1351,6 +1347,253 @@ namespace TechExpress.Repository.Contexts
                     t.HasCheckConstraint("ck_promo_usage_discount_amount", "[discount_amount] >= 0");
                 });
             });
+
+
+            // db-schema for Ticket model
+            modelBuilder.Entity<Ticket>(tk =>
+            {
+                tk.Property(t => t.Id)
+                    .HasColumnName("id");
+
+                tk.Property(t => t.UserId)
+                    .HasColumnName("user_id");
+
+                tk.Property(t => t.FullName)
+                    .HasColumnName("full_name")
+                    .HasMaxLength(256);
+
+                tk.Property(t => t.Phone)
+                    .HasColumnName("phone")
+                    .HasMaxLength(20);
+
+                tk.Property(t => t.Title)
+                    .HasColumnName("title")
+                    .HasMaxLength(256)
+                    .IsRequired();
+
+                tk.Property(t => t.Description)
+                    .HasColumnName("description")
+                    .HasMaxLength(4096)
+                    .IsRequired();
+
+                tk.Property(t => t.Type)
+                    .HasColumnName("type")
+                    .HasConversion<string>()
+                    .IsRequired();
+
+                tk.Property(t => t.Status)
+                    .HasColumnName("status")
+                    .HasConversion<string>()
+                    .IsRequired();
+
+                tk.Property(t => t.Priority)
+                    .HasColumnName("priority")
+                    .HasConversion<string>()
+                    .IsRequired();
+
+                tk.Property(t => t.CustomPCId)
+                    .HasColumnName("custom_pc_id");
+
+                tk.Property(t => t.OrderId)
+                    .HasColumnName("order_id");
+
+                tk.Property(t => t.AssignedToUserId)
+                    .HasColumnName("assigned_to_user_id");
+
+                tk.Property(t => t.ResolvedAt)
+                    .HasColumnName("resolved_at");
+
+                tk.Property(t => t.ClosedAt)
+                    .HasColumnName("closed_at");
+
+                tk.Property(t => t.CreatedAt)
+                    .HasColumnName("created_at")
+                    .IsRequired();
+
+                tk.Property(t => t.UpdatedAt)
+                    .HasColumnName("updated_at")
+                    .IsRequired();
+
+                tk.HasKey(t => t.Id);
+
+                tk.HasIndex(t => t.UserId)
+                    .HasDatabaseName("idx_ticket_user");
+
+                tk.HasIndex(t => t.Status)
+                    .HasDatabaseName("idx_ticket_status");
+
+                tk.HasIndex(t => t.AssignedToUserId)
+                    .HasDatabaseName("idx_ticket_assigned");
+
+                tk.HasIndex(t => t.CustomPCId)
+                    .HasDatabaseName("idx_ticket_custom_pc");
+
+                tk.HasIndex(t => t.OrderId)
+                    .HasDatabaseName("idx_ticket_order");
+
+                tk.HasOne(t => t.User)
+                    .WithMany()
+                    .HasForeignKey(t => t.UserId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                tk.HasOne(t => t.AssignedTo)
+                    .WithMany()
+                    .HasForeignKey(t => t.AssignedToUserId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                tk.HasOne(t => t.CustomPC)
+                    .WithMany()
+                    .HasForeignKey(t => t.CustomPCId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                tk.HasOne(t => t.Order)
+                    .WithMany()
+                    .HasForeignKey(t => t.OrderId)
+                    .OnDelete(DeleteBehavior.NoAction);
+            });
+
+
+            // db-schema for TicketMessage model
+            modelBuilder.Entity<TicketMessage>(tm =>
+            {
+                tm.Property(t => t.Id)
+                    .HasColumnName("id")
+                    .UseIdentityColumn();
+
+                tm.Property(t => t.TicketId)
+                    .HasColumnName("ticket_id")
+                    .IsRequired();
+
+                tm.Property(t => t.UserId)
+                    .HasColumnName("user_id");
+
+                tm.Property(t => t.Content)
+                    .HasColumnName("content")
+                    .HasMaxLength(4096)
+                    .IsRequired();
+
+                tm.Property(t => t.IsStaffMessage)
+                    .HasColumnName("is_staff_message")
+                    .HasDefaultValue(false)
+                    .IsRequired();
+
+                tm.Property(t => t.SentAt)
+                    .HasColumnName("sent_at")
+                    .IsRequired();
+
+                tm.HasKey(t => t.Id);
+
+                tm.HasIndex(t => t.TicketId)
+                    .HasDatabaseName("idx_ticket_message_ticket");
+
+                tm.HasIndex(t => t.UserId)
+                    .HasDatabaseName("idx_ticket_message_user");
+
+                tm.HasOne(t => t.Ticket)
+                    .WithMany(t => t.Messages)
+                    .HasForeignKey(t => t.TicketId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                tm.HasOne(t => t.User)
+                    .WithMany()
+                    .HasForeignKey(t => t.UserId)
+                    .OnDelete(DeleteBehavior.NoAction);
+            });
+
+
+            // db-schema for TicketAttachment model
+            modelBuilder.Entity<TicketAttachment>(ta =>
+            {
+                ta.Property(t => t.Id)
+                    .HasColumnName("id")
+                    .UseIdentityColumn();
+
+                ta.Property(t => t.MessageId)
+                    .HasColumnName("message_id")
+                    .IsRequired();
+
+                ta.Property(t => t.FileUrl)
+                    .HasColumnName("file_url")
+                    .HasMaxLength(2048)
+                    .IsRequired();
+
+                ta.Property(t => t.UploadedAt)
+                    .HasColumnName("uploaded_at")
+                    .IsRequired();
+
+                ta.HasKey(t => t.Id);
+
+                ta.HasIndex(t => t.MessageId)
+                    .HasDatabaseName("idx_ticket_attachment_message");
+
+                ta.HasOne(t => t.Message)
+                    .WithMany(t => t.Attachments)
+                    .HasForeignKey(t => t.MessageId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+
+            // db-schema for Notification model
+            modelBuilder.Entity<Notification>(nf =>
+            {
+                nf.Property(n => n.Id)
+                    .HasColumnName("id")
+                    .UseIdentityColumn();
+
+                nf.Property(n => n.UserId)
+                    .HasColumnName("user_id")
+                    .IsRequired();
+
+                nf.Property(n => n.Type)
+                    .HasColumnName("type")
+                    .HasConversion<string>()
+                    .IsRequired();
+
+                nf.Property(n => n.Title)
+                    .HasColumnName("title")
+                    .HasMaxLength(256)
+                    .IsRequired();
+
+                nf.Property(n => n.Message)
+                    .HasColumnName("message")
+                    .HasMaxLength(1024)
+                    .IsRequired();
+
+                nf.Property(n => n.ReferenceId)
+                    .HasColumnName("reference_id");
+
+                nf.Property(n => n.ReferenceType)
+                    .HasColumnName("reference_type")
+                    .HasConversion<string>();
+
+                nf.Property(n => n.IsRead)
+                    .HasColumnName("is_read")
+                    .HasDefaultValue(false)
+                    .IsRequired();
+
+                nf.Property(n => n.ReadAt)
+                    .HasColumnName("read_at");
+
+                nf.Property(n => n.CreatedAt)
+                    .HasColumnName("created_at")
+                    .IsRequired();
+
+                nf.HasKey(n => n.Id);
+
+                nf.HasIndex(n => n.UserId)
+                    .HasDatabaseName("idx_notification_user");
+
+                nf.HasIndex(n => new { n.UserId, n.IsRead })
+                    .HasDatabaseName("idx_notification_user_is_read");
+
+                nf.HasIndex(n => n.Type)
+                    .HasDatabaseName("idx_notification_type");
+
+                nf.HasOne(n => n.User)
+                    .WithMany()
+                    .HasForeignKey(n => n.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
         }
 
 
@@ -1378,5 +1621,9 @@ namespace TechExpress.Repository.Contexts
         public DbSet<PromotionFreeProduct> PromotionFreeProducts { get; set; }
         public DbSet<PromotionAppliedProduct> PromotionAppliedProducts { get; set; }
         public DbSet<PromotionUsage> PromotionUsages { get; set; }
+        public DbSet<Ticket> Tickets { get; set; }
+        public DbSet<TicketMessage> TicketMessages { get; set; }
+        public DbSet<TicketAttachment> TicketAttachments { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
     }
 }
