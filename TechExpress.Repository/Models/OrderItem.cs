@@ -14,6 +14,8 @@ public class OrderItem
 
     public required decimal UnitPrice { get; set; }
 
+    public bool IsFreeItem { get; set; }
+
     public Order Order { get; set; } = null!;
 
     public Product Product { get; set; } = null!;
