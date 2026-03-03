@@ -669,6 +669,9 @@ namespace TechExpress.Repository.Contexts
                     .HasColumnName("order_date")
                     .IsRequired();
 
+                od.Property(o => o.ReceivedAt)
+                    .HasColumnName("received_at");
+
                 od.Property(o => o.Status)
                     .HasColumnName("status")
                     .HasConversion<string>()
@@ -718,6 +721,10 @@ namespace TechExpress.Repository.Contexts
                 oi.Property(o => o.IsFreeItem)
                     .HasColumnName("is_free_item")
                     .HasDefaultValue(false)
+                    .IsRequired();
+
+                oi.Property(o => o.WarrantyMonthSnapshot)
+                    .HasColumnName("warranty_month_snapshot")
                     .IsRequired();
 
                 oi.HasKey(o => o.Id);
@@ -1397,6 +1404,9 @@ namespace TechExpress.Repository.Contexts
                 tk.Property(t => t.OrderId)
                     .HasColumnName("order_id");
 
+                tk.Property(t => t.OrderItemId)
+                    .HasColumnName("order_item_id");
+
                 tk.Property(t => t.AssignedToUserId)
                     .HasColumnName("assigned_to_user_id");
 
@@ -1431,6 +1441,9 @@ namespace TechExpress.Repository.Contexts
                 tk.HasIndex(t => t.OrderId)
                     .HasDatabaseName("idx_ticket_order");
 
+                tk.HasIndex(t => t.OrderItemId)
+                    .HasDatabaseName("idx_ticket_order_item");
+
                 tk.HasOne(t => t.User)
                     .WithMany()
                     .HasForeignKey(t => t.UserId)
@@ -1449,6 +1462,11 @@ namespace TechExpress.Repository.Contexts
                 tk.HasOne(t => t.Order)
                     .WithMany()
                     .HasForeignKey(t => t.OrderId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                tk.HasOne(t => t.OrderItem)
+                    .WithMany()
+                    .HasForeignKey(t => t.OrderItemId)
                     .OnDelete(DeleteBehavior.NoAction);
             });
 

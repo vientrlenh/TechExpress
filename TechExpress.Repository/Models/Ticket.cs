@@ -27,6 +27,8 @@ public class Ticket
 
     public Guid? OrderId { get; set; }
 
+    public long? OrderItemId { get; set; }
+
     public Guid? AssignedToUserId { get; set; }
 
     public DateTimeOffset? ResolvedAt { get; set; }
@@ -42,6 +44,8 @@ public class Ticket
     public CustomPC? CustomPC { get; set; }
 
     public Order? Order { get; set; }
+
+    public OrderItem? OrderItem { get; set; }
 
     public User? AssignedTo { get; set; }
 

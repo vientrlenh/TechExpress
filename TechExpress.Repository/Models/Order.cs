@@ -40,6 +40,8 @@ public class Order
 
     public DateTimeOffset OrderDate { get; set; } = DateTimeOffset.Now;
 
+    public DateTimeOffset? ReceivedAt { get; set; }
+
     public required OrderStatus Status { get; set; }
 
     public User? User { get; set; }
