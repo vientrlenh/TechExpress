@@ -1,5 +1,3 @@
-using System;
-
 namespace TechExpress.Repository.Models;
 
 public class OrderItem
@@ -15,6 +13,8 @@ public class OrderItem
     public required decimal UnitPrice { get; set; }
 
     public bool IsFreeItem { get; set; }
+
+    public decimal DiscountAmount { get; set; }
 
     public int WarrantyMonthSnapshot { get; set; }
 
