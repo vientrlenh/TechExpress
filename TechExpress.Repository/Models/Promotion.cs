@@ -9,7 +9,7 @@ public class Promotion
 
     public required string Name { get; set; }
 
-    public string? Code { get; set; }
+    public string? Code { get; set; } // để null nếu áp dụng tự động hoặc để giá trị nếu áp dụng thủ công
 
     public required string Description { get; set; }
 
@@ -19,7 +19,7 @@ public class Promotion
 
     public decimal? DiscountValue { get; set; }
 
-    public decimal? MaxDiscountValue { get; set; }
+    public decimal? MaxDiscountValue { get; set; } // ví dụ giảm 10% giá trị đơn hàng tối đa 500k
 
     public decimal? MinOrderValue { get; set; }
 
@@ -31,15 +31,15 @@ public class Promotion
 
     public int? FreeItemPickCount { get; set; }
 
-    public Guid? CategoryId { get; set; }
+    public Guid? CategoryId { get; set; } // dành cho scope là category (khuyến mãi kệ hàng)
 
-    public Guid? BrandId { get; set; }
+    public Guid? BrandId { get; set; } // dành cho scope là brand (khuyến mãi trên 1 brand nào đó)
 
     public ICollection<PromotionAppliedProduct> AppliedProducts { get; set; } = [];
 
-    public int? MinAppliedQuantity { get; set; }
+    public int? MinAppliedQuantity { get; set; } // tối thiểu số lượng sản phẩm cần để áp dụng khuyến mãi
 
-    public int? MaxUsageCount { get; set; }
+    public int? MaxUsageCount { get; set; } // không set giá trị thì tức là khuyến mãi không có giới hạn sử dụng
 
     public int UsageCount { get; set; }
 
