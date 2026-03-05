@@ -18,4 +18,9 @@ public class InitInstallmentOnlinePaymentRequest
     /// URL client muốn nhận kết quả (optional). Nếu null thì backend dùng default return url.
     /// </summary>
     public string? ReturnUrl { get; set; }
+
+    /// <summary>
+    /// URL client muốn redirect khi hủy thanh toán (optional). Nếu null thì backend dùng default cancel url.
+    /// </summary>
+    public string? CancelUrl { get; set; }
 }

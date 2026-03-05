@@ -68,6 +68,7 @@ namespace TechExpress.Service.Services
     Guid orderId,
     PaymentMethod method,
     string? returnUrl,
+    string? cancelUrl,
     CancellationToken ct = default)
         {
             if (method != PaymentMethod.PayOs)
@@ -100,6 +101,7 @@ namespace TechExpress.Service.Services
             var expiredAt = DateTimeOffset.UtcNow.AddSeconds(_payOs.ExpirationSeconds).ToUnixTimeSeconds();
 
             var finalReturnUrl = string.IsNullOrWhiteSpace(returnUrl) ? _payOs.ReturnUrl : returnUrl;
+            var finalCancelUrl = string.IsNullOrWhiteSpace(cancelUrl) ? _payOs.CancelUrl : cancelUrl;
 
             var paymentRequest = new CreatePaymentLinkRequest
             {
@@ -116,7 +118,7 @@ namespace TechExpress.Service.Services
                     }
                 },
                 ReturnUrl = finalReturnUrl,
-                CancelUrl = _payOs.CancelUrl,
+                CancelUrl = finalCancelUrl,
                 ExpiredAt = expiredAt
             };
 
@@ -150,6 +152,7 @@ namespace TechExpress.Service.Services
     Guid installmentId,
     PaymentMethod method,
     string? returnUrl,
+    string? cancelUrl,
     CancellationToken ct = default)
         {
             if (method != PaymentMethod.PayOs)
@@ -178,6 +181,7 @@ namespace TechExpress.Service.Services
             var expiredAt = DateTimeOffset.UtcNow.AddSeconds(_payOs.ExpirationSeconds).ToUnixTimeSeconds();
 
             var finalReturnUrl = string.IsNullOrWhiteSpace(returnUrl) ? _payOs.ReturnUrl : returnUrl;
+            var finalCancelUrl = string.IsNullOrWhiteSpace(cancelUrl) ? _payOs.CancelUrl : cancelUrl;
 
             var paymentRequest = new CreatePaymentLinkRequest
             {
@@ -194,7 +198,7 @@ namespace TechExpress.Service.Services
                     }
                 },
                 ReturnUrl = finalReturnUrl,
-                CancelUrl = _payOs.CancelUrl,
+                CancelUrl = finalCancelUrl,
                 ExpiredAt = expiredAt
             };
 
@@ -232,6 +236,7 @@ namespace TechExpress.Service.Services
             Guid orderId,
             PaymentMethod method,
             string? returnUrl,
+            string? cancelUrl,
             CancellationToken ct = default)
         {
             if (method != PaymentMethod.PayOs)
@@ -273,6 +278,7 @@ namespace TechExpress.Service.Services
             var expiredAt = DateTimeOffset.UtcNow.AddSeconds(_payOs.ExpirationSeconds).ToUnixTimeSeconds();
 
             var finalReturnUrl = string.IsNullOrWhiteSpace(returnUrl) ? _payOs.ReturnUrl : returnUrl;
+            var finalCancelUrl = string.IsNullOrWhiteSpace(cancelUrl) ? _payOs.CancelUrl : cancelUrl;
 
             var paymentRequest = new CreatePaymentLinkRequest
             {
@@ -289,7 +295,7 @@ namespace TechExpress.Service.Services
                     }
                 },
                 ReturnUrl = finalReturnUrl,
-                CancelUrl = _payOs.CancelUrl,
+                CancelUrl = finalCancelUrl,
                 ExpiredAt = expiredAt
             };
 

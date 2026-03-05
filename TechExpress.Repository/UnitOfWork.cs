@@ -39,7 +39,6 @@ namespace TechExpress.Repository
             CartRepository = new CartRepository(context);
             CartItemRepository = new CartItemRepository(context);
             ComputerComponentRepository = new ComputerComponentRepository(context);
-
             OrderRepository = new OrderRepository(context);
             PaymentRepository = new PaymentRepository(context);
             InstallmentRepository = new InstallmentRepository(context);

@@ -183,9 +183,9 @@ public class ResponseMapper
         };
     }
 
-    public static List<ProductListResponse> MapToProductListResponsesFromProducts(List<Product> products)
-    {
-        var productResponses = products.Select(product =>
+        public static List<ProductListResponse> MapToProductListResponsesFromProducts(List<Product> products)
+        {
+            var productResponses = products.Select(product =>
             {
                 var firstImageUrl = product.Images
                     .OrderBy(i => i.Id)
@@ -209,8 +209,28 @@ public class ResponseMapper
                 );
             })
             .ToList();
-        return productResponses;
-    }
+            return productResponses;
+        }
+
+        // ======================= Map Warranty =======================//
+        //public static WarrantyCheckResponse MapToWarrantyCheckResponseFromResult(WarrantyCheckResult result)
+        //{
+        //    return new WarrantyCheckResponse
+        //    {
+        //        OrderItemId = result.OrderItemId,
+        //        ProductName = result.ProductName,
+        //        ProductSku = result.ProductSku,
+        //        WarrantyStartDate = result.WarrantyStartDate,
+        //        WarrantyMonths = result.WarrantyMonths,
+        //        WarrantyExpiredAt = result.WarrantyExpiredAt,
+        //        CheckedAt = result.CheckedAt,
+        //        IsValid = result.IsValid,
+        //        RemainingDays = result.RemainingDays,
+        //        Message = result.Message,
+        //        TicketId = result.TicketId,
+        //        MessageId = result.MessageId
+        //    };
+        //}
 
     public static ProductDetailResponse MapToProductDetailResponseFromProduct(Product product)
     {

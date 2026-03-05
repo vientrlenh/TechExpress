@@ -79,7 +79,7 @@ namespace TechExpress.Application.Controllers
             }
 
             var init = await _serviceProvider.PaymentService
-                .HandleInitOrderOnlinePaymentAsync(orderId, request.Method, request.ReturnUrl, ct);
+                .HandleInitOrderOnlinePaymentAsync(orderId, request.Method, request.ReturnUrl, request.CancelUrl, ct);
 
             var response = ResponseMapper.MapToInitOnlinePaymentResponse(init);
 
@@ -128,7 +128,7 @@ namespace TechExpress.Application.Controllers
             }
 
             var init = await _serviceProvider.PaymentService
-                .HandleInitInstallmentOnlinePaymentAsync(installmentId, request.Method, request.ReturnUrl, ct);
+                .HandleInitInstallmentOnlinePaymentAsync(installmentId, request.Method, request.ReturnUrl, request.CancelUrl, ct);
 
             var response = ResponseMapper.MapToInitOnlinePaymentResponse(init);
 
@@ -168,7 +168,7 @@ namespace TechExpress.Application.Controllers
             }
 
             var init = await _serviceProvider.PaymentService
-                .HandleInitFullSettlementAsync(orderId, request.Method, request.ReturnUrl, ct);
+                .HandleInitFullSettlementAsync(orderId, request.Method, request.ReturnUrl, request.CancelUrl, ct);
 
             var response = ResponseMapper.MapToInitOnlinePaymentResponse(init);
 
