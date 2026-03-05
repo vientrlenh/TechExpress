@@ -371,5 +371,17 @@ namespace TechExpress.Repository.Repositories
         {
             return await _context.Products.Include(p => p.Category).Where(p => ids.Contains(p.Id)).ToListAsync();
         }
+
+        public async Task<List<Product>> FindByIdsAsync(List<Guid> ids)
+        {
+            return await _context.Products.Where(p => ids.Contains(p.Id)).ToListAsync();
+        }
+
+        public async Task<List<Product>> FindByIdsAndActiveAsync(List<Guid> ids)
+        {
+            return await _context.Products
+                .Where(p => ids.Contains(p.Id) && p.Status == ProductStatus.Available)
+                .ToListAsync();
+        }
     }
 }

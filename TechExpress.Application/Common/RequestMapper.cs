@@ -47,5 +47,46 @@ namespace TechExpress.Application.Common
             }
             return commands;
         }
+
+        public static List<CreatePromotionFreeProductCommand> MapToCreatePromotionFreeProductCommandListFromRequest(List<CreatePromotionFreeProductRequest> requests)
+        {
+            List<CreatePromotionFreeProductCommand> commands = [];
+            HashSet<Guid> productIds = [];
+            foreach (var request in requests)
+            {
+                if (productIds.Contains(request.ProductId))
+                {
+                    throw new BadRequestException($"Sản phẩm quà tặng trùng lặp khi gửi yêu cầu {request.ProductId}");
+                }
+                commands.Add(new CreatePromotionFreeProductCommand
+                {
+                    ProductId = request.ProductId,
+                    Quantity = request.Quantity
+                });
+                productIds.Add(request.ProductId);
+            }
+            return commands;
+        }
+
+        public static List<CreatePromotionRequiredProductCommand> MapToCreatePromotionRequiredProductCommandListFromRequest(List<CreatePromotionRequiredProductRequest> requests)
+        {
+            List<CreatePromotionRequiredProductCommand> commands = [];
+            HashSet<Guid> productIds = [];
+            foreach (var request in requests)
+            {
+                if (productIds.Contains(request.ProductId))
+                {
+                    throw new BadRequestException($"Sản phẩm cần cho việc áp dụng khuyến mãi trùng lặp: {request.ProductId}");
+                }
+                commands.Add(new CreatePromotionRequiredProductCommand
+                {
+                    ProductId = request.ProductId,
+                    MinQuantity = request.MinQuantity,
+                    MaxQuantity = request.MaxQuantity,
+                });
+                productIds.Add(request.ProductId);
+            }
+            return commands;
+        }
     }
 }

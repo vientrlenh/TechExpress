@@ -54,8 +54,6 @@ public class CreatePromotionRequest
     [Range(1, int.MaxValue, ErrorMessage = "Số lần sử dụng tối đa phải lớn hơn 0")]
     public int? MaxUsageCount { get; set; }
 
-    public int UsageCount { get; set; }
-
     [Range(1, int.MaxValue, ErrorMessage = "Số lần sử dụng tối đa mỗi người dùng phải lớn hơn 0")]
     public int? MaxUsagePerUser { get; set; }
 

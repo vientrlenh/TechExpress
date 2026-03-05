@@ -29,7 +29,7 @@ public class Promotion
 
     public ICollection<PromotionFreeProduct> FreeProducts { get; set; } = [];
 
-    public int? FreeItemPickCount { get; set; }
+    public int? FreeItemPickCount { get; set; } // set null tức là người dùng được chọn tất cả các mặt hàng có trong danh sách sản phẩm được tặng, nếu có giá trị tức là người dùng chỉ được pick 1 số lượng nhất định
 
     public Guid? CategoryId { get; set; } // dành cho scope là category (khuyến mãi kệ hàng)
 
@@ -37,7 +37,7 @@ public class Promotion
 
     public ICollection<PromotionAppliedProduct> AppliedProducts { get; set; } = [];
 
-    public int? MinAppliedQuantity { get; set; } // tối thiểu số lượng sản phẩm cần để áp dụng khuyến mãi
+    public int? MinAppliedQuantity { get; set; } // tối thiểu số lượng sản phẩm cần để áp dụng khuyến mãi (thông thường dành cho các sản phẩm trong kệ hoặc cùng 1 hãng)
 
     public int? MaxUsageCount { get; set; } // không set giá trị thì tức là khuyến mãi không có giới hạn sử dụng
 

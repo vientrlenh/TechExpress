@@ -754,4 +754,43 @@ public class ResponseMapper
             TotalCount = reviewPagination.TotalCount
         };
     }
+
+    //======================= Map Promotion Response =======================//
+    public static PromotionResponse MapToPromotionResponseFromPromotion(Promotion promotion)
+    {
+        return new PromotionResponse(
+            promotion.Id,
+            promotion.Name,
+            promotion.Code,
+            promotion.Description,
+            promotion.Type,
+            promotion.Scope,
+            promotion.DiscountValue,
+            promotion.MaxDiscountValue,
+            promotion.MinOrderValue,
+            promotion.RequiredProducts
+                .Select(rp => new PromotionRequiredProductResponse(rp.Id, rp.ProductId, rp.MinQuantity, rp.MaxQuantity))
+                .ToList(),
+            promotion.RequiredProductLogic,
+            promotion.FreeProducts
+                .Select(fp => new PromotionFreeProductResponse(fp.Id, fp.ProductId, fp.Quantity))
+                .ToList(),
+            promotion.FreeItemPickCount,
+            promotion.CategoryId,
+            promotion.BrandId,
+            promotion.AppliedProducts
+                .Select(ap => new PromotionAppliedProductResponse(ap.Id, ap.ProductId))
+                .ToList(),
+            promotion.MinAppliedQuantity,
+            promotion.MaxUsageCount,
+            promotion.UsageCount,
+            promotion.MaxUsagePerUser,
+            promotion.StartDate,
+            promotion.EndDate,
+            promotion.IsStackable,
+            promotion.IsActive,
+            promotion.CreatedAt,
+            promotion.UpdatedAt
+        );
+    }
 }
