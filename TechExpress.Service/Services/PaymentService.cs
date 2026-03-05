@@ -380,12 +380,20 @@ namespace TechExpress.Service.Services
             // 6) Update statuses nếu success
             if (status == PaymentStatus.Success)
             {
-                if (session.InstallmentId.HasValue)
+                if (session.IsFullSettlement)
                 {
+                    // Tất toán: đánh dấu tất cả các kỳ còn lại là Paid
+                    await MarkAllRemainingInstallmentsAsPaidAsync(session.OrderId, ct);
+                    await _unitOfWork.SaveChangesAsync();
+                }
+                else if (session.InstallmentId.HasValue)
+                {
+                    // Thanh toán từng kỳ: update installment by sum
                     await UpdateInstallmentPaidStatusBySumAsync(session.InstallmentId.Value, ct);
                     await _unitOfWork.SaveChangesAsync();
                 }
 
+                // Cập nhật trạng thái đơn hàng (Pending -> Confirmed, Installing -> Completed nếu đã trả hết)
                 await UpdateOrderStatusAfterPaymentAsync(session.OrderId, ct);
                 await _unitOfWork.SaveChangesAsync();
             }
@@ -468,11 +476,19 @@ namespace TechExpress.Service.Services
 
             if (status == PaymentStatus.Success)
             {
-                if (session.InstallmentId.HasValue)
+                if (session.IsFullSettlement)
+                {
+                    // Tất toán qua return/cancel flow (tạm thời dùng session.AmountVnd)
+                    await MarkAllRemainingInstallmentsAsPaidAsync(session.OrderId, ct);
+                    await _unitOfWork.SaveChangesAsync();
+                }
+                else if (session.InstallmentId.HasValue)
+                {
                     await UpdateInstallmentPaidStatusBySumAsync(session.InstallmentId.Value, ct);
+                    await _unitOfWork.SaveChangesAsync();
+                }
 
                 await UpdateOrderStatusAfterPaymentAsync(session.OrderId, ct);
-
                 await _unitOfWork.SaveChangesAsync();
             }
 
@@ -719,7 +735,7 @@ namespace TechExpress.Service.Services
             return await GetSessionByIdAsync(sessionId);
         }
 
-        // Update Order.Status dựa trên tổng tiền đã trả thành công
+        // Update Order.Status dựa trên các Payment đã thanh toán thành công
         private async Task UpdateOrderStatusAfterPaymentAsync(Guid orderId, CancellationToken ct)
         {
             var order = await _unitOfWork.OrderRepository.FindByIdWithTrackingAsync(orderId)
@@ -728,37 +744,46 @@ namespace TechExpress.Service.Services
             // ===== INSTALLMENT FLOW =====
             if (order.PaidType == PaidType.Installment)
             {
-                // 1) Có ít nhất 1 payment success => Processing
-                var payments = await _unitOfWork.PaymentRepository.GetByOrderIdAsync(orderId);
-                var anySuccessPayment = payments.Any(p => p.Status == PaymentStatus.Success);
-
-                if (anySuccessPayment && order.Status == OrderStatus.Pending)
-                    order.Status = OrderStatus.Processing;
-
-                // 2) Tất cả kỳ Paid => Success
                 var schedule = await _unitOfWork.InstallmentRepository.GetByOrderIdAsync(orderId);
                 if (schedule != null && schedule.Count > 0)
                 {
+                    // 1) Chỉ khi kỳ đầu tiên (period nhỏ nhất) đã được thanh toán (Paid)
+                    //    thì từ Pending mới chuyển sang Confirmed.
+                    var firstPeriod = schedule.Min(x => x.Period);
+                    var firstInstallment = schedule.First(x => x.Period == firstPeriod);
+
+                    if (firstInstallment.Status == InstallmentStatus.Paid &&
+                        order.Status == OrderStatus.Pending)
+                    {
+                        order.Status = OrderStatus.Confirmed;
+                    }
+
+                    // 2) Kiểm tra tất cả các kỳ đã được thanh toán hay chưa
                     var allPaid = schedule.All(x => x.Status == InstallmentStatus.Paid);
-                    if (allPaid)
+
+                    // Nếu tất cả các kỳ đã được thanh toán và đơn hàng đang ở trạng thái Installing
+                    // (đã hoàn thành quy trình giao/nhận hàng) thì chuyển sang Completed.
+                    if (allPaid && order.Status == OrderStatus.Installing)
+                    {
                         order.Status = OrderStatus.Completed;
+                    }
                 }
 
                 return;
             }
 
             // ===== FULL PAYMENT FLOW =====
+            // Đơn hàng trả thẳng: Khi thanh toán thành công lần đầu, từ Pending → Confirmed
             var orderPayments = await _unitOfWork.PaymentRepository.GetByOrderIdAsync(orderId);
-            var successSum = orderPayments.Where(p => p.Status == PaymentStatus.Success).Sum(p => p.Amount);
+            var anySuccessPayment = orderPayments.Any(p => p.Status == PaymentStatus.Success);
 
-            if (successSum >= order.TotalPrice)
+            if (anySuccessPayment && order.Status == OrderStatus.Pending)
             {
-                // tùy nghiệp vụ: muốn paid đủ là Success thì set Success, nếu không thì Processing
-                // order.Status = OrderStatus.Success;
-
-                if (order.Status == OrderStatus.Pending)
-                    order.Status = OrderStatus.Processing;
+                order.Status = OrderStatus.Confirmed;
             }
+
+            // Các bước Processing / Shipping / ReadyForPickup / Delivered / PickedUp / Completed
+            // sẽ do workflow của staff ở OrderService/OrderController xử lý.
         }
 
         private async Task UpdateInstallmentPaidStatusBySumAsync(Guid installmentId, CancellationToken ct)
@@ -777,6 +802,26 @@ namespace TechExpress.Service.Services
                 ins.Status = InstallmentStatus.Paid;
             else
                 ins.Status = InstallmentStatus.Pending;
+        }
+
+        /// <summary>
+        /// Đánh dấu tất cả các kỳ còn lại (Pending) của đơn hàng trả góp là Paid (cho tất toán).
+        /// </summary>
+        private async Task MarkAllRemainingInstallmentsAsPaidAsync(Guid orderId, CancellationToken ct)
+        {
+            var installments = await _unitOfWork.InstallmentRepository.GetByOrderIdAsync(orderId);
+            var remainingInstallments = installments
+                .Where(i => i.Status == InstallmentStatus.Pending)
+                .ToList();
+
+            foreach (var installment in remainingInstallments)
+            {
+                var trackingInstallment =
+                    await _unitOfWork.InstallmentRepository.FindByIdWithTrackingAsync(installment.Id)
+                    ?? throw new NotFoundException("Không tìm thấy kỳ trả góp.");
+
+                trackingInstallment.Status = InstallmentStatus.Paid;
+            }
         }
 
         private static int ToVndInt(decimal amount)
