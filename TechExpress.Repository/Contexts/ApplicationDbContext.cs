@@ -1,8 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Security.Authentication;
-using System.Text;
 using TechExpress.Repository.Models;
 
 namespace TechExpress.Repository.Contexts
@@ -95,11 +91,13 @@ namespace TechExpress.Repository.Contexts
 
                 user.HasIndex(u => u.Phone)
                     .HasDatabaseName("idx_user_phone")
-                    .IsUnique();
+                    .IsUnique()
+                    .HasFilter("[phone] IS NOT NULL");
 
                 user.HasIndex(u => u.Identity)
                     .HasDatabaseName("idx_user_identity")
-                    .IsUnique();
+                    .IsUnique()
+                    .HasFilter("[identity] IS NOT NULL");
             });
             
 
@@ -628,6 +626,12 @@ namespace TechExpress.Repository.Contexts
                     .HasPrecision(18, 2)
                     .IsRequired();
 
+                od.Property(o => o.DiscountAmount)
+                    .HasColumnName("discount_amount")
+                    .HasPrecision(18, 2)
+                    .HasDefaultValue(0m)
+                    .IsRequired();
+
                 od.Property(o => o.ReceiverEmail)
                     .HasColumnName("receiver_email")
                     .HasMaxLength(256);
@@ -664,6 +668,9 @@ namespace TechExpress.Repository.Contexts
                 od.Property(o => o.OrderDate)
                     .HasColumnName("order_date")
                     .IsRequired();
+
+                od.Property(o => o.ReceivedAt)
+                    .HasColumnName("received_at");
 
                 od.Property(o => o.Status)
                     .HasColumnName("status")
@@ -709,6 +716,21 @@ namespace TechExpress.Repository.Contexts
                 oi.Property(o => o.UnitPrice)
                     .HasColumnName("unit_price")
                     .HasPrecision(18, 2)
+                    .IsRequired();
+
+                oi.Property(o => o.IsFreeItem)
+                    .HasColumnName("is_free_item")
+                    .HasDefaultValue(false)
+                    .IsRequired();
+
+                oi.Property(o => o.DiscountAmount)
+                    .HasColumnName("discount_amount")
+                    .HasPrecision(18, 2)
+                    .HasDefaultValue(0m)
+                    .IsRequired();
+
+                oi.Property(o => o.WarrantyMonthSnapshot)
+                    .HasColumnName("warranty_month_snapshot")
                     .IsRequired();
 
                 oi.HasKey(o => o.Id);
@@ -824,6 +846,92 @@ namespace TechExpress.Repository.Contexts
             });
 
 
+            // db-schema for CustomPC model
+            modelBuilder.Entity<CustomPC>(cp =>
+            {
+                cp.Property(c => c.Id)
+                    .HasColumnName("id");
+
+                cp.Property(c => c.UserId)
+                    .HasColumnName("user_id")
+                    .IsRequired();
+
+                cp.Property(c => c.Name)
+                    .HasColumnName("name")
+                    .HasMaxLength(256)
+                    .IsRequired();
+
+                cp.Property(c => c.CreatedAt)
+                    .HasColumnName("created_at")
+                    .IsRequired();
+
+                cp.Property(c => c.UpdatedAt)
+                    .HasColumnName("updated_at")
+                    .IsRequired();
+
+                cp.HasKey(c => c.Id);
+
+                cp.HasIndex(c => c.UserId)
+                    .HasDatabaseName("idx_custom_pc_user");
+
+                cp.HasOne(c => c.User)
+                    .WithMany()
+                    .HasForeignKey(c => c.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+
+            // db-schema for CustomPCItem model
+            modelBuilder.Entity<CustomPCItem>(ci =>
+            {
+                ci.Property(c => c.Id)
+                    .HasColumnName("id")
+                    .UseIdentityColumn();
+
+                ci.Property(c => c.CustomPCId)
+                    .HasColumnName("custom_pc_id")
+                    .IsRequired();
+
+                ci.Property(c => c.ProductId)
+                    .HasColumnName("product_id")
+                    .IsRequired();
+
+                ci.Property(c => c.Quantity)
+                    .HasColumnName("quantity")
+                    .IsRequired();
+
+                ci.Property(c => c.CreatedAt)
+                    .HasColumnName("created_at")
+                    .IsRequired();
+
+                ci.HasKey(c => c.Id);
+
+                ci.HasIndex(c => c.CustomPCId)
+                    .HasDatabaseName("idx_custom_pc_item_custom_pc");
+
+                ci.HasIndex(c => c.ProductId)
+                    .HasDatabaseName("idx_custom_pc_item_product");
+
+                ci.HasIndex(c => new { c.CustomPCId, c.ProductId })
+                    .HasDatabaseName("idx_custom_pc_item_unique")
+                    .IsUnique();
+
+                ci.HasOne(c => c.CustomPC)
+                    .WithMany(c => c.Items)
+                    .HasForeignKey(c => c.CustomPCId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                ci.HasOne(c => c.Product)
+                    .WithMany()
+                    .HasForeignKey(c => c.ProductId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                ci.ToTable(t => {
+                    t.HasCheckConstraint("ck_custom_pc_item_quantity", "[quantity] >= 1");
+                });
+            });
+
+
             // db-schema for Review model
             modelBuilder.Entity<Review>(rv =>
             {
@@ -916,6 +1024,600 @@ namespace TechExpress.Repository.Contexts
                     .HasForeignKey(r => r.ReviewId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
+
+
+            // db-schema for Promotion model
+            modelBuilder.Entity<Promotion>(pm =>
+            {
+                pm.Property(p => p.Id)
+                    .HasColumnName("id");
+
+                pm.Property(p => p.Name)
+                    .HasColumnName("name")
+                    .HasMaxLength(256)
+                    .IsRequired();
+
+                pm.Property(p => p.Code)
+                    .HasColumnName("code")
+                    .HasMaxLength(100);
+
+                pm.Property(p => p.Description)
+                    .HasColumnName("description")
+                    .HasMaxLength(4096)
+                    .IsRequired();
+
+                pm.Property(p => p.Type)
+                    .HasColumnName("type")
+                    .HasConversion<string>()
+                    .IsRequired();
+
+                pm.Property(p => p.Scope)
+                    .HasColumnName("scope")
+                    .HasConversion<string>()
+                    .IsRequired();
+
+                pm.Property(p => p.DiscountValue)
+                    .HasColumnName("discount_value")
+                    .HasPrecision(18, 2);
+
+                pm.Property(p => p.MaxDiscountValue)
+                    .HasColumnName("max_discount_value")
+                    .HasPrecision(18, 2);
+
+                pm.Property(p => p.MinOrderValue)
+                    .HasColumnName("min_order_value")
+                    .HasPrecision(18, 2);
+
+                pm.Property(p => p.RequiredProductLogic)
+                    .HasColumnName("required_product_logic")
+                    .HasConversion<string>();
+
+                pm.Property(p => p.FreeItemPickCount)
+                    .HasColumnName("free_item_pick_count");
+
+                pm.Property(p => p.CategoryId)
+                    .HasColumnName("category_id");
+
+                pm.Property(p => p.BrandId)
+                    .HasColumnName("brand_id");
+
+                pm.Property(p => p.MinAppliedQuantity)
+                    .HasColumnName("min_applied_quantity");
+
+                pm.Property(p => p.MaxUsageCount)
+                    .HasColumnName("max_usage_count");
+
+                pm.Property(p => p.UsageCount)
+                    .HasColumnName("usage_count")
+                    .HasDefaultValue(0)
+                    .IsRequired();
+
+                pm.Property(p => p.MaxUsagePerUser)
+                    .HasColumnName("max_usage_per_user");
+
+                pm.Property(p => p.StartDate)
+                    .HasColumnName("start_date")
+                    .IsRequired();
+
+                pm.Property(p => p.EndDate)
+                    .HasColumnName("end_date")
+                    .IsRequired();
+
+                pm.Property(p => p.IsStackable)
+                    .HasColumnName("is_stackable")
+                    .HasDefaultValue(false)
+                    .IsRequired();
+
+                pm.Property(p => p.IsActive)
+                    .HasColumnName("is_active")
+                    .HasDefaultValue(false)
+                    .IsRequired();
+
+                pm.Property(p => p.CreatedAt)
+                    .HasColumnName("created_at")
+                    .IsRequired();
+
+                pm.Property(p => p.UpdatedAt)
+                    .HasColumnName("updated_at")
+                    .IsRequired();
+
+                pm.HasKey(p => p.Id);
+
+                pm.HasIndex(p => p.Code)
+                    .HasDatabaseName("idx_promotion_code")
+                    .IsUnique()
+                    .HasFilter("[code] IS NOT NULL");
+
+                pm.HasIndex(p => new { p.StartDate, p.EndDate })
+                    .HasDatabaseName("idx_promotion_date_range");
+
+                pm.HasIndex(p => p.IsActive)
+                    .HasDatabaseName("idx_promotion_is_active");
+
+                pm.HasIndex(p => p.CategoryId)
+                    .HasDatabaseName("idx_promotion_category");
+
+                pm.HasIndex(p => p.BrandId)
+                    .HasDatabaseName("idx_promotion_brand");
+
+                pm.HasOne(p => p.Category)
+                    .WithMany()
+                    .HasForeignKey(p => p.CategoryId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                pm.HasOne(p => p.Brand)
+                    .WithMany()
+                    .HasForeignKey(p => p.BrandId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                pm.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_promotion_discount_value", "[discount_value] > 0");
+                    t.HasCheckConstraint("ck_promotion_usage_count", "[usage_count] >= 0");
+                    t.HasCheckConstraint("ck_promotion_date", "[end_date] > [start_date]");
+                    t.HasCheckConstraint("ck_promotion_free_item_pick_count", "[free_item_pick_count] > 0");
+                    t.HasCheckConstraint("ck_promotion_min_applied_quantity", "[min_applied_quantity] > 0");
+                });
+            });
+
+
+            // db-schema for PromotionRequiredProduct model
+            modelBuilder.Entity<PromotionRequiredProduct>(prp =>
+            {
+                prp.Property(p => p.Id)
+                    .HasColumnName("id")
+                    .UseIdentityColumn();
+
+                prp.Property(p => p.PromotionId)
+                    .HasColumnName("promotion_id")
+                    .IsRequired();
+
+                prp.Property(p => p.ProductId)
+                    .HasColumnName("product_id")
+                    .IsRequired();
+
+                prp.Property(p => p.MinQuantity)
+                    .HasColumnName("min_quantity")
+                    .IsRequired();
+
+                prp.Property(p => p.MaxQuantity)
+                    .HasColumnName("max_quantity");
+
+                prp.HasKey(p => p.Id);
+
+                prp.HasIndex(p => p.PromotionId)
+                    .HasDatabaseName("idx_promo_required_promotion");
+
+                prp.HasIndex(p => new { p.PromotionId, p.ProductId })
+                    .HasDatabaseName("idx_promo_required_promotion_product")
+                    .IsUnique();
+
+                prp.HasOne(p => p.Promotion)
+                    .WithMany(p => p.RequiredProducts)
+                    .HasForeignKey(p => p.PromotionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                prp.HasOne(p => p.Product)
+                    .WithMany()
+                    .HasForeignKey(p => p.ProductId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                prp.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_promo_required_min_quantity", "[min_quantity] >= 1");
+                    t.HasCheckConstraint("ck_promo_required_max_quantity", "[max_quantity] >= [min_quantity]");
+                });
+            });
+
+
+            // db-schema for PromotionFreeProduct model
+            modelBuilder.Entity<PromotionFreeProduct>(pfp =>
+            {
+                pfp.Property(p => p.Id)
+                    .HasColumnName("id")
+                    .UseIdentityColumn();
+
+                pfp.Property(p => p.PromotionId)
+                    .HasColumnName("promotion_id")
+                    .IsRequired();
+
+                pfp.Property(p => p.ProductId)
+                    .HasColumnName("product_id")
+                    .IsRequired();
+
+                pfp.Property(p => p.Quantity)
+                    .HasColumnName("quantity")
+                    .IsRequired();
+
+                pfp.HasKey(p => p.Id);
+
+                pfp.HasIndex(p => p.PromotionId)
+                    .HasDatabaseName("idx_promo_free_promotion");
+
+                pfp.HasIndex(p => new { p.PromotionId, p.ProductId })
+                    .HasDatabaseName("idx_promo_free_promotion_product")
+                    .IsUnique();
+
+                pfp.HasOne(p => p.Promotion)
+                    .WithMany(p => p.FreeProducts)
+                    .HasForeignKey(p => p.PromotionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                pfp.HasOne(p => p.Product)
+                    .WithMany()
+                    .HasForeignKey(p => p.ProductId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                pfp.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_promo_free_quantity", "[quantity] >= 1");
+                });
+            });
+
+
+            // db-schema for PromotionAppliedProduct model
+            modelBuilder.Entity<PromotionAppliedProduct>(pap =>
+            {
+                pap.Property(p => p.Id)
+                    .HasColumnName("id")
+                    .UseIdentityColumn();
+
+                pap.Property(p => p.PromotionId)
+                    .HasColumnName("promotion_id")
+                    .IsRequired();
+
+                pap.Property(p => p.ProductId)
+                    .HasColumnName("product_id")
+                    .IsRequired();
+
+                pap.HasKey(p => p.Id);
+
+                pap.HasIndex(p => p.PromotionId)
+                    .HasDatabaseName("idx_promo_applied_promotion");
+
+                pap.HasIndex(p => new { p.PromotionId, p.ProductId })
+                    .HasDatabaseName("idx_promo_applied_promotion_product")
+                    .IsUnique();
+
+                pap.HasOne(p => p.Promotion)
+                    .WithMany(p => p.AppliedProducts)
+                    .HasForeignKey(p => p.PromotionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                pap.HasOne(p => p.Product)
+                    .WithMany()
+                    .HasForeignKey(p => p.ProductId)
+                    .OnDelete(DeleteBehavior.NoAction);
+            });
+
+
+            // db-schema for PromotionUsage model
+            modelBuilder.Entity<PromotionUsage>(pu =>
+            {
+                pu.Property(p => p.Id)
+                    .HasColumnName("id")
+                    .UseIdentityColumn();
+
+                pu.Property(p => p.PromotionId)
+                    .HasColumnName("promotion_id")
+                    .IsRequired();
+
+                pu.Property(p => p.UserId)
+                    .HasColumnName("user_id");
+
+                pu.Property(p => p.OrderId)
+                    .HasColumnName("order_id")
+                    .IsRequired();
+
+                pu.Property(p => p.FullName)
+                    .HasColumnName("full_name")
+                    .HasMaxLength(256);
+
+                pu.Property(p => p.Phone)
+                    .HasColumnName("phone")
+                    .HasMaxLength(20);
+
+                pu.Property(p => p.DiscountAmount)
+                    .HasColumnName("discount_amount")
+                    .HasPrecision(18, 2)
+                    .IsRequired();
+
+                pu.Property(p => p.UsedAt)
+                    .HasColumnName("used_at")
+                    .IsRequired();
+
+                pu.HasKey(p => p.Id);
+
+                pu.HasIndex(p => p.PromotionId)
+                    .HasDatabaseName("idx_promo_usage_promotion");
+
+                pu.HasIndex(p => p.UserId)
+                    .HasDatabaseName("idx_promo_usage_user");
+
+                pu.HasIndex(p => p.OrderId)
+                    .HasDatabaseName("idx_promo_usage_order");
+
+                pu.HasIndex(p => new { p.PromotionId, p.UserId })
+                    .HasDatabaseName("idx_promo_usage_promotion_user");
+
+                pu.HasOne(p => p.Promotion)
+                    .WithMany(p => p.Usages)
+                    .HasForeignKey(p => p.PromotionId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                pu.HasOne(p => p.User)
+                    .WithMany()
+                    .HasForeignKey(p => p.UserId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                pu.HasOne(p => p.Order)
+                    .WithMany()
+                    .HasForeignKey(p => p.OrderId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                pu.ToTable(t =>
+                {
+                    t.HasCheckConstraint("ck_promo_usage_discount_amount", "[discount_amount] >= 0");
+                });
+            });
+
+
+            // db-schema for Ticket model
+            modelBuilder.Entity<Ticket>(tk =>
+            {
+                tk.Property(t => t.Id)
+                    .HasColumnName("id");
+
+                tk.Property(t => t.UserId)
+                    .HasColumnName("user_id");
+
+                tk.Property(t => t.FullName)
+                    .HasColumnName("full_name")
+                    .HasMaxLength(256);
+
+                tk.Property(t => t.Phone)
+                    .HasColumnName("phone")
+                    .HasMaxLength(20);
+
+                tk.Property(t => t.Title)
+                    .HasColumnName("title")
+                    .HasMaxLength(256)
+                    .IsRequired();
+
+                tk.Property(t => t.Description)
+                    .HasColumnName("description")
+                    .HasMaxLength(4096)
+                    .IsRequired();
+
+                tk.Property(t => t.Type)
+                    .HasColumnName("type")
+                    .HasConversion<string>()
+                    .IsRequired();
+
+                tk.Property(t => t.Status)
+                    .HasColumnName("status")
+                    .HasConversion<string>()
+                    .IsRequired();
+
+                tk.Property(t => t.Priority)
+                    .HasColumnName("priority")
+                    .HasConversion<string>()
+                    .IsRequired();
+
+                tk.Property(t => t.CustomPCId)
+                    .HasColumnName("custom_pc_id");
+
+                tk.Property(t => t.OrderId)
+                    .HasColumnName("order_id");
+
+                tk.Property(t => t.OrderItemId)
+                    .HasColumnName("order_item_id");
+
+                tk.Property(t => t.AssignedToUserId)
+                    .HasColumnName("assigned_to_user_id");
+
+                tk.Property(t => t.ResolvedAt)
+                    .HasColumnName("resolved_at");
+
+                tk.Property(t => t.ClosedAt)
+                    .HasColumnName("closed_at");
+
+                tk.Property(t => t.CreatedAt)
+                    .HasColumnName("created_at")
+                    .IsRequired();
+
+                tk.Property(t => t.UpdatedAt)
+                    .HasColumnName("updated_at")
+                    .IsRequired();
+
+                tk.HasKey(t => t.Id);
+
+                tk.HasIndex(t => t.UserId)
+                    .HasDatabaseName("idx_ticket_user");
+
+                tk.HasIndex(t => t.Status)
+                    .HasDatabaseName("idx_ticket_status");
+
+                tk.HasIndex(t => t.AssignedToUserId)
+                    .HasDatabaseName("idx_ticket_assigned");
+
+                tk.HasIndex(t => t.CustomPCId)
+                    .HasDatabaseName("idx_ticket_custom_pc");
+
+                tk.HasIndex(t => t.OrderId)
+                    .HasDatabaseName("idx_ticket_order");
+
+                tk.HasIndex(t => t.OrderItemId)
+                    .HasDatabaseName("idx_ticket_order_item");
+
+                tk.HasOne(t => t.User)
+                    .WithMany()
+                    .HasForeignKey(t => t.UserId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                tk.HasOne(t => t.AssignedTo)
+                    .WithMany()
+                    .HasForeignKey(t => t.AssignedToUserId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                tk.HasOne(t => t.CustomPC)
+                    .WithMany()
+                    .HasForeignKey(t => t.CustomPCId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                tk.HasOne(t => t.Order)
+                    .WithMany()
+                    .HasForeignKey(t => t.OrderId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                tk.HasOne(t => t.OrderItem)
+                    .WithMany()
+                    .HasForeignKey(t => t.OrderItemId)
+                    .OnDelete(DeleteBehavior.NoAction);
+            });
+
+
+            // db-schema for TicketMessage model
+            modelBuilder.Entity<TicketMessage>(tm =>
+            {
+                tm.Property(t => t.Id)
+                    .HasColumnName("id")
+                    .UseIdentityColumn();
+
+                tm.Property(t => t.TicketId)
+                    .HasColumnName("ticket_id")
+                    .IsRequired();
+
+                tm.Property(t => t.UserId)
+                    .HasColumnName("user_id");
+
+                tm.Property(t => t.Content)
+                    .HasColumnName("content")
+                    .HasMaxLength(4096)
+                    .IsRequired();
+
+                tm.Property(t => t.IsStaffMessage)
+                    .HasColumnName("is_staff_message")
+                    .HasDefaultValue(false)
+                    .IsRequired();
+
+                tm.Property(t => t.SentAt)
+                    .HasColumnName("sent_at")
+                    .IsRequired();
+
+                tm.HasKey(t => t.Id);
+
+                tm.HasIndex(t => t.TicketId)
+                    .HasDatabaseName("idx_ticket_message_ticket");
+
+                tm.HasIndex(t => t.UserId)
+                    .HasDatabaseName("idx_ticket_message_user");
+
+                tm.HasOne(t => t.Ticket)
+                    .WithMany(t => t.Messages)
+                    .HasForeignKey(t => t.TicketId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                tm.HasOne(t => t.User)
+                    .WithMany()
+                    .HasForeignKey(t => t.UserId)
+                    .OnDelete(DeleteBehavior.NoAction);
+            });
+
+
+            // db-schema for TicketAttachment model
+            modelBuilder.Entity<TicketAttachment>(ta =>
+            {
+                ta.Property(t => t.Id)
+                    .HasColumnName("id")
+                    .UseIdentityColumn();
+
+                ta.Property(t => t.MessageId)
+                    .HasColumnName("message_id")
+                    .IsRequired();
+
+                ta.Property(t => t.FileUrl)
+                    .HasColumnName("file_url")
+                    .HasMaxLength(2048)
+                    .IsRequired();
+
+                ta.Property(t => t.UploadedAt)
+                    .HasColumnName("uploaded_at")
+                    .IsRequired();
+
+                ta.HasKey(t => t.Id);
+
+                ta.HasIndex(t => t.MessageId)
+                    .HasDatabaseName("idx_ticket_attachment_message");
+
+                ta.HasOne(t => t.Message)
+                    .WithMany(t => t.Attachments)
+                    .HasForeignKey(t => t.MessageId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+
+            // db-schema for Notification model
+            modelBuilder.Entity<Notification>(nf =>
+            {
+                nf.Property(n => n.Id)
+                    .HasColumnName("id")
+                    .UseIdentityColumn();
+
+                nf.Property(n => n.UserId)
+                    .HasColumnName("user_id")
+                    .IsRequired();
+
+                nf.Property(n => n.Type)
+                    .HasColumnName("type")
+                    .HasConversion<string>()
+                    .IsRequired();
+
+                nf.Property(n => n.Title)
+                    .HasColumnName("title")
+                    .HasMaxLength(256)
+                    .IsRequired();
+
+                nf.Property(n => n.Message)
+                    .HasColumnName("message")
+                    .HasMaxLength(1024)
+                    .IsRequired();
+
+                nf.Property(n => n.ReferenceId)
+                    .HasColumnName("reference_id");
+
+                nf.Property(n => n.ReferenceType)
+                    .HasColumnName("reference_type")
+                    .HasConversion<string>();
+
+                nf.Property(n => n.IsRead)
+                    .HasColumnName("is_read")
+                    .HasDefaultValue(false)
+                    .IsRequired();
+
+                nf.Property(n => n.ReadAt)
+                    .HasColumnName("read_at");
+
+                nf.Property(n => n.CreatedAt)
+                    .HasColumnName("created_at")
+                    .IsRequired();
+
+                nf.HasKey(n => n.Id);
+
+                nf.HasIndex(n => n.UserId)
+                    .HasDatabaseName("idx_notification_user");
+
+                nf.HasIndex(n => new { n.UserId, n.IsRead })
+                    .HasDatabaseName("idx_notification_user_is_read");
+
+                nf.HasIndex(n => n.Type)
+                    .HasDatabaseName("idx_notification_type");
+
+                nf.HasOne(n => n.User)
+                    .WithMany()
+                    .HasForeignKey(n => n.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
         }
 
 
@@ -936,5 +1638,16 @@ namespace TechExpress.Repository.Contexts
         public DbSet<ComputerComponent> ComputerComponents { get; set; }
         public DbSet<Review> Reviews { get; set; }
         public DbSet<ReviewMedia> ReviewMedias { get; set; }
+        public DbSet<CustomPC> CustomPCs { get; set; }
+        public DbSet<CustomPCItem> CustomPCItems { get; set; }
+        public DbSet<Promotion> Promotions { get; set; }
+        public DbSet<PromotionRequiredProduct> PromotionRequiredProducts { get; set; }
+        public DbSet<PromotionFreeProduct> PromotionFreeProducts { get; set; }
+        public DbSet<PromotionAppliedProduct> PromotionAppliedProducts { get; set; }
+        public DbSet<PromotionUsage> PromotionUsages { get; set; }
+        public DbSet<Ticket> Tickets { get; set; }
+        public DbSet<TicketMessage> TicketMessages { get; set; }
+        public DbSet<TicketAttachment> TicketAttachments { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
     }
 }

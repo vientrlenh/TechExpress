@@ -94,7 +94,8 @@ builder.Services.AddScoped<ApplicationDbContext>();
 builder.Services.AddScoped<UnitOfWork>();
 
 builder.Services.AddScoped<SmtpEmailSender>();
-builder.Services.AddScoped<PayOsClient>();     
+builder.Services.AddScoped<PayOsClient>();
+builder.Services.AddScoped<GoogleAuthUtils>();
 
 
 
@@ -130,26 +131,14 @@ builder.Services.AddAuthentication(opt =>
             }
             return Task.CompletedTask;
         },
-        OnAuthenticationFailed = async context =>
-        {
-            context.NoResult();
-            context.Response.StatusCode = 401;
-            context.Response.ContentType = "application/json";
-            var message = context.Exception switch
-            {
-                SecurityTokenExpiredException => "Token expired",
-                SecurityTokenInvalidSignatureException => "Invalid token signature",
-                SecurityTokenMalformedException => "Malformed token",
-                _ => "Unauthenticated access"
-            };
-            await context.Response.WriteAsJsonAsync(new { error = message });
-        },
         OnForbidden = async context =>
         {
-            context.NoResult();
-            context.Response.StatusCode = 403;
-            context.Response.ContentType = "application/json";
-            await context.Response.WriteAsJsonAsync(new { error = "You are not allowed to perform this action" });
+            if (!context.Response.HasStarted)
+            {
+                context.Response.StatusCode = 403;
+                context.Response.ContentType = "application/json";
+                await context.Response.WriteAsJsonAsync(new { error = "You are not allowed to perform this action" });
+            }
         },
         OnChallenge = async context =>
         {
@@ -159,11 +148,16 @@ builder.Services.AddAuthentication(opt =>
             {
                 context.Response.StatusCode = 401;
                 context.Response.ContentType = "application/json";
-                await context.Response.WriteAsJsonAsync(new { error = "Unauthorized access." });
-            }
-            else
-            {
-                await Task.CompletedTask;
+                // Surface the specific token failure reason if one exists
+                var message = context.AuthenticateFailure switch
+                {
+                    SecurityTokenExpiredException => "Token expired",
+                    SecurityTokenInvalidSignatureException => "Invalid token signature",
+                    SecurityTokenMalformedException => "Malformed token",
+                    not null => "Unauthenticated access",
+                    null => "Unauthorized access"
+                };
+                await context.Response.WriteAsJsonAsync(new { error = message });
             }
         }
     };
@@ -278,6 +272,8 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+app.UseExceptionHandler();
+
 app.UseHttpsRedirection();
 
 app.UseStaticFiles();
@@ -289,8 +285,6 @@ app.UseAuthentication();
 app.UseMiddleware<UserStatusMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseAuthorization();
-
-app.UseExceptionHandler();
 
 app.MapControllers();
 

@@ -70,4 +70,9 @@ namespace TechExpress.Application.Dtos.Responses
         List<ProductSpecValueResponse> SpecValues,
         List<ProductPCComponentResponse> Components
     );
+
+    public record PCDetailsWithCompatibilityWarningResponse(
+        ProductPCDetailResponse PCDetails,
+        List<string>? CompatibilityWarning
+    );
 }

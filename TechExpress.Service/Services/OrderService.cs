@@ -226,16 +226,48 @@ namespace TechExpress.Service.Services
         private async Task<List<Installment>> CreateInstallmentRecords(Order order, int duration)
         {
             var installments = new List<Installment>();
-            decimal monthlyAmount = Math.Round(order.TotalPrice / duration, 0);
+            decimal totalPrice = order.TotalPrice;
+
+            // 1. Tính kỳ đầu tiên: 20% tổng giá trị
+            decimal firstMonthAmount = Math.Round(totalPrice * 0.20m, 0);
+
+            // 2. Số tiền còn lại (80%) và số kỳ còn lại
+            decimal remainingTotal = totalPrice - firstMonthAmount;
+            int remainingPeriods = duration - 1;
+
+            // 3. Số tiền trung bình cho các kỳ sau (làm tròn)
+            decimal monthlyAmountForRest = Math.Round(remainingTotal / remainingPeriods, 0);
+
+            decimal allocatedTotal = 0; // Biến theo dõi tổng tiền đã gán vào các kỳ
 
             for (int i = 1; i <= duration; i++)
             {
+                decimal currentPeriodAmount;
+
+                if (i == 1)
+                {
+                    // Kỳ đầu: 20%
+                    currentPeriodAmount = firstMonthAmount;
+                }
+                else if (i == duration)
+                {
+                    // Kỳ cuối: Lấy tổng trừ đi tất cả các kỳ trước để bù sai số làm tròn (khớp 100%)
+                    currentPeriodAmount = totalPrice - allocatedTotal;
+                }
+                else
+                {
+                    // Các kỳ giữa (từ kỳ 2 đến kỳ sát cuối)
+                    currentPeriodAmount = monthlyAmountForRest;
+                }
+
+                allocatedTotal += currentPeriodAmount;
+
                 var installment = new Installment
                 {
                     Id = Guid.NewGuid(),
                     OrderId = order.Id,
                     Period = i,
-                    Amount = monthlyAmount,
+                    Amount = currentPeriodAmount,
                     Status = InstallmentStatus.Pending,
                     DueDate = DateTimeOffset.Now.AddMonths(i)
                 };
@@ -298,6 +330,7 @@ namespace TechExpress.Service.Services
             };
         }
 
+
         // ============================== LIST ORDERS ===============================
         public async Task<Pagination<Order>> HandleGetOrderListWithPaginationAsync(
             int page,
@@ -349,6 +382,137 @@ namespace TechExpress.Service.Services
                 ?? throw new NotFoundException("Không tìm thấy đơn hàng này.");
 
             return order;
+        }
+
+        // ============================== UPDATE ORDER STATUS ===============================
+
+        /// <summary>
+        /// Cập nhật trạng thái đơn hàng theo luồng nghiệp vụ.
+        /// Nhân viên / Khách hàng gọi API này để chuyển trạng thái.
+        /// </summary>
+        public async Task<Order> HandleUpdateOrderStatusAsync(Guid orderId, OrderStatus newStatus)
+        {
+            var order = await _unitOfWork.OrderRepository.FindByIdWithTrackingAsync(orderId)
+                ?? throw new NotFoundException("Không tìm thấy đơn hàng.");
+
+            ValidateStatusTransition(order, newStatus);
+
+            // Nếu đích đến là Completed hoặc Installing, tự động xác định dựa trên PaidType
+            if (newStatus == OrderStatus.Completed || newStatus == OrderStatus.Installing)
+            {
+                order.Status = order.PaidType == PaidType.Installment
+                    ? OrderStatus.Installing
+                    : OrderStatus.Completed;
+            }
+            else
+            {
+                order.Status = newStatus;
+            }
+
+            await _unitOfWork.SaveChangesAsync();
+
+            return order;
+        }
+
+        /// <summary>
+        /// Hủy đơn hàng. Chỉ được hủy trước trạng thái Processing.
+        /// Hoàn lại 90% số tiền đã thanh toán.
+        /// </summary>
+        public async Task<Order> HandleCancelOrderAsync(Guid orderId)
+        {
+            var strategy = _unitOfWork.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
+            {
+                using var transaction = await _unitOfWork.BeginTransactionAsync();
+                try
+                {
+                    var order = await _unitOfWork.OrderRepository.FindByIdIncludeDetailsAsync(orderId)
+                        ?? throw new NotFoundException("Không tìm thấy đơn hàng.");
+
+                    if (order.Status != OrderStatus.Pending && order.Status != OrderStatus.Confirmed)
+                        throw new BadRequestException("Chỉ có thể hủy đơn hàng trước khi đóng gói (trạng thái Pending hoặc Confirmed).");
+
+                    // Hoàn lại tồn kho
+                    foreach (var item in order.Items)
+                    {
+                        await _unitOfWork.ProductRepository.IncrementStockAtomicAsync(item.ProductId, item.Quantity);
+                    }
+
+                    // Hoàn lại 90% số tiền đã thanh toán
+                    var payments = await _unitOfWork.PaymentRepository.GetByOrderIdAsync(orderId);
+                    var successSum = payments.Where(p => p.Status == PaymentStatus.Success).Sum(p => p.Amount);
+
+                    if (successSum > 0)
+                    {
+                        var refundAmount = Math.Round(successSum * 0.9m, 0);
+                        var refundPayment = new Payment
+                        {
+                            OrderId = orderId,
+                            InstallmentId = null,
+                            Amount = refundAmount,
+                            Method = PaymentMethod.Cash,
+                            Status = PaymentStatus.Refunded,
+                            PaymentDate = DateTimeOffset.Now
+                        };
+                        await _unitOfWork.PaymentRepository.AddAsync(refundPayment);
+                    }
+
+                    // Cập nhật trạng thái (dùng tracking entity)
+                    var trackedOrder = await _unitOfWork.OrderRepository.FindByIdWithTrackingAsync(orderId)
+                        ?? throw new NotFoundException("Không tìm thấy đơn hàng.");
+                    trackedOrder.Status = OrderStatus.Canceled;
+
+                    await _unitOfWork.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    return trackedOrder;
+                }
+                catch (Exception)
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            });
+        }
+
+        /// <summary>
+        /// Kiểm tra chuyển trạng thái hợp lệ theo luồng nghiệp vụ.
+        /// </summary>
+        private void ValidateStatusTransition(Order order, OrderStatus newStatus)
+        {
+            var currentStatus = order.Status;
+
+            bool isValid = (currentStatus, newStatus, order.DeliveryType) switch
+            {
+                // Confirmed → Processing (nhân viên đóng gói)
+                (OrderStatus.Confirmed, OrderStatus.Processing, _) => true,
+
+                // === SHIPPING FLOW ===
+                // Processing → Shipping (nhân viên giao hàng tiếp nhận)
+                (OrderStatus.Processing, OrderStatus.Shipping, DeliveryType.Shipping) => true,
+                // Shipping → Delivered (giao hàng thành công)
+                (OrderStatus.Shipping, OrderStatus.Delivered, DeliveryType.Shipping) => true,
+                // Delivered → Completed/Installing (khách hàng xác nhận)
+                (OrderStatus.Delivered, OrderStatus.Completed, DeliveryType.Shipping) => true,
+                (OrderStatus.Delivered, OrderStatus.Installing, DeliveryType.Shipping) => true,
+
+                // === PICKUP FLOW ===
+                // Processing → ReadyForPickup (đơn hàng sẵn sàng)
+                (OrderStatus.Processing, OrderStatus.ReadyForPickup, DeliveryType.PickUp) => true,
+                // ReadyForPickup → PickedUp (khách đến nhận)
+                (OrderStatus.ReadyForPickup, OrderStatus.PickedUp, DeliveryType.PickUp) => true,
+                // PickedUp → Completed/Installing (nhân viên xác nhận hoàn thành)
+                (OrderStatus.PickedUp, OrderStatus.Completed, DeliveryType.PickUp) => true,
+                (OrderStatus.PickedUp, OrderStatus.Installing, DeliveryType.PickUp) => true,
+
+                _ => false
+            };
+
+            if (!isValid)
+                throw new BadRequestException(
+                    $"Không thể chuyển trạng thái từ '{currentStatus}' sang '{newStatus}' " +
+                    $"cho đơn hàng loại '{order.DeliveryType}'.");
         }
     }
 }

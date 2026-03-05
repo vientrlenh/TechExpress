@@ -1,4 +1,4 @@
-using Microsoft.Identity.Client;
+﻿using Microsoft.Identity.Client;
 using System;
 using TechExpress.Application.Controllers;
 using TechExpress.Application.Dtos.Responses;
@@ -295,6 +295,14 @@ public class ResponseMapper
             baseDetail.UpdatedAt,
             baseDetail.SpecValues,
             componentResponses
+        );
+    }
+
+    public static PCDetailsWithCompatibilityWarningResponse MapToPCDetailsWithCompatibilityWarningResponse(Product product, List<ComputerComponent> components, List<string>? compatibilityWarning)
+    {
+        return new PCDetailsWithCompatibilityWarningResponse(
+            MapToProductPCDetailResponseFromProduct(product, components),
+            compatibilityWarning
         );
     }
 
@@ -721,6 +729,42 @@ public class ResponseMapper
             PageNumber = orderPagination.PageNumber,
             PageSize = orderPagination.PageSize,
             TotalCount = orderPagination.TotalCount
+        };
+    }
+
+    //======================= Map Review Responses =======================//
+
+    public static ReviewResponse MapToReviewResponse(Review review)
+    {
+        return new ReviewResponse
+        {
+            Id = review.Id,
+            ProductId = review.ProductId,
+            UserId = review.UserId,
+            FullName = review.FullName,
+            Phone = review.Phone,
+            Comment = review.Comment,
+            Rating = review.Rating,
+            Medias = review.Medias
+                .Select(m => new ReviewMediaResponse
+                {
+                    Id = m.Id,
+                    MediaUrl = m.MediaUrl,
+                    CreatedAt = m.CreatedAt
+                }).ToList(),
+            CreatedAt = review.CreatedAt,
+            UpdatedAt = review.UpdatedAt
+        };
+    }
+
+    public static Pagination<ReviewResponse> MapToReviewResponsePagination(Pagination<Review> reviewPagination)
+    {
+        return new Pagination<ReviewResponse>
+        {
+            Items = reviewPagination.Items.Select(MapToReviewResponse).ToList(),
+            PageNumber = reviewPagination.PageNumber,
+            PageSize = reviewPagination.PageSize,
+            TotalCount = reviewPagination.TotalCount
         };
     }
 }

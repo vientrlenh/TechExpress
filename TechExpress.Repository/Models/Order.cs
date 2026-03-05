@@ -1,4 +1,3 @@
-using System;
 using TechExpress.Repository.Enums;
 
 namespace TechExpress.Repository.Models;
@@ -21,6 +20,8 @@ public class Order
 
     public required decimal TotalPrice { get; set; }
 
+    public decimal DiscountAmount { get; set; }
+
     public string? ReceiverEmail { get; set; }
 
     public string? ReceiverFullName { get; set; }
@@ -38,6 +39,8 @@ public class Order
     public int? InstallmentDurationMonth { get; set; }
 
     public DateTimeOffset OrderDate { get; set; } = DateTimeOffset.Now;
+
+    public DateTimeOffset? ReceivedAt { get; set; }
 
     public required OrderStatus Status { get; set; }
 
