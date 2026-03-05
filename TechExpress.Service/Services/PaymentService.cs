@@ -41,9 +41,6 @@ namespace TechExpress.Service.Services
             _payOs = payOs;
         }
 
-        // =========================
-        // 1) CHECKOUT - INTENT
-        // =========================
         public async Task<Order> HandleSetFullPaymentIntentAsync(
             Guid orderId,
             PaymentMethod method,
@@ -61,9 +58,6 @@ namespace TechExpress.Service.Services
             return order;
         }
 
-        // =========================
-        // 2) ONLINE INIT (REDIRECT)
-        // =========================
         public async Task<OnlinePaymentInitResult> HandleInitOrderOnlinePaymentAsync(
     Guid orderId,
     PaymentMethod method,
@@ -74,7 +68,6 @@ namespace TechExpress.Service.Services
             if (method != PaymentMethod.PayOs)
                 throw new BadRequestException("Bản hiện tại chỉ implement PayOS.");
 
-            // ✅ REUSE nếu link còn hạn
             var reusable = await TryGetReusableSessionByOrderIdAsync(orderId);
             if (reusable != null)
             {
@@ -88,7 +81,6 @@ namespace TechExpress.Service.Services
                 };
             }
 
-            // ===== create new link =====
             var order = await _unitOfWork.OrderRepository.FindByIdAsync(orderId)
                 ?? throw new NotFoundException("Không tìm thấy đơn hàng.");
 
@@ -158,7 +150,6 @@ namespace TechExpress.Service.Services
             if (method != PaymentMethod.PayOs)
                 throw new BadRequestException("Bản hiện tại chỉ implement PayOS.");
 
-            // ✅ REUSE nếu link còn hạn
             var reusable = await TryGetReusableSessionByInstallmentIdAsync(installmentId);
             if (reusable != null)
             {
@@ -242,7 +233,6 @@ namespace TechExpress.Service.Services
             if (method != PaymentMethod.PayOs)
                 throw new BadRequestException("Bản hiện tại chỉ implement PayOS.");
 
-            // ✅ REUSE nếu link còn hạn
             var reusable = await TryGetReusableSessionByOrderIdAsync(orderId);
             if (reusable != null && reusable.IsFullSettlement)
             {
@@ -327,9 +317,6 @@ namespace TechExpress.Service.Services
             };
         }
 
-        // =========================
-        // 3) GATEWAY CALLBACK (Controller đang gọi method này)
-        // =========================
         public async Task<GatewayCallbackResult> HandlePayOsWebhookAsync(
              Webhook webhook,
              CancellationToken ct = default)
@@ -431,10 +418,6 @@ namespace TechExpress.Service.Services
 
             return null;
         }
-        // =========================
-        // 3b) PAYOS RETURN/CANCEL (NO OFFICIAL WEBHOOK YET)
-        // Controller gọi method này trong /payments/payos/return & /payments/payos/cancel
-        // =========================
         public async Task<GatewayCallbackResult> HandlePayOsReturnOrCancelAsync(
             bool isSuccess,
             long? orderCode,
@@ -507,17 +490,12 @@ namespace TechExpress.Service.Services
                 Message = isSuccess ? "Return processed (Success)." : "Cancel processed (Failed)."
             };
         }
-        // =========================
-        // 4) CASH/COD
-        // =========================
         public async Task<Payment> HandleCashPayOrderAsync(
     Guid orderId,
     decimal amount,
     string? note,
     CancellationToken ct = default)
         {
-            if (amount <= 0) throw new BadRequestException("Amount must be greater than 0.");
-
             var order = await _unitOfWork.OrderRepository.FindByIdWithTrackingAsync(orderId)
                 ?? throw new NotFoundException("Không tìm thấy đơn hàng.");
 
@@ -546,8 +524,6 @@ namespace TechExpress.Service.Services
     string? note,
     CancellationToken ct = default)
         {
-            if (amount <= 0) throw new BadRequestException("Amount must be greater than 0.");
-
             var installment = await _unitOfWork.InstallmentRepository.FindByIdWithTrackingAsync(installmentId)
                 ?? throw new NotFoundException("Không tìm thấy kỳ trả góp.");
 
@@ -573,19 +549,11 @@ namespace TechExpress.Service.Services
             return payment;
         }
 
-        // =========================
-        // 5) QUERY
-        // =========================
         public Task<List<Payment>> HandleGetPaymentsByOrderAsync(Guid orderId, CancellationToken ct = default)
             => _unitOfWork.PaymentRepository.GetByOrderIdAsync(orderId);
 
         public Task<List<Payment>> HandleGetPaymentsByInstallmentAsync(Guid installmentId, CancellationToken ct = default)
             => _unitOfWork.PaymentRepository.GetByInstallmentIdAsync(installmentId);
-
-        // =========================
-        // 6) REFUND & CANCEL ORDER
-        // =========================
-        
 
         /// <summary>
         /// Hủy đơn hàng và hoàn tiền 90% số tiền đã thanh toán.

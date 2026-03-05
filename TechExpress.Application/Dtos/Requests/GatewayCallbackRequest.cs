@@ -3,10 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace TechExpress.Application.Dtos.Requests;
 
-/// <summary>
-/// DTO demo cho callback/return.
-/// Thực tế PayOS/VnPay có payload khác nhau, PaymentService sẽ parse/verify theo provider.
-/// </summary>
+
 public class GatewayCallbackRequest
 {
     /// <summary>
