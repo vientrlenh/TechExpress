@@ -808,4 +808,38 @@ public class ResponseMapper
             promotion.UpdatedAt
         );
     }
+
+    // Map promotion từ promotion ra PromotionListResponse, thêm thuộc tính IsExpired để xác định xem khuyến mãi đã hết hạn hay chưa
+    // Map từng item lẻ
+    public static PromotionListResponse MapToPromotionListResponseFromPromotion(Promotion p)
+    {
+        return new PromotionListResponse(
+            p.Id,
+            p.Name,
+            p.Code,
+            p.Description,
+            p.Type.ToString(),
+            p.Scope.ToString(),
+            p.DiscountValue,
+            p.UsageCount,
+            p.MaxUsageCount,
+            p.IsActive,
+            p.StartDate,
+            p.EndDate,
+            p.CreatedAt,
+            DateTimeOffset.Now > p.EndDate // Attribute động tính tại thời điểm map
+        );
+    }
+
+    // Map cả object Pagination (Dùng cho Controller)
+    public static Pagination<PromotionListResponse> MapToPromotionListResponsePaginationFromPromotionPagination(Pagination<Promotion> promotionPagination)
+    {
+        return new Pagination<PromotionListResponse>
+        {
+            Items = promotionPagination.Items.Select(MapToPromotionListResponseFromPromotion).ToList(),
+            PageNumber = promotionPagination.PageNumber,
+            PageSize = promotionPagination.PageSize,
+            TotalCount = promotionPagination.TotalCount
+        };
+    }
 }
