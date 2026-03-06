@@ -1,4 +1,5 @@
 ﻿using TechExpress.Application.Dtos.Requests;
+using TechExpress.Application.DTOs.Requests;
 using TechExpress.Repository.CustomExceptions;
 using TechExpress.Service.Commands;
 
@@ -83,6 +84,27 @@ namespace TechExpress.Application.Common
                     ProductId = request.ProductId,
                     MinQuantity = request.MinQuantity,
                     MaxQuantity = request.MaxQuantity,
+                });
+                productIds.Add(request.ProductId);
+            }
+            return commands;
+        }
+
+
+        public static List<CheckoutItemCommand> MapToCheckoutItemCommandListFromRequest(List<CheckoutItemRequest> requests)
+        {
+            List<CheckoutItemCommand> commands = [];
+            HashSet<Guid> productIds = [];
+            foreach (var request in requests)
+            {
+                if (productIds.Contains(request.ProductId))
+                {
+                    throw new BadRequestException($"Sản phẩm trùng lặp khi gửi yêu cầu tính toán khuyến mãi {request.ProductId}");
+                }
+                commands.Add(new CheckoutItemCommand
+                {
+                    ProductId = request.ProductId,
+                    Quantity = request.Quantity
                 });
                 productIds.Add(request.ProductId);
             }

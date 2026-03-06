@@ -1,8 +1,10 @@
+using System.Net.Http.Headers;
 using TechExpress.Repository;
 using TechExpress.Repository.CustomExceptions;
 using TechExpress.Repository.Enums;
 using TechExpress.Repository.Models;
 using TechExpress.Service.Commands;
+using TechExpress.Service.Dtos;
 
 namespace TechExpress.Service.Services;
 
@@ -16,28 +18,28 @@ public class PromotionService
     }
 
     public async Task<Promotion> HandleCreatePromotion(
-        string name, 
-        string? code, 
-        string description, 
-        PromotionType type, 
-        PromotionScope scope, 
-        decimal? discountValue, 
+        string name,
+        string? code,
+        string description,
+        PromotionType type,
+        PromotionScope scope,
+        decimal? discountValue,
         decimal? maxDiscountValue,
-        decimal? minOrderValue, 
-        List<CreatePromotionRequiredProductCommand> requiredProductCommands, 
-        PromotionRequiredProductLogic? requiredProductLogic, 
-        List<CreatePromotionFreeProductCommand> freeProductCommands, 
-        int? freeItemPickCount, 
-        Guid? categoryId, 
-        Guid? brandId, 
-        List<Guid> appliedProductIds, 
-        int? minAppliedQuantity, 
-        int? maxUsageCount, 
-        int? maxUsagePerUser, 
-        DateTimeOffset startDate, 
-        DateTimeOffset endDate, 
+        decimal? minOrderValue,
+        List<CreatePromotionRequiredProductCommand> requiredProductCommands,
+        PromotionRequiredProductLogic? requiredProductLogic,
+        List<CreatePromotionFreeProductCommand> freeProductCommands,
+        int? freeItemPickCount,
+        Guid? categoryId,
+        Guid? brandId,
+        List<Guid> appliedProductIds,
+        int? minAppliedQuantity,
+        int? maxUsageCount,
+        int? maxUsagePerUser,
+        DateTimeOffset startDate,
+        DateTimeOffset endDate,
         bool isStackable)
-    {        
+    {
         code = string.IsNullOrWhiteSpace(code) ? null : code.Trim().ToUpper();
         if (!string.IsNullOrWhiteSpace(code) && await _unitOfWork.PromotionRepository.ExistsByCodeAsync(code))
         {
@@ -101,6 +103,11 @@ public class PromotionService
                 discountValue = null;
                 maxDiscountValue = null;
                 break;
+            case PromotionType.FixedPrice:
+                ValidatePromotionValueWithFixedPriceType(discountValue);
+                freeItemPickCount = null;
+                maxDiscountValue = null;
+                break;
             default:
                 throw new BadRequestException($"Khuyến mãi hiện tại không hỗ trợ loại {type}");
         }
@@ -154,6 +161,14 @@ public class PromotionService
                 ProductId = command.ProductId,
                 Quantity = command.Quantity
             });
+        }
+    }
+
+    private static void ValidatePromotionValueWithFixedPriceType(decimal? discountValue)
+    {
+        if (!discountValue.HasValue)
+        {
+            throw new BadRequestException($"Khuyến mãi kiểu đồng giá yêu cầu giá tiền của sản phẩm");
         }
     }
 
@@ -278,6 +293,278 @@ public class PromotionService
             requiredProductLogic = null;
         }
         promotion.RequiredProductLogic = requiredProductLogic;
-        
+
     }
+
+
+    public async Task<PromotionCalculationResult> CalculateForCheckoutAsync(List<string> codes, List<CheckoutItemCommand> items, Guid? userId, string? phone)
+    {
+        List<Guid> productIds = [.. items.Select(i => i.ProductId)];
+        List<Product> products = await _unitOfWork.ProductRepository.FindByIdsAsync(productIds);
+
+        HashSet<Guid> foundIds = [.. products.Select(p => p.Id)];
+        List<Guid> missingIds = [.. productIds.Where(id => !foundIds.Contains(id))];
+        if (missingIds.Count > 0)
+        {
+            throw new NotFoundException($"Không tìm thấy sản phẩm: {string.Join(", ", missingIds)}");
+        }
+
+        var productDict = products.ToDictionary(p => p.Id);
+        List<CheckoutItemCommand> commands = [.. items.Select(i => new CheckoutItemCommand
+        {
+            ProductId = i.ProductId,
+            Quantity = i.Quantity,
+            UnitPrice = productDict[i.ProductId].Price,
+            CategoryId = productDict[i.ProductId].CategoryId,
+            BrandId = productDict[i.ProductId].BrandId
+        })];
+
+        decimal subTotal = commands.Sum(c => c.UnitPrice * c.Quantity);
+        return await CalculatePromotionAsync(codes, commands, subTotal, userId, phone);
+    }
+
+    public async Task<PromotionCalculationResult> CalculatePromotionAsync(List<string> codes, List<CheckoutItemCommand> checkoutItemCommands, decimal subTotal, Guid? userId, string? phone)
+    {
+        DateTimeOffset now = DateTimeOffset.Now;
+        codes = [.. codes.Select(c => c.Trim().ToUpper())];
+
+        (List<Promotion> autoAppliedPromotions, List<Promotion> nonAutoAppliedPromotions) = await GetAutoAppliedAndNonAppliedPromotions(codes, now);
+
+        List<Promotion> allActivePromotions = [.. autoAppliedPromotions, .. nonAutoAppliedPromotions];
+
+        List<Promotion> eligiblePromotions = await GetEligiblePromotionsAsync(allActivePromotions, subTotal, userId, phone, checkoutItemCommands);
+        HashSet<Guid> eligibleIds = [.. eligiblePromotions.Select(p => p.Id)];
+        List<string> unappliedCodeMessages = [.. nonAutoAppliedPromotions.Where(p => !eligibleIds.Contains(p.Id)).Select(p => $"Khuyến mãi {p.Code} không đủ điều kiện áp dụng cho đơn hàng này")];
+
+
+        List<Promotion> finalPromotions = GetPromotionsAfterStackabilityResolving(eligiblePromotions, checkoutItemCommands, subTotal);
+        HashSet<Guid> finalIds = [.. finalPromotions.Select(p => p.Id)];
+        List<string> stackabilityLostCodeMessages = [.. eligiblePromotions.Where(p => !string.IsNullOrEmpty(p.Code) && !finalIds.Contains(p.Id)).Select(p => $"Khuyến mãi {p.Code} không được áp dụng do có khuyến mãi khách tốt hơn được chọn")];
+
+        unappliedCodeMessages.AddRange(stackabilityLostCodeMessages);
+
+        PromotionCalculationResult result = GetPromotionCalculationResult(finalPromotions, checkoutItemCommands, subTotal, unappliedCodeMessages);
+        return result;
+    }
+
+    private async Task<(List<Promotion>, List<Promotion>)> GetAutoAppliedAndNonAppliedPromotions(List<string> codes, DateTimeOffset now)
+    {
+        List<Promotion> autoAppliedPromotions = await _unitOfWork.PromotionRepository.FindActiveAutoApplyAsync(now);
+        List<Promotion> nonAutoAppliedPromotions = codes.Count > 0 ? await _unitOfWork.PromotionRepository.FindActiveNonAutoApplyAsync(codes, now) : [];
+        List<string> missingCodes = [.. codes.Except([.. nonAutoAppliedPromotions.Select(p => p.Code!)])];
+        if (missingCodes.Count > 0)
+        {
+            string missing = string.Join(", ", missingCodes);
+            throw new NotFoundException($"Không tìm thấy các mã khuyến mãi: {missing}");
+        }
+        return (autoAppliedPromotions, nonAutoAppliedPromotions);
+    }
+
+    private async Task<List<Promotion>> GetEligiblePromotionsAsync(List<Promotion> allActivePromotions, decimal subTotal, Guid? userId, string? phone, List<CheckoutItemCommand> checkoutItemCommands)
+    {
+        List<Promotion> eligiblePromotions = [];
+        foreach (var activePromotion in allActivePromotions)
+        {
+            if (!IsMinOrderValueMet(activePromotion, subTotal)) continue;
+            if (!IsPromotionUsageAvailable(activePromotion)) continue;
+            if (!await IsPerUserUsageAvailable(activePromotion, userId, phone)) continue;
+            if (!IsRequiredProductsMet(activePromotion, checkoutItemCommands)) continue;
+            if (!IsScopeEligible(activePromotion, checkoutItemCommands)) continue;
+            eligiblePromotions.Add(activePromotion);
+        }
+        return eligiblePromotions;
+    }
+
+    private static bool IsMinOrderValueMet(Promotion promotion, decimal subTotal)
+    {
+        return !promotion.MinOrderValue.HasValue || promotion.MinOrderValue.Value <= subTotal;
+    }
+
+    private static bool IsPromotionUsageAvailable(Promotion promotion)
+    {
+        return !promotion.MaxUsageCount.HasValue || promotion.UsageCount < promotion.MaxUsageCount.Value;
+    }
+
+    private async Task<bool> IsPerUserUsageAvailable(Promotion promotion, Guid? userId, string? phone)
+    {
+        if (!promotion.MaxUsagePerUser.HasValue)
+        {
+            return true;
+        }
+        int usageCount;
+        if (userId.HasValue)
+        {
+            usageCount = await _unitOfWork.PromotionUsageRepository.CountByPromotionAndUserIdAsync(promotion.Id, userId.Value);
+        }
+        else if (!string.IsNullOrWhiteSpace(phone))
+        {
+            usageCount = await _unitOfWork.PromotionUsageRepository.CountByPromotionAndPhoneAsync(promotion.Id, phone);
+        }
+        else
+        {
+            return false;
+        }
+        return usageCount < promotion.MaxUsagePerUser.Value;
+    }
+
+    private static bool IsRequiredProductsMet(Promotion promotion, List<CheckoutItemCommand> checkoutItemCommands)
+    {
+        if (promotion.RequiredProducts.Count == 0)
+        {
+            return true;
+        }
+
+        var checkoutItemDict = checkoutItemCommands.ToDictionary(i => i.ProductId, i => i.Quantity);
+
+        bool Check(PromotionRequiredProduct required)
+        {
+            if (!checkoutItemDict.TryGetValue(required.ProductId, out int quantity))
+            {
+                return false;
+            }
+            if (quantity < required.MinQuantity)
+            {
+                return false;
+            }
+            if (required.MaxQuantity.HasValue && quantity > required.MaxQuantity.Value)
+            {
+                return false;
+            }
+            return true;
+        }
+        return promotion.RequiredProductLogic == PromotionRequiredProductLogic.Or ? promotion.RequiredProducts.Any(Check) : promotion.RequiredProducts.All(Check);
+    }
+
+    private static bool IsScopeEligible(Promotion promotion, List<CheckoutItemCommand> checkoutItemCommands)
+    {
+        List<CheckoutItemCommand> eligibles = [];
+        switch (promotion.Scope)
+        {
+            case PromotionScope.Order:
+                return true;
+            case PromotionScope.Product:
+                HashSet<Guid> appliedIds = [.. promotion.AppliedProducts.Select(ap => ap.ProductId)];
+                eligibles = [.. checkoutItemCommands.Where(i => appliedIds.Contains(i.ProductId))];
+                break;
+            case PromotionScope.Category:
+                eligibles = [.. checkoutItemCommands.Where(i => i.CategoryId == promotion.CategoryId)];
+                break;
+            case PromotionScope.Brand:
+                eligibles = [.. checkoutItemCommands.Where(i => i.BrandId == promotion.BrandId)];
+                break;
+            default:
+                return false;
+        }
+        if (eligibles.Count == 0)
+        {
+            return false;
+        }
+        if (promotion.MinAppliedQuantity.HasValue)
+        {
+            int totalQuantity = eligibles.Sum(i => i.Quantity);
+            if (totalQuantity < promotion.MinAppliedQuantity.Value)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static List<Promotion> GetPromotionsAfterStackabilityResolving(List<Promotion> eligiblePromotions, List<CheckoutItemCommand> checkoutItemCommands, decimal subTotal)
+    {
+        if (eligiblePromotions.Count == 0)
+        {
+            return eligiblePromotions;
+        }
+        if (eligiblePromotions.All(p => p.IsStackable))
+        {
+            return eligiblePromotions;
+        }
+        List<Promotion> stackables = [.. eligiblePromotions.Where(p => p.IsStackable)];
+        List<Promotion> nonstackables = [.. eligiblePromotions.Where(p => !p.IsStackable)];
+        Promotion bestNonStackable = nonstackables.MaxBy(p => CalculateSinglePromotionWithDiscountType(p, checkoutItemCommands, subTotal))!;
+        stackables.Add(bestNonStackable);
+        return stackables;
+    }
+
+    // dùng để tính xem khuyến mãi nào là tốt nhất cho danh sách khuyến mãi không stackable
+    private static decimal CalculateSinglePromotionWithDiscountType(Promotion promotion, List<CheckoutItemCommand> checkoutItemCommands, decimal subTotal)
+    {
+        return promotion.Type switch
+        {
+            PromotionType.FixedDiscount => promotion.DiscountValue ?? 0,
+            PromotionType.PercentageDiscount => Math.Min(subTotal * (promotion.DiscountValue ?? 0) / 100, promotion.MaxDiscountValue ?? decimal.MaxValue),
+            PromotionType.FreeItem => CalculateFreeItemValue(promotion, checkoutItemCommands),
+            PromotionType.FixedPrice => Math.Max(subTotal - (promotion.DiscountValue ?? subTotal), 0),
+            _ => 0
+        };
+    }
+
+    private static decimal CalculateFreeItemValue(Promotion promotion, List<CheckoutItemCommand> checkoutItemCommands)
+    {
+        var productPriceDict = checkoutItemCommands.ToDictionary(i => i.ProductId, i => i.UnitPrice);
+        return promotion.FreeProducts.Sum(p => productPriceDict.TryGetValue(p.ProductId, out decimal price) ? price * p.Quantity : 0);
+    }
+
+    private static PromotionCalculationResult GetPromotionCalculationResult(List<Promotion> promotions, List<CheckoutItemCommand> checkoutItemCommands, decimal subTotal, List<string> unappliedCodeMessages)
+    {
+        List<PromotionLineResult> appliedPromotions = [];
+        List<FreeItemResult> totalFreeItemResults = [];
+        foreach (var promotion in promotions)
+        {
+            PromotionLineResult lineResult = CalculatePromotionLineResult(promotion, checkoutItemCommands, subTotal);
+            appliedPromotions.Add(lineResult);
+            totalFreeItemResults.AddRange(lineResult.FreeItems);
+        }
+        decimal totalDiscountAmount = Math.Min(appliedPromotions.Sum(ap => ap.DiscountAmount), subTotal);
+        return new PromotionCalculationResult(appliedPromotions, totalDiscountAmount, totalFreeItemResults, unappliedCodeMessages);
+    }
+
+    private static PromotionLineResult CalculatePromotionLineResult(Promotion promotion, List<CheckoutItemCommand> checkoutItemCommands, decimal subTotal)
+    {
+        decimal discountBase = GetDiscountBase(promotion, checkoutItemCommands, subTotal);
+        (decimal discountAmount, List<FreeItemResult> freeItemResults) = ApplyDiscount(promotion, discountBase);
+        return new PromotionLineResult(promotion.Id, promotion.Name, promotion.Code, discountAmount, freeItemResults, promotion.FreeItemPickCount);
+    }
+
+    private static decimal GetDiscountBase(Promotion promotion, List<CheckoutItemCommand> checkoutItemCommands, decimal subTotal)
+    {
+        return promotion.Scope switch
+        {
+            PromotionScope.Order => subTotal,
+            PromotionScope.Product => checkoutItemCommands
+                .Where(i => promotion.AppliedProducts.Select(ap => ap.ProductId).ToHashSet().Contains(i.ProductId))
+                .Sum(i => i.UnitPrice * i.Quantity),
+            PromotionScope.Category => checkoutItemCommands
+                .Where(i => i.CategoryId == promotion.CategoryId)
+                .Sum(i => i.UnitPrice * i.Quantity),
+            PromotionScope.Brand => checkoutItemCommands
+                .Where(i => i.BrandId == promotion.BrandId)
+                .Sum(i => i.UnitPrice * i.Quantity),
+            _ => 0
+        };
+    }
+
+    private static (decimal, List<FreeItemResult>) ApplyDiscount(Promotion promotion, decimal discountBase)
+    {
+        decimal discountAmount = 0;
+        List<FreeItemResult> freeItemResults = [];
+        switch (promotion.Type)
+        {
+            case PromotionType.PercentageDiscount:
+                discountAmount = Math.Min(discountBase * (promotion.DiscountValue ?? 0) / 100, promotion.MaxDiscountValue ?? decimal.MaxValue);
+                break;
+            case PromotionType.FixedDiscount:
+                discountAmount = Math.Min(promotion.DiscountValue ?? 0, discountBase);
+                break;
+            case PromotionType.FreeItem:
+                freeItemResults = [.. promotion.FreeProducts.Select(fp => new FreeItemResult(fp.ProductId, fp.Quantity))];
+                break;
+            case PromotionType.FixedPrice:
+                discountAmount = Math.Max(discountBase - (promotion.DiscountValue ?? discountBase), 0);
+                break;
+        }
+        return (discountAmount, freeItemResults);
+    }
+
 }

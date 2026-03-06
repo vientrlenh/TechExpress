@@ -38,4 +38,31 @@ public class PromotionRepository
             .AsSplitQuery()
             .FirstOrDefaultAsync(p => p.Id == id);
     }
+
+    public async Task<List<Promotion>> FindActiveAutoApplyAsync(DateTimeOffset now)
+    {
+        return await _context.Promotions
+            .Include(p => p.RequiredProducts)
+            .Include(p => p.FreeProducts)
+            .Include(p => p.AppliedProducts)
+            .AsSplitQuery()
+            .Where(p => p.Code == null && p.StartDate <= now && p.EndDate > now && p.IsActive).ToListAsync();
+    }
+
+    public async Task<List<Promotion>> FindActiveNonAutoApplyAsync(List<string> codes, DateTimeOffset now)
+    {
+        return await _context.Promotions
+            .Include(p => p.RequiredProducts)
+            .Include(p => p.FreeProducts)
+            .Include(p => p.AppliedProducts)
+            .AsSplitQuery()
+            .Where(p => !string.IsNullOrEmpty(p.Code) && codes.Contains(p.Code) && p.StartDate <= now && p.EndDate > now && p.IsActive).ToListAsync();
+    } 
+
+    public async Task<int> IncrementUsageCountIfMaxUsageNotExceed(Guid id)
+    {
+        return await _context.Promotions
+            .Where(p => p.Id == id && (p.MaxUsageCount == null || p.UsageCount < p.MaxUsageCount))
+            .ExecuteUpdateAsync(p => p.SetProperty(x => x.UsageCount, x => x.UsageCount + 1));
+    }
 }

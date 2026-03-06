@@ -4,5 +4,6 @@ public enum PromotionType
 {
     PercentageDiscount,
     FixedDiscount,
-    FreeItem
+    FreeItem,
+    FixedPrice
 }

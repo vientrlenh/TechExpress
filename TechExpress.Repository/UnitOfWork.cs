@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore.Storage;
 using TechExpress.Repository.Contexts;
+using TechExpress.Repository.Models;
 using TechExpress.Repository.Repositories;
 
 namespace TechExpress.Repository
@@ -24,6 +25,7 @@ namespace TechExpress.Repository
         public InstallmentRepository InstallmentRepository { get; }
         public ReviewRepository ReviewRepository { get; }
         public PromotionRepository PromotionRepository { get; }
+        public PromotionUsageRepository PromotionUsageRepository { get; }
 
 
         public UnitOfWork(ApplicationDbContext context)
@@ -45,6 +47,7 @@ namespace TechExpress.Repository
             InstallmentRepository = new InstallmentRepository(context);
             ReviewRepository = new ReviewRepository(context);
             PromotionRepository = new PromotionRepository(context);
+            PromotionUsageRepository = new PromotionUsageRepository(context);
         }
 
         public async Task SaveChangesAsync()
