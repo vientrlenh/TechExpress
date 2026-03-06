@@ -71,7 +71,7 @@ public class PromotionService
         if (checkActive)
         {
             var now = DateTimeOffset.Now;
-            if (!promotion.IsActive || now < promotion.StartDate || now > promotion.EndDate)
+            if (now < promotion.StartDate || now > promotion.EndDate)
             {
                 throw new BadRequestException("Khuyến mãi này hiện không khả dụng hoặc đã hết hạn.");
             }
