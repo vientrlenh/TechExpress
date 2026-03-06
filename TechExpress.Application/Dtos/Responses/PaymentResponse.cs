@@ -88,22 +88,7 @@ public class PaymentResponse
     public DateTimeOffset PaymentDate { get; set; }
 }
 
-/// <summary>
-/// Installment item (query).
-/// </summary>
-//public class InstallmentResponse
-//{
-//    public Guid Id { get; set; }
-//    public Guid OrderId { get; set; }
-//    public int Period { get; set; }
-//    public decimal Amount { get; set; }
-//    public InstallmentStatus Status { get; set; }
-//    public DateTimeOffset DueDate { get; set; }
-//}
 
-/// <summary>
-/// Response: refund.
-/// </summary>
 public class RefundPaymentResponse
 {
     public bool Ok { get; set; }

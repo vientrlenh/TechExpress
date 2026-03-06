@@ -3,14 +3,12 @@ using TechExpress.Repository.Enums;
 
 namespace TechExpress.Application.Dtos.Requests;
 
-/// <summary>
-/// Request: init thanh toán online cho một kỳ installment.
-/// </summary>
 public class InitInstallmentOnlinePaymentRequest
 {
-    /// <summary>
-    /// Cổng thanh toán online: PayOs hoặc VnPay.
-    /// </summary>
-    [Required]
+    [Required(ErrorMessage = "Method is required.")]
     public PaymentMethod Method { get; set; }
+
+    public string? ReturnUrl { get; set; }
+
+    public string? CancelUrl { get; set; }
 }

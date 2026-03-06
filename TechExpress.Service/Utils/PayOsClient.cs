@@ -1,75 +1,90 @@
-﻿using System;
+﻿using Microsoft.Extensions.Configuration;
+using PayOS;
+using PayOS.Models;
+using PayOS.Models.V1.Payouts;
+using PayOS.Models.V1.Payouts.Batch;
+using PayOS.Models.V2.PaymentRequests;
+using PayOS.Models.Webhooks;
+using System;
 using System.Collections.Generic;
-using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace TechExpress.Service.Utils
 {
-    using Microsoft.Extensions.Configuration;
-    using Net.payOS;
-    using Net.payOS.Types;
-
-    namespace TechExpress.Service.Utils
+    public class PayOsClient
     {
-        public class PayOsClient
+        private readonly IConfiguration _config;
+
+        public PayOsClient(IConfiguration config)
         {
-            private readonly IConfiguration _config;
+            _config = config;
+        }
 
-            public PayOsClient(IConfiguration config)
+        private PayOSClient Create()
+        {
+            var clientId = _config["PayOS:ClientId"];
+            var apiKey = _config["PayOS:ApiKey"];
+            var checksumKey = _config["PayOS:ChecksumKey"];
+
+            if (string.IsNullOrWhiteSpace(clientId) ||
+                string.IsNullOrWhiteSpace(apiKey) ||
+                string.IsNullOrWhiteSpace(checksumKey))
             {
-                _config = config;
+                throw new InvalidOperationException("Thiếu cấu hình PayOS (PayOS:ClientId/ApiKey/ChecksumKey).");
             }
 
-            private PayOS Create()
+            return new PayOSClient(clientId, apiKey, checksumKey);
+        }
+
+        public string ReturnUrl => _config["PayOS:ReturnUrl"] ?? "";
+        public string CancelUrl => _config["PayOS:CancelUrl"] ?? "";
+
+        public int ExpirationSeconds
+        {
+            get
             {
-                var clientId = _config["PayOS:ClientId"];
-                var apiKey = _config["PayOS:ApiKey"];
-                var checksumKey = _config["PayOS:ChecksumKey"];
-
-                if (string.IsNullOrWhiteSpace(clientId) ||
-                    string.IsNullOrWhiteSpace(apiKey) ||
-                    string.IsNullOrWhiteSpace(checksumKey))
-                {
-                    throw new InvalidOperationException("Thiếu cấu hình PayOS (PayOS:ClientId/ApiKey/ChecksumKey).");
-                }
-
-                return new PayOS(clientId, apiKey, checksumKey);
-            }
-
-            public string ReturnUrl => _config["PayOS:ReturnUrl"] ?? "";
-            public string CancelUrl => _config["PayOS:CancelUrl"] ?? "";
-
-            public int ExpirationSeconds
-            {
-                get
-                {
-                    var raw = _config["PayOS:ExpirationSeconds"];
-                    return int.TryParse(raw, out var n) && n > 0 ? n : 900;
-                }
-            }
-
-            public int SessionTtlMinutes
-            {
-                get
-                {
-                    var raw = _config["PayOS:SessionTtlMinutes"];
-                    return int.TryParse(raw, out var n) && n > 0 ? n : 20;
-                }
-            }
-
-            public string RedisKeyPrefix => _config["PayOS:RedisKeyPrefix"] ?? "payos:sess:";
-
-            public Task<CreatePaymentResult> CreatePaymentLinkAsync(PaymentData data)
-            {
-                var payos = Create();
-                return payos.createPaymentLink(data);
-            }
-
-            public WebhookData VerifyWebhook(WebhookType body)
-            {
-                var payos = Create();
-                return payos.verifyPaymentWebhookData(body);
+                var raw = _config["PayOS:ExpirationSeconds"];
+                return int.TryParse(raw, out var n) && n > 0 ? n : 900;
             }
         }
-    }
 
+        public int SessionTtlMinutes
+        {
+            get
+            {
+                var raw = _config["PayOS:SessionTtlMinutes"];
+                return int.TryParse(raw, out var n) && n > 0 ? n : 20;
+            }
+        }
+
+        public string RedisKeyPrefix => _config["PayOS:RedisKeyPrefix"] ?? "payos:sess:";
+
+        // ===== 2.0.1: Create Payment Link =====
+        public Task<CreatePaymentLinkResponse> CreatePaymentLinkAsync(
+            CreatePaymentLinkRequest request,
+            CancellationToken ct = default)
+        {
+            var client = Create();
+            return client.PaymentRequests.CreateAsync(request);
+        }
+
+        // ===== 2.0.1: Verify Webhook (async) =====
+        public Task<WebhookData> VerifyWebhookAsync(
+            Webhook webhook,
+            CancellationToken ct = default)
+        {
+            var client = Create();
+            return client.Webhooks.VerifyAsync(webhook);
+        }
+
+        // ===== 2.0.1: Payout batch =====
+        public Task<Payout> CreatePayoutBatchAsync(
+            PayoutBatchRequest request,
+            CancellationToken ct = default)
+        {
+            var client = Create();
+            return client.Payouts.Batch.CreateAsync(request);
+        }
+    }
 }

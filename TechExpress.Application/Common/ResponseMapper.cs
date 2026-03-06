@@ -183,9 +183,9 @@ public class ResponseMapper
         };
     }
 
-    public static List<ProductListResponse> MapToProductListResponsesFromProducts(List<Product> products)
-    {
-        var productResponses = products.Select(product =>
+        public static List<ProductListResponse> MapToProductListResponsesFromProducts(List<Product> products)
+        {
+            var productResponses = products.Select(product =>
             {
                 var firstImageUrl = product.Images
                     .OrderBy(i => i.Id)
@@ -209,8 +209,10 @@ public class ResponseMapper
                 );
             })
             .ToList();
-        return productResponses;
-    }
+            return productResponses;
+        }
+
+        
 
     public static ProductDetailResponse MapToProductDetailResponseFromProduct(Product product)
     {
@@ -553,6 +555,19 @@ public class ResponseMapper
             Ok = true,
             PaymentId = paymentId,
             Reason = reason
+        };
+    }
+
+    public static CancelOrderRefundResponse MapToCancelOrderRefundResponse(CancelOrderRefundResult result)
+    {
+        return new CancelOrderRefundResponse
+        {
+            OrderId = result.OrderId,
+            Status = result.Status,
+            RefundAmount = result.RefundAmount,
+            PayoutId = result.PayoutId,
+            Reason = result.Reason,
+            Message = result.Message
         };
     }
 
