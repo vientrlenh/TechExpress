@@ -252,7 +252,7 @@ namespace TechExpress.Repository.Repositories
                 .Take(number)
                 .ToListAsync();
         }
-        
+
         public async Task<(List<Product> Products, int TotalCount)> FindUiProductsPagedSortByPriceAsync(
             int page, int pageSize, bool isDescending, string? search, List<Guid>? categoryIds)
         {
@@ -370,6 +370,72 @@ namespace TechExpress.Repository.Repositories
         public async Task<List<Product>> FindByIdsIncludeCategoryAsync(List<Guid> ids)
         {
             return await _context.Products.Include(p => p.Category).Where(p => ids.Contains(p.Id)).ToListAsync();
+        }
+
+
+        // =========== truy vấn sản phẩm linh hoạt dựa trên các tiêu chí của Promotion (Scope).
+        public async Task<(List<Product> Products, int TotalCount)> GetProductsByPromotionScopeAsync(
+                PromotionScope scope,
+                Guid? categoryId,
+                Guid? brandId,
+                List<Guid> appliedProductIds,
+                string? search,
+                int page,
+                int pageSize)
+        {
+            // Tối ưu 1: Sử dụng AsNoTracking để đọc nhanh và AsSplitQuery để tránh nhân bản dữ liệu khi Include Images
+            var query = _context.Products
+                .AsNoTracking()
+                .Include(p => p.Category)
+                .Include(p => p.Brand)
+                .Include(p => p.Images)
+                .AsSplitQuery()
+                .AsQueryable();
+
+            // 1. Lọc theo Scope (Phạm vi) của Promotion
+            switch (scope)
+            {
+                case PromotionScope.Product:
+                    // Tối ưu: Chỉ lọc nếu danh sách ID có dữ liệu
+                    if (appliedProductIds != null && appliedProductIds.Count > 0)
+                    {
+                        query = query.Where(p => appliedProductIds.Contains(p.Id));
+                    }
+                    else
+                    {
+                        // Nếu scope là Product mà list trống thì trả về trống luôn
+                        return (new List<Product>(), 0);
+                    }
+                    break;
+
+                case PromotionScope.Category:
+                    if (categoryId.HasValue)
+                        query = query.Where(p => p.CategoryId == categoryId.Value);
+                    break;
+
+                case PromotionScope.Brand:
+                    if (brandId.HasValue)
+                        query = query.Where(p => p.BrandId == brandId.Value);
+                    break;
+
+                case PromotionScope.Order:
+                    // Khuyến mãi toàn sàn: Không lọc thêm theo quan hệ
+                    break;
+            }
+
+            // 2. Tìm kiếm theo Name hoặc SKU
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var s = search.Trim();
+                // Tối ưu 2: Bỏ .ToLower() ở p.Name/p.Sku để Database sử dụng được Index (SARGable)
+                query = query.Where(p => p.Name.Contains(s) || p.Sku.Contains(s));
+            }
+
+            // Tối ưu 3: Luôn phải có OrderBy trước khi Skip/Take để đảm bảo phân trang chính xác
+            query = query.OrderByDescending(p => p.CreatedAt);
+
+            // 3. Thực hiện phân trang qua hàm helper
+            return await ExecutePagedQueryAsync(query, page, pageSize);
         }
     }
 }
