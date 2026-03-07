@@ -648,4 +648,19 @@ public class PromotionService
         };
     }
 
+    public async Task<Promotion> HandleDisablePromotion(Guid promotionId)
+    {
+        var promotion = await _unitOfWork.PromotionRepository.FindByIdWithTrackingAsync(promotionId) ?? throw new NotFoundException($"Không tìm thấy khuyến mãi: {promotionId}");
+        if (!promotion.IsActive)
+        {
+            throw new BadRequestException($"Khuyến mãi đã ở trạng thái được tắt, không thể tiếp tục thực hiện hành động này");
+        }
+        promotion.IsActive = false;
+        promotion.UpdatedAt = DateTimeOffset.Now;
+        await _unitOfWork.SaveChangesAsync();
+        var disabledPromotion = await _unitOfWork.PromotionRepository.FindByIdIncludeRequiredProductsIncludeFreeProductsIncludeAppliedProductsWithSplitQueryAsync(promotionId) ?? throw new NotFoundException($"Không tìm thấy mã khuyến mãi: {promotionId}");
+        return disabledPromotion;
+    }
+
+
 }

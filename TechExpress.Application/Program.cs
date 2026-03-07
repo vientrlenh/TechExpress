@@ -244,6 +244,7 @@ builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(optio
 });
 
 builder.Services.AddHostedService<AdminInitializer>();
+builder.Services.AddHostedService<ChangePromotionStatusWorker>();
 
 var app = builder.Build();
 

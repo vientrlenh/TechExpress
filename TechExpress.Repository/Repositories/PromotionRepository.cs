@@ -145,4 +145,14 @@ public class PromotionRepository
                         !_context.Payments.Any(pay => pay.OrderId == pu.OrderId && pay.Status == PaymentStatus.Success))
                     .Count()));
     }
+
+    public async Task<List<Promotion>> FindAllStartAndEndPromotionsWithTrackingAsync(DateTimeOffset now)
+    {
+        return await _context.Promotions.AsTracking().Where(p => (p.StartDate <= now && p.EndDate > now  && !p.IsActive) || (p.EndDate < now && p.IsActive)).ToListAsync();
+    }
+
+    public async Task<Promotion?> FindByIdWithTrackingAsync(Guid id)
+    {
+        return await _context.Promotions.AsTracking().FirstOrDefaultAsync(p => p.Id == id);
+    }
 }

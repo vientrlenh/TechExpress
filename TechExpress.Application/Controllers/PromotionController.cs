@@ -159,5 +159,14 @@ namespace TechExpress.Application.Controllers
 
             return Ok(ApiResponse<Pagination<PromotionListResponse>>.OkResponse(response));
         }
+
+        [HttpPost("{promotionId}/disable")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> DisablePromotion([FromRoute] Guid promotionId)
+        {
+            var promotion = await _serviceProvider.PromotionService.HandleDisablePromotion(promotionId);
+            var response = ResponseMapper.MapToPromotionResponseFromPromotion(promotion);
+            return Ok(ApiResponse<PromotionResponse>.OkResponse(response));
+        }
     }
 }
