@@ -1,6 +1,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using TechExpress.Repository.Contexts;
+using TechExpress.Repository.Enums;
 using TechExpress.Repository.Models;
 
 namespace TechExpress.Repository.Repositories;
@@ -125,5 +126,23 @@ public class PromotionRepository
         var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
 
         return (items, totalCount);
+    }
+
+    public async Task<int> ReclaimUserUsageOnExpiredOrders(DateTimeOffset expiration)
+    {
+        return await _context.Promotions
+            .Where(p => _context.PromotionUsages.Any(pu =>
+                pu.PromotionId == p.Id &&
+                pu.Order.Status == OrderStatus.Pending &&
+                pu.Order.OrderDate <= expiration &&
+                !_context.Payments.Any(pay => pay.OrderId == pu.OrderId && pay.Status == PaymentStatus.Success)))
+            .ExecuteUpdateAsync(x => x.SetProperty(
+                p => p.UsageCount, p => p.UsageCount - _context.PromotionUsages
+                    .Where(pu =>
+                        pu.PromotionId == p.Id &&
+                        pu.Order.Status == OrderStatus.Pending &&
+                        pu.Order.OrderDate <= expiration &&
+                        !_context.Payments.Any(pay => pay.OrderId == pu.OrderId && pay.Status == PaymentStatus.Success))
+                    .Count()));
     }
 }
