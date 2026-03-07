@@ -41,5 +41,15 @@ namespace TechExpress.Application.Controllers
             var response = ResponseMapper.MapToCustomPCResponseFromCustomPC(customPC);
             return Ok(ApiResponse<CustomPCResponse>.OkResponse(response));
         }
+
+        [HttpGet]
+        [Authorize(Roles = "Customer")]
+        public async Task<IActionResult> GetCustomPCs()
+        {
+            var userId = _userContext.GetCurrentAuthenticatedUserId();
+            var customPCs = await _serviceProvider.CustomPCService.HandleGetCustomPCs(userId);
+            var response = ResponseMapper.MapToCustomPCResponseListFromCustomPCs(customPCs);
+            return Ok(ApiResponse<List<CustomPCResponse>>.OkResponse(response));
+        }
     }
 }

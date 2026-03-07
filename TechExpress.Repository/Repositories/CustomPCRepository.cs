@@ -28,4 +28,14 @@ public class CustomPCRepository
     {
         return await _context.CustomPCs.AsTracking().Include(c => c.Items).FirstOrDefaultAsync(c => c.Id == id);
     }
+
+    public async Task<List<CustomPC>> FindByUserIdIncludeItemsWithSplitQueryAsync(Guid userId)
+    {
+        return await _context.CustomPCs.Include(c => c.Items).Where(c => c.UserId == userId).ToListAsync();
+    }
+
+    public async Task<int> CountByUserIdAsync(Guid userId)
+    {
+        return await _context.CustomPCs.CountAsync(c => c.UserId == userId);
+    }
 }

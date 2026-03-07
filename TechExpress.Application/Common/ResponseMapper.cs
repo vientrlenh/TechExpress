@@ -859,4 +859,9 @@ public class ResponseMapper
             [..customPC.Items.Select(MapToCustomPCItemResponseFromCustomPCItem)]
         );
     }
+
+    public static List<CustomPCResponse> MapToCustomPCResponseListFromCustomPCs(List<CustomPC> customPCs)
+    {
+        return [.. customPCs.Select(MapToCustomPCResponseFromCustomPC)];
+    }
 }
