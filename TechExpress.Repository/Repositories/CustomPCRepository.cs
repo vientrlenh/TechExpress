@@ -38,4 +38,14 @@ public class CustomPCRepository
     {
         return await _context.CustomPCs.CountAsync(c => c.UserId == userId);
     }
+
+    public async Task<CustomPC?> FindByIdWithTrackingAsync(Guid id)
+    {
+        return await _context.CustomPCs.AsTracking().FirstOrDefaultAsync(c => c.Id == id);
+    }
+
+    public void Remove(CustomPC customPC)
+    {
+        _context.CustomPCs.Remove(customPC);
+    }
 }

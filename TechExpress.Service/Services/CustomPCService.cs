@@ -1,4 +1,5 @@
 using System;
+using Microsoft.Identity.Client;
 using PayOS.Exceptions;
 using TechExpress.Repository;
 using TechExpress.Repository.Models;
@@ -82,5 +83,18 @@ public class CustomPCService
     public async Task<List<CustomPC>> HandleGetCustomPCs(Guid userId)
     {
         return await _unitOfWork.CustomPCRepository.FindByUserIdIncludeItemsWithSplitQueryAsync(userId);
+    }
+
+    public async Task<string> HandleDeleteCustomPC(Guid userId, Guid customPCId)
+    {
+        var customPC = await _unitOfWork.CustomPCRepository.FindByIdWithTrackingAsync(customPCId) ?? throw new NotFoundException($"Không tìm thấy cấu hình tự chọn: {customPCId}");
+        if (customPC.UserId != userId)
+        {
+            throw new ForbiddenException($"Bạn không có quyền thực hiện hành động trên cấu hình này");
+        }
+        var removalName = customPC.Name;
+        _unitOfWork.CustomPCRepository.Remove(customPC);
+        await _unitOfWork.SaveChangesAsync();
+        return $"Cấu hình {removalName} đã xóa thành công";
     }
 }

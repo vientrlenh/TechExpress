@@ -51,5 +51,15 @@ namespace TechExpress.Application.Controllers
             var response = ResponseMapper.MapToCustomPCResponseListFromCustomPCs(customPCs);
             return Ok(ApiResponse<List<CustomPCResponse>>.OkResponse(response));
         }
+
+
+        [HttpDelete("{customPCId}")]
+        [Authorize(Roles = "Customer")]
+        public async Task<IActionResult> DeleteCustomPC([FromRoute] Guid customPCId)
+        {
+            var userId = _userContext.GetCurrentAuthenticatedUserId();
+            var response = await _serviceProvider.CustomPCService.HandleDeleteCustomPC(userId, customPCId);
+            return Ok(ApiResponse<string>.OkResponse(response));
+        }
     }
 }
