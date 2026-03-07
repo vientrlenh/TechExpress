@@ -18,7 +18,6 @@ namespace TechExpress.Service.Workers
         private readonly ILogger<CleanOrderWorkerService> _logger;
 
         private static readonly TimeSpan CheckInterval = TimeSpan.FromMinutes(1);
-        private static readonly TimeSpan ExpireAfter = TimeSpan.FromMinutes(15);
 
         public CleanOrderWorkerService(
             IServiceScopeFactory scopeFactory,
@@ -50,32 +49,15 @@ namespace TechExpress.Service.Workers
 
                 await strategy.ExecuteAsync(async () =>
                 {
-                    var cutoff = DateTimeOffset.Now - ExpireAfter;
-
-                    // Lấy danh sách orders cần xóa (có kèm Items)
-                    var expiredOrders = await unitOfWork.OrderRepository
-                        .FindExpiredUnpaidOrdersWithItemsAsync(cutoff, ct);
-
-                    if (!expiredOrders.Any())
-                        return;
-
-                    using var transaction = await unitOfWork.BeginTransactionAsync();
+                    var now = DateTimeOffset.Now;
+                    var expiration = now.AddMinutes(-15);
+                    await using var transaction = await unitOfWork.BeginTransactionAsync();
                     try
                     {
-                        // Restock lại sản phẩm cho từng order
-                        foreach (var order in expiredOrders)
-                        {
-                            foreach (var item in order.Items)
-                            {
-                                await unitOfWork.ProductRepository
-                                    .IncrementStockAtomicAsync(item.ProductId, item.Quantity);
-                            }
-                        }
-
-                        // Xóa các orders đã hết hạn theo danh sách IDs đã lấy
-                        var orderIds = expiredOrders.Select(o => o.Id).ToList();
-                        var deleted = await unitOfWork.OrderRepository
-                            .DeleteOrdersByIdsAsync(orderIds, ct);
+                        await unitOfWork.PromotionRepository.ReclaimUserUsageOnExpiredOrders(expiration);
+                        await unitOfWork.PromotionUsageRepository.DeletePromotionUsagesOnExpiredOrders(expiration);
+                        await unitOfWork.ProductRepository.RestockProductAfterPendingOrderExpiration(expiration);
+                        var deleted = await unitOfWork.OrderRepository.DeleteExpiredUnpaidOrdersAsync(expiration);
 
                         await unitOfWork.SaveChangesAsync();
                         await transaction.CommitAsync();
@@ -84,7 +66,7 @@ namespace TechExpress.Service.Workers
                         {
                             _logger.LogInformation(
                                 "CleanOrderWorkerService deleted {Count} expired unpaid pending orders and restocked products (cutoff: {Cutoff}).",
-                                deleted, cutoff);
+                                deleted, expiration);
                         }
                     }
                     catch (Exception)

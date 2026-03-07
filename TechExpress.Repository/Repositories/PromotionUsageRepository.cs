@@ -1,6 +1,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using TechExpress.Repository.Contexts;
+using TechExpress.Repository.Enums;
 using TechExpress.Repository.Models;
 
 namespace TechExpress.Repository.Repositories;
@@ -29,6 +30,7 @@ public class PromotionUsageRepository
     {
         await _context.PromotionUsages.AddAsync(usage);
     }
+  
     public async Task<List<PromotionUsage>> GetByOrderIdIncludePromotionAsync(Guid orderId)
     {
         return await _context.PromotionUsages
@@ -36,4 +38,15 @@ public class PromotionUsageRepository
             .Where(pu => pu.OrderId == orderId)
             .ToListAsync();
     }   
+  
+    public async Task<int> DeletePromotionUsagesOnExpiredOrders(DateTimeOffset expiration)
+    {
+        return await _context.PromotionUsages
+            .Where(p => _context.Orders.Any(o =>
+                o.Id == p.OrderId &&
+                o.Status == OrderStatus.Pending &&
+                o.OrderDate <= expiration &&
+                !_context.Payments.Any(pay => pay.OrderId == o.Id && pay.Status == PaymentStatus.Success)))
+            .ExecuteDeleteAsync();
+    }
 }

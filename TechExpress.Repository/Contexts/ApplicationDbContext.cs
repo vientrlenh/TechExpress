@@ -723,12 +723,6 @@ namespace TechExpress.Repository.Contexts
                     .HasDefaultValue(false)
                     .IsRequired();
 
-                oi.Property(o => o.DiscountAmount)
-                    .HasColumnName("discount_amount")
-                    .HasPrecision(18, 2)
-                    .HasDefaultValue(0m)
-                    .IsRequired();
-
                 oi.Property(o => o.WarrantyMonthSnapshot)
                     .HasColumnName("warranty_month_snapshot")
                     .IsRequired();

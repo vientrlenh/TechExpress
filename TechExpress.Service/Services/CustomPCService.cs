@@ -18,6 +18,11 @@ public class CustomPCService
 
     public async Task<CustomPC> HandleCreateCustomPCBuild(Guid userId, string name)
     {
+        int count = await _unitOfWork.CustomPCRepository.CountByUserIdAsync(userId);
+        if (count >= 20)
+        {
+            throw new BadRequestException($"Người dùng chỉ có thể sở hữu tối đa 20 cấu hình tự chọn cùng lúc");
+        }
         CustomPC customPC = new CustomPC
         {
             Id = Guid.NewGuid(),
@@ -44,7 +49,10 @@ public class CustomPCService
         }
         if (customPC.Items.Any(i => i.ProductId == productId))
         {
-            if (quantity == 0) return customPC;
+            if (quantity == 0)
+            {
+                return customPC;
+            }
             CustomPCItem item = customPC.Items.First(i => i.ProductId == productId);
             item.Quantity += quantity;
             if (item.Quantity <= 0)
@@ -69,5 +77,10 @@ public class CustomPCService
         customPC.UpdatedAt = DateTimeOffset.Now;
         await _unitOfWork.SaveChangesAsync();
         return customPC;
+    }
+
+    public async Task<List<CustomPC>> HandleGetCustomPCs(Guid userId)
+    {
+        return await _unitOfWork.CustomPCRepository.FindByUserIdIncludeItemsWithSplitQueryAsync(userId);
     }
 }

@@ -82,19 +82,15 @@ namespace TechExpress.Repository.Repositories
         }
 
         public Task<int> DeleteExpiredUnpaidOrdersAsync(
-            DateTimeOffset now,
-            CancellationToken ct = default)
+            DateTimeOffset expiration)
         {
-            var cutoff = now.AddMinutes(-15);
-
             return _context.Orders
                 .Where(o =>
                     o.Status == OrderStatus.Pending &&
-                    //o.PaidType == PaidType.Full &&
-                    o.OrderDate <= cutoff &&
-                    !_context.Payments.Any(p => p.OrderId == o.Id)
+                    o.OrderDate <= expiration &&
+                    !_context.Payments.Any(p => p.OrderId == o.Id && p.Status == PaymentStatus.Success)
                 )
-                .ExecuteDeleteAsync(ct);
+                .ExecuteDeleteAsync();
         }
 
         public Task<int> DeleteOrdersByIdsAsync(

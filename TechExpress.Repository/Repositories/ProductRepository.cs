@@ -459,5 +459,23 @@ namespace TechExpress.Repository.Repositories
         {
             return await _context.Products.AnyAsync(p => p.Id == id && p.Status == ProductStatus.Available);
         }
+
+        public async Task<int> RestockProductAfterPendingOrderExpiration(DateTimeOffset expiration)
+        {
+            return await _context.Products
+                    .Where(p => _context.OrderItems.Any(oi =>
+                        oi.ProductId == p.Id &&
+                        oi.Order.Status == OrderStatus.Pending &&
+                        oi.Order.OrderDate <= expiration &&
+                        !_context.Payments.Any(pay => pay.OrderId == oi.OrderId && pay.Status == PaymentStatus.Success)))
+                    .ExecuteUpdateAsync(x => x
+                        .SetProperty(p => p.Stock, p => p.Stock + _context.OrderItems
+                            .Where(oi =>
+                                oi.ProductId == p.Id &&
+                                oi.Order.Status == OrderStatus.Pending &&
+                                oi.Order.OrderDate <= expiration &&
+                                !_context.Payments.Any(pay => pay.OrderId == oi.OrderId && pay.Status == PaymentStatus.Success))
+                            .Sum(oi => oi.Quantity)));
+        }
     }
 }
