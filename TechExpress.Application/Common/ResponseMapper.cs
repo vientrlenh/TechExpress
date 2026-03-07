@@ -578,10 +578,13 @@ public class ResponseMapper
 
 
     //======================= Map Order Response =======================//
-    // Cập nhật từ Oder sang OrderResponse, thêm tham số List<Installment> để ánh xạ danh sách 6-12 kỳ hạn nếu có
-    public static OrderResponse MapToOrderResponseFromOrder(Order order, List<Installment>? installments = null)
+    // Cập nhật để tách PurchasedItems và GiftItems, hiện mã KM đã dùng
+    public static OrderResponse MapToOrderResponseFromOrder(
+        Order order,
+        List<Installment>? installments = null,
+        List<PromotionUsage>? promotionUsages = null)
     {
-        return new OrderResponse
+        var response = new OrderResponse
         {
             Id = order.Id,
             UserId = order.UserId,
@@ -589,6 +592,7 @@ public class ResponseMapper
             Status = order.Status,
             SubTotal = order.SubTotal,
             ShippingCost = order.ShippingCost,
+            DiscountAmount = order.DiscountAmount,
             Tax = order.Tax,
             TotalPrice = order.TotalPrice,
             DeliveryType = order.DeliveryType,
@@ -600,16 +604,18 @@ public class ResponseMapper
             Notes = order.Notes,
             ReceiverIdentityCard = order.ReceiverIdentityCard,
             InstallmentDurationMonth = order.InstallmentDurationMonth,
-            Items = order.Items.Select(oi => new OrderItemResponse
-            {
-                Id = oi.Id,
-                ProductId = oi.ProductId,
-                ProductName = oi.Product?.Name ?? "Sản phẩm không xác định",
-                Quantity = oi.Quantity,
-                UnitPrice = oi.UnitPrice
-            }).ToList(),
 
-            // Ánh xạ danh sách 6-12 kỳ hạn
+            // Ánh xạ danh sách khuyến mãi đã dùng từ tham số truyền vào
+            AppliedPromotions = promotionUsages?.Select(pu => new AppliedPromotionResponse
+            {
+                PromotionId = pu.PromotionId,
+                PromotionCode = pu.Promotion?.Code, // Cần đảm bảo Service đã nạp Promotion
+                PromotionType = pu.Promotion!.Type, // Cần đảm bảo Service đã nạp Promotion và Promotion không null
+                PromotionName = pu.Promotion?.Name,
+                DiscountAmount = pu.DiscountAmount
+            }).ToList() ?? new List<AppliedPromotionResponse>(),
+
+            // Ánh xạ danh sách trả góp
             Installments = installments?.Select(i => new InstallmentResponse
             {
                 Id = i.Id,
@@ -620,6 +626,24 @@ public class ResponseMapper
                 DueDate = i.DueDate
             }).ToList() ?? new List<InstallmentResponse>()
         };
+
+        // --- TÁCH BIỆT SẢN PHẨM MUA VÀ QUÀ TẶNG ---
+        var allItemsMapped = order.Items.Select(oi => new OrderItemResponse
+        {
+            Id = oi.Id,
+            ProductId = oi.ProductId,
+            ProductName = oi.Product?.Name ?? "Sản phẩm không xác định",
+            Quantity = oi.Quantity,
+            UnitPrice = oi.UnitPrice,
+        }).ToList();
+
+        // Những món có giá > 0 là hàng mua
+        response.PurchasedItems = allItemsMapped.Where(x => x.UnitPrice > 0).ToList();
+
+        // Những món có giá = 0 là hàng tặng (Free Items)
+        response.GiftItems = allItemsMapped.Where(x => x.UnitPrice == 0).ToList();
+
+        return response;
     }
 
     public static OrderListItemResponse MapToOrderListItemResponseFromOrder(Order order)
@@ -632,6 +656,7 @@ public class ResponseMapper
             Status = order.Status,
             SubTotal = order.SubTotal,
             ShippingCost = order.ShippingCost,
+            DiscountAmount = order.DiscountAmount, // Cập nhật để hiện số tiền giảm ở list
             Tax = order.Tax,
             TotalPrice = order.TotalPrice,
             DeliveryType = order.DeliveryType,
@@ -645,6 +670,7 @@ public class ResponseMapper
             InstallmentDurationMonth = order.InstallmentDurationMonth
         };
     }
+
 
     public static OrderDetailResponse MapToOrderDetailResponseFromOrder(
         Order order,

@@ -11,6 +11,8 @@ public class OrderListItemResponse
     public OrderStatus Status { get; set; }
     public decimal SubTotal { get; set; }
     public decimal ShippingCost { get; set; }
+
+    public decimal DiscountAmount { get; set; }
     public decimal Tax { get; set; }
     public decimal TotalPrice { get; set; }
     public DeliveryType DeliveryType { get; set; }

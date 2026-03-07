@@ -9,6 +9,11 @@ namespace TechExpress.Application.DTOs.Requests
         [MinLength(1, ErrorMessage = "Vui lòng chọn ít nhất một sản phẩm")]
         public required List<CheckoutItemRequest> Items { get; set; }
 
+        // --- NEW FIELDS FOR PROMOTION ---
+        public List<string>? PromotionCodes { get; set; } // Danh sách mã KM
+        public List<Guid>? ChosenFreeProductIds { get; set; } // Quà khách chọn
+        // --------------------------------
+
         [Required(ErrorMessage = "Vui lòng chọn hình thức giao hàng")]
         public required DeliveryType DeliveryType { get; set; }
 
@@ -35,7 +40,7 @@ namespace TechExpress.Application.DTOs.Requests
         public string? ReceiverIdentityCard { get; set; }
 
         [Range(6, 12, ErrorMessage = "Kỳ hạn trả góp chỉ từ 6 đến 12 tháng")]
-        public int? InstallmentDurationMonth { get; set; } // 6, 9, 12
+        public int? InstallmentDurationMonth { get; set; }
 
         [MaxLength(512, ErrorMessage = "Ghi chú không được vượt quá 512 ký tự")]
         public string? Notes { get; set; }

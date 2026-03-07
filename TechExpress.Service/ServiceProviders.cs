@@ -46,12 +46,12 @@ namespace TechExpress.Service
             CartService = new CartService(unitOfWork);
             PaymentService = new PaymentService(unitOfWork, redisUtils, payOsClient);
             InstallmentService = new InstallmentService(unitOfWork);
-            OrderService = new OrderService(unitOfWork, userContext);
             ComputerCompatibilityService = new ComputerCompatibilityService(unitOfWork);
             ProductPCService = new ProductPCService(unitOfWork, ProductService, ComputerCompatibilityService);
             ReviewService = new ReviewService(unitOfWork, userContext);
             PromotionService = new PromotionService(unitOfWork);
             CustomPCService = new CustomPCService(unitOfWork);
+            OrderService = new OrderService(unitOfWork, userContext, PromotionService);
         }
     }
 }

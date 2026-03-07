@@ -10,6 +10,8 @@ namespace TechExpress.Application.DTOs.Responses
         public OrderStatus Status { get; set; }
         public decimal SubTotal { get; set; }
         public decimal ShippingCost { get; set; }
+
+        public decimal DiscountAmount { get; set; }
         public decimal Tax { get; set; }
         public decimal TotalPrice { get; set; }
         public DeliveryType DeliveryType { get; set; }
@@ -21,10 +23,13 @@ namespace TechExpress.Application.DTOs.Responses
         public string? Notes { get; set; }
         public string? ReceiverIdentityCard { get; set; }
         public int? InstallmentDurationMonth { get; set; }
-        public ICollection<OrderItemResponse> Items { get; set; } = [];
+        // Tách làm 2 danh sách riêng biệt
+        public List<OrderItemResponse> PurchasedItems { get; set; } = new(); // Sản phẩm mua
+        public List<OrderItemResponse> GiftItems { get; set; } = new();      // Sản phẩm tặng
 
         public ICollection<InstallmentResponse> Installments { get; set; } = [];
 
- 
+        // Thêm danh sách này để hiện các mã đã áp dụng
+        public List<AppliedPromotionResponse>? AppliedPromotions { get; set; }
     }
 }
