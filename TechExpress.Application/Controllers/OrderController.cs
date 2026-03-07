@@ -100,9 +100,11 @@ namespace TechExpress.Application.Controllers
             {
                 var items = request.Items.Select(i => (i.ProductId, i.Quantity)).ToList();
 
-                // Nhận kết quả dạng Tuple (order, danh sách installments)
-                var (order, installments) = await _serviceProvider.OrderService.HandleGuestCheckoutAsync(
+                // Nhận kết quả Tuple 3 (order, installments, usages) từ Service
+                var (order, installments, usages) = await _serviceProvider.OrderService.HandleGuestCheckoutAsync(
                     items,
+                    request.PromotionCodes,        // Danh sách mã KM khách nhập
+                    request.ChosenFreeProductIds, // Danh sách quà tặng khách chọn
                     request.DeliveryType,
                     request.ReceiverEmail,
                     request.ReceiverFullName,
@@ -114,7 +116,9 @@ namespace TechExpress.Application.Controllers
                     request.Notes
                 );
 
-                var response = ResponseMapper.MapToOrderResponseFromOrder(order, installments);
+                // Truyền đủ 3 tham số vào ResponseMapper
+                var response = ResponseMapper.MapToOrderResponseFromOrder(order, installments, usages);
+
                 return Ok(ApiResponse<OrderResponse>.OkResponse(response));
             }
             catch (DbUpdateConcurrencyException)
@@ -128,7 +132,7 @@ namespace TechExpress.Application.Controllers
         }
 
         /// <summary>
-        /// khách hàng đăng nhập mua product (Member Checkout)
+        /// Khách hàng đăng nhập mua product (Member Checkout)
         /// </summary>
         [HttpPost("member-checkout")]
         [Authorize(Roles = "Customer")]
@@ -138,10 +142,12 @@ namespace TechExpress.Application.Controllers
             {
                 var userId = _userContext.GetCurrentAuthenticatedUserId();
 
-                // Nhận kết quả dạng Tuple (order, danh sách installments)
-                var (order, installments) = await _serviceProvider.OrderService.HandleMemberCheckoutAsync(
+                // Nhận kết quả Tuple 3 (order, installments, usages) từ Service
+                var (order, installments, usages) = await _serviceProvider.OrderService.HandleMemberCheckoutAsync(
                     userId,
                     request.SelectedCartItemIds,
+                    request.PromotionCodes,        // Danh sách mã KM khách nhập
+                    request.ChosenFreeProductIds, // Danh sách quà tặng khách chọn
                     request.DeliveryType,
                     request.ReceiverEmail,
                     request.ReceiverFullName,
@@ -153,7 +159,9 @@ namespace TechExpress.Application.Controllers
                     request.Notes
                 );
 
-                var response = ResponseMapper.MapToOrderResponseFromOrder(order, installments);
+                // Truyền đủ 3 tham số vào ResponseMapper
+                var response = ResponseMapper.MapToOrderResponseFromOrder(order, installments, usages);
+
                 return Ok(ApiResponse<OrderResponse>.OkResponse(response));
             }
             catch (DbUpdateConcurrencyException)

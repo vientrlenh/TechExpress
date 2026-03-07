@@ -11,6 +11,11 @@ namespace TechExpress.Application.DTOs.Requests
         [MinLength(1, ErrorMessage = "Danh sách sản phẩm chọn mua không được để trống.")]
         public required List<Guid> SelectedCartItemIds { get; set; }
 
+        // --- NEW FIELDS FOR PROMOTION ---
+        public List<string>? PromotionCodes { get; set; }
+        public List<Guid>? ChosenFreeProductIds { get; set; }
+        // --------------------------------
+
         [Required(ErrorMessage = "Vui lòng chọn hình thức giao hàng.")]
         public required DeliveryType DeliveryType { get; set; }
 
