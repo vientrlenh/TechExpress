@@ -14,8 +14,6 @@ public class OrderItem
 
     public bool IsFreeItem { get; set; }
 
-    public decimal DiscountAmount { get; set; }
-
     public int WarrantyMonthSnapshot { get; set; }
 
     public Order Order { get; set; } = null!;
