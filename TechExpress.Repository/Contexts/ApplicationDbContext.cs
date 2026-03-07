@@ -1617,6 +1617,137 @@ namespace TechExpress.Repository.Contexts
                     .HasForeignKey(n => n.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
+
+
+            // db-schema for ChatSession model
+            modelBuilder.Entity<ChatSession>(cs =>
+            {
+                cs.Property(c => c.Id)
+                    .HasColumnName("id");
+
+                cs.Property(c => c.UserId)
+                    .HasColumnName("user_id");
+
+                cs.Property(c => c.FullName)
+                    .HasColumnName("full_name")
+                    .HasMaxLength(256);
+
+                cs.Property(c => c.Phone)
+                    .HasColumnName("phone")
+                    .HasMaxLength(20);
+
+                cs.Property(c => c.IsEscalated)
+                    .HasColumnName("is_escalated")
+                    .HasDefaultValue(false)
+                    .IsRequired();
+
+                cs.Property(c => c.IsClosed)
+                    .HasColumnName("is_closed")
+                    .HasDefaultValue(false)
+                    .IsRequired();
+
+                cs.Property(c => c.CreatedAt)
+                    .HasColumnName("created_at")
+                    .IsRequired();
+
+                cs.Property(c => c.UpdatedAt)
+                    .HasColumnName("updated_at")
+                    .IsRequired();
+
+                cs.HasKey(c => c.Id);
+
+                cs.HasIndex(c => c.UserId)
+                    .HasDatabaseName("idx_chat_session_user");
+
+                cs.HasIndex(c => c.IsClosed)
+                    .HasDatabaseName("idx_chat_session_is_closed");
+
+                cs.HasOne(c => c.User)
+                    .WithMany()
+                    .HasForeignKey(c => c.UserId)
+                    .OnDelete(DeleteBehavior.NoAction);
+            });
+
+
+            // db-schema for ChatMessage model
+            modelBuilder.Entity<ChatMessage>(cm =>
+            {
+                cm.Property(c => c.Id)
+                    .HasColumnName("id");
+
+                cm.Property(c => c.SessionId)
+                    .HasColumnName("session_id")
+                    .IsRequired();
+
+                cm.Property(c => c.SentById)
+                    .HasColumnName("sent_by_id");
+
+                cm.Property(c => c.SentByFullName)
+                    .HasColumnName("sent_by_full_name")
+                    .HasMaxLength(256);
+
+                cm.Property(c => c.Message)
+                    .HasColumnName("message")
+                    .HasMaxLength(4096)
+                    .IsRequired();
+
+                cm.Property(c => c.IsAiMessage)
+                    .HasColumnName("is_ai_message")
+                    .HasDefaultValue(false)
+                    .IsRequired();
+
+                cm.Property(c => c.CreatedAt)
+                    .HasColumnName("created_at")
+                    .IsRequired();
+
+                cm.HasKey(c => c.Id);
+
+                cm.HasIndex(c => c.SessionId)
+                    .HasDatabaseName("idx_chat_message_session");
+
+                cm.HasOne(c => c.Session)
+                    .WithMany(s => s.Messages)
+                    .HasForeignKey(c => c.SessionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                cm.HasOne(c => c.SentBy)
+                    .WithMany()
+                    .HasForeignKey(c => c.SentById)
+                    .OnDelete(DeleteBehavior.NoAction);
+            });
+
+
+            // db-schema for ChatMedia model
+            modelBuilder.Entity<ChatMedia>(cma =>
+            {
+                cma.Property(c => c.Id)
+                    .HasColumnName("id")
+                    .UseIdentityColumn();
+
+                cma.Property(c => c.MessageId)
+                    .HasColumnName("message_id")
+                    .IsRequired();
+
+                cma.Property(c => c.MediaUrl)
+                    .HasColumnName("media_url")
+                    .HasMaxLength(2048)
+                    .IsRequired();
+
+                cma.Property(c => c.Type)
+                    .HasColumnName("type")
+                    .HasConversion<string>()
+                    .IsRequired();
+
+                cma.HasKey(c => c.Id);
+
+                cma.HasIndex(c => c.MessageId)
+                    .HasDatabaseName("idx_chat_media_message");
+
+                cma.HasOne(c => c.Message)
+                    .WithMany(m => m.Medias)
+                    .HasForeignKey(c => c.MessageId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
         }
 
 
@@ -1648,5 +1779,8 @@ namespace TechExpress.Repository.Contexts
         public DbSet<TicketMessage> TicketMessages { get; set; }
         public DbSet<TicketAttachment> TicketAttachments { get; set; }
         public DbSet<Notification> Notifications { get; set; }
+        public DbSet<ChatSession> ChatSessions { get; set; }
+        public DbSet<ChatMessage> ChatMessages { get; set; }
+        public DbSet<ChatMedia> ChatMedias { get; set; }
     }
 }
