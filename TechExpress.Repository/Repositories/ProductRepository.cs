@@ -454,5 +454,10 @@ namespace TechExpress.Repository.Repositories
             // 3. Thực hiện phân trang qua hàm helper
             return await ExecutePagedQueryAsync(query, page, pageSize);
         }
+
+        public async Task<bool> ExistsByIdAndAvailableAsync(Guid id)
+        {
+            return await _context.Products.AnyAsync(p => p.Id == id && p.Status == ProductStatus.Available);
+        }
     }
 }

@@ -10,6 +10,8 @@ public class CustomPC
 
     public required string Name { get; set; }
 
+    public bool IsStaffAccessible { get; set;   }
+
     public DateTimeOffset CreatedAt { get; private set; } = DateTimeOffset.Now;
 
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.Now;

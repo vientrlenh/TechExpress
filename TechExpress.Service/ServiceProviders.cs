@@ -31,6 +31,7 @@ namespace TechExpress.Service
         public ComputerCompatibilityService ComputerCompatibilityService { get; }
         public ReviewService ReviewService { get; }
         public PromotionService PromotionService { get; }
+        public CustomPCService CustomPCService { get; }
 
 
         public ServiceProviders(UnitOfWork unitOfWork, PayOsClient payOsClient, RedisUtils redisUtils, SmtpEmailSender emailSender, JwtUtils jwtUtils, UserContext userContext, OtpUtils otpUtils, GoogleAuthUtils googleAuthUtils, IConnectionMultiplexer redis)
@@ -50,6 +51,7 @@ namespace TechExpress.Service
             ProductPCService = new ProductPCService(unitOfWork, ProductService, ComputerCompatibilityService);
             ReviewService = new ReviewService(unitOfWork, userContext);
             PromotionService = new PromotionService(unitOfWork);
+            CustomPCService = new CustomPCService(unitOfWork);
         }
     }
 }

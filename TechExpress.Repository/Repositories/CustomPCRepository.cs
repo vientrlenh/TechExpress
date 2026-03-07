@@ -1,0 +1,31 @@
+using System;
+using Microsoft.EntityFrameworkCore;
+using TechExpress.Repository.Contexts;
+using TechExpress.Repository.Models;
+
+namespace TechExpress.Repository.Repositories;
+
+public class CustomPCRepository
+{
+    private readonly ApplicationDbContext _context;
+
+    public CustomPCRepository(ApplicationDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task AddAsync(CustomPC customPC)
+    {
+        await _context.CustomPCs.AddAsync(customPC);
+    }
+
+    public async Task<CustomPC?> FindByIdIncludeItemsAsync(Guid id)
+    {
+        return await _context.CustomPCs.Include(c => c.Items).FirstOrDefaultAsync(c => c.Id == id);
+    }
+
+    public async Task<CustomPC?> FindByIdIncludeItemsWithTrackingAsync(Guid id)
+    {
+        return await _context.CustomPCs.AsTracking().Include(c => c.Items).FirstOrDefaultAsync(c => c.Id == id);
+    }
+}

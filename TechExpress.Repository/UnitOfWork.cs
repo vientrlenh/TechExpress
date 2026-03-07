@@ -26,6 +26,7 @@ namespace TechExpress.Repository
         public ReviewRepository ReviewRepository { get; }
         public PromotionRepository PromotionRepository { get; }
         public PromotionUsageRepository PromotionUsageRepository { get; }
+        public CustomPCRepository CustomPCRepository { get; }
 
 
         public UnitOfWork(ApplicationDbContext context)
@@ -47,6 +48,7 @@ namespace TechExpress.Repository
             ReviewRepository = new ReviewRepository(context);
             PromotionRepository = new PromotionRepository(context);
             PromotionUsageRepository = new PromotionUsageRepository(context);
+            CustomPCRepository = new CustomPCRepository(context);
         }
 
         public async Task SaveChangesAsync()

@@ -861,6 +861,11 @@ namespace TechExpress.Repository.Contexts
                     .HasMaxLength(256)
                     .IsRequired();
 
+                cp.Property(c => c.IsStaffAccessible)
+                    .HasColumnName("is_staff_accessible")
+                    .HasDefaultValue(false)
+                    .IsRequired();
+
                 cp.Property(c => c.CreatedAt)
                     .HasColumnName("created_at")
                     .IsRequired();

@@ -842,4 +842,21 @@ public class ResponseMapper
             TotalCount = promotionPagination.TotalCount
         };
     }
+
+    public static CustomPCItemResponse MapToCustomPCItemResponseFromCustomPCItem(CustomPCItem item)
+    {
+        return new CustomPCItemResponse(item.Id, item.CustomPCId, item.ProductId, item.Quantity);
+    }
+
+    public static CustomPCResponse MapToCustomPCResponseFromCustomPC(CustomPC customPC)
+    {
+        return new CustomPCResponse
+        (
+            customPC.Id,
+            customPC.UserId,
+            customPC.Name,
+            customPC.UpdatedAt,
+            [..customPC.Items.Select(MapToCustomPCItemResponseFromCustomPCItem)]
+        );
+    }
 }
