@@ -14,9 +14,9 @@ public class ChatSessionRepository(ApplicationDbContext context)
         return await _context.ChatSessions.FirstOrDefaultAsync(c => c.UserId == userId && !c.IsClosed);
     }
 
-    public async Task<ChatSession?> FindByFullNameAndPhoneAndNotClosedAsync(string fullName, string phone)
+    public async Task<ChatSession?> FindByPhoneAndNotClosedAsync(string phone)
     {
-        return await _context.ChatSessions.FirstOrDefaultAsync(c => c.FullName == fullName && c.Phone == phone && !c.IsClosed);
+        return await _context.ChatSessions.FirstOrDefaultAsync(c => c.Phone == phone && !c.IsClosed);
     }
 
     public async Task AddAsync(ChatSession session)

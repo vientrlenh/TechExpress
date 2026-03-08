@@ -1,20 +1,24 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using TechExpress.Application.Common;
 using TechExpress.Application.Dtos.Requests;
 using TechExpress.Application.Dtos.Responses;
 using TechExpress.Repository.Enums;
 using TechExpress.Service;
+using TechExpress.Service.Constants;
 using TechExpress.Service.Contexts;
+using TechExpress.Service.Hubs;
 
 namespace TechExpress.Application.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class ChatController(ServiceProviders serviceProvider, UserContext userContext) : ControllerBase
+    public class ChatController(ServiceProviders serviceProvider, UserContext userContext, IHubContext<ChatHub> chatHubContext) : ControllerBase
     {
         private readonly ServiceProviders _serviceProvider = serviceProvider;
         private readonly UserContext _userContext = userContext;
+        private readonly IHubContext<ChatHub> _chatHubContext = chatHubContext;
 
         [HttpPost("sessions")]
         public async Task<IActionResult> CreateSession([FromBody] CreateChatSessionRequest request)
@@ -22,6 +26,7 @@ namespace TechExpress.Application.Controllers
             var userId = _userContext.GetCurrentAuthenticatedUserIdIfExist();
             var session = await _serviceProvider.ChatService.HandleCreateSession(userId, request.FullName?.Trim(), request.Phone?.Trim());
             var response = ResponseMapper.MapToChatSessionResponseFromChatSession(session);
+            await _chatHubContext.Clients.Group("staff").SendAsync(SignalRMessageConstant.NewChatSession, response);
             return CreatedAtAction(nameof(CreateSession), ApiResponse<ChatSessionResponse>.CreatedResponse(response));
         }
 
@@ -44,6 +49,7 @@ namespace TechExpress.Application.Controllers
             List<(string, ChatMediaType)> mediaReq = [.. request.Medias.Select(m => (m.MediaUrl, m.Type))];
             var newMsg = await _serviceProvider.ChatService.HandleSendMessage(sessionId, userId, request.Phone?.Trim(), request.Message, mediaReq);
             var response = ResponseMapper.MapToChatMessageResponseFromChatMessage(newMsg);
+            await _chatHubContext.Clients.Group($"chat-{sessionId}").SendAsync(SignalRMessageConstant.ChatMessageReceive, response);
             return Ok(ApiResponse<ChatMessageResponse>.OkResponse(response));
         }
     }

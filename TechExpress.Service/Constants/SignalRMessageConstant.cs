@@ -9,4 +9,8 @@ public static class SignalRMessageConstant
     public const string NewCartItemList = "NewCartItemList";
 
     public const string CartItemQuantityUpdate = "CartItemQuantityUpdate";
+
+    public const string ChatMessageReceive = "ReceiveChatMessage";
+
+    public const string NewChatSession = "NewChatSession";
 }

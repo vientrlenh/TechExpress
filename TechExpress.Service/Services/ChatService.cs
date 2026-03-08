@@ -23,13 +23,14 @@ public class ChatService
         if (userIdStr is not null)
         {
             userId = Guid.Parse(userIdStr);
+            var user = await _unitOfWork.UserRepository.FindUserByIdAsync(userId.Value) ?? throw new NotFoundException($"Không tìm thấy người dùng: {userId}");
             unclosedSession = await _unitOfWork.ChatSessionRepository.FindByUserIdAndNotClosedAsync(userId.Value);
-            fullName = null;
+            fullName = user.FirstName + user.LastName;
             phone = null;
         }
         else if (fullName is not null && phone is not null)
         {
-            unclosedSession = await _unitOfWork.ChatSessionRepository.FindByFullNameAndPhoneAndNotClosedAsync(fullName, phone);
+            unclosedSession = await _unitOfWork.ChatSessionRepository.FindByPhoneAndNotClosedAsync(phone);
             userId = null;
         }
         else
@@ -100,7 +101,7 @@ public class ChatService
             {
                 throw new ForbiddenException("Bạn không có quyền truy cập vào phiên trò chuyện này");
             }
-            sentByFullName = null;
+            sentByFullName = user.IsCustomerUser() ? user.FirstName + user.LastName : "Nhân viên hỗ trợ";
         }
         else if (phone is not null)
         {

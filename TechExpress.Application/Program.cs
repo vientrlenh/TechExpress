@@ -125,7 +125,7 @@ builder.Services.AddAuthentication(opt =>
         {
             var accessToken = context.Request.Query["token"];
             var path = context.HttpContext.Request.Path;
-            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/cartHub"))
+            if (!string.IsNullOrEmpty(accessToken) && (path.StartsWithSegments("/cartHub") || path.StartsWithSegments("/chatHub")))
             {
                 context.Token = accessToken;
             }
@@ -299,5 +299,6 @@ using (var scope = app.Services.CreateScope())
 }   
 
 app.MapHub<CartHub>("/cartHub");
+app.MapHub<ChatHub>("/chatHub");
 
 app.Run();
