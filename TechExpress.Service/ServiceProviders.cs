@@ -32,6 +32,7 @@ namespace TechExpress.Service
         public ReviewService ReviewService { get; }
         public PromotionService PromotionService { get; }
         public CustomPCService CustomPCService { get; }
+        public ChatService ChatService { get; }
 
 
         public ServiceProviders(UnitOfWork unitOfWork, PayOsClient payOsClient, RedisUtils redisUtils, SmtpEmailSender emailSender, JwtUtils jwtUtils, UserContext userContext, OtpUtils otpUtils, GoogleAuthUtils googleAuthUtils, IConnectionMultiplexer redis)
@@ -52,6 +53,7 @@ namespace TechExpress.Service
             PromotionService = new PromotionService(unitOfWork);
             CustomPCService = new CustomPCService(unitOfWork);
             OrderService = new OrderService(unitOfWork, userContext, PromotionService);
+            ChatService = new ChatService(unitOfWork);
         }
     }
 }

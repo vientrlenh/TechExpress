@@ -890,4 +890,56 @@ public class ResponseMapper
     {
         return [.. customPCs.Select(MapToCustomPCResponseFromCustomPC)];
     }
+
+    public static ChatSessionResponse MapToChatSessionResponseFromChatSession(ChatSession session)
+    {
+        return new ChatSessionResponse(
+            session.Id, 
+            session.UserId, 
+            session.FullName, 
+            session.Phone, 
+            session.IsClosed, 
+            session.IsEscalated, 
+            session.UpdatedAt);
+    }
+
+    public static ChatMessageResponse MapToChatMessageResponseFromChatMessage(ChatMessage message)
+    {
+        return new ChatMessageResponse(
+            message.Id, 
+            message.SentById, 
+            message.SentByFullName, 
+            message.Message, 
+            message.IsAiMessage, 
+            MapToChatMediaResponseListFromChatMedias((List<ChatMedia>)message.Medias),
+            message.CreatedAt
+        );
+    }
+
+    public static List<ChatMessageResponse> MapToChatMessageResponsesFromChatMessages(List<ChatMessage> messages)
+    {
+        return [.. messages.Select(MapToChatMessageResponseFromChatMessage)];
+    }
+
+    public static ChatMessageResponseList MapToChatMessageResponseList(List<ChatMessage> messages, int currentPage, bool isMore)
+    {
+        return new ChatMessageResponseList(
+            MapToChatMessageResponsesFromChatMessages(messages),
+            currentPage,
+            isMore
+        );
+    }
+
+    public static ChatMediaResponse MapToChatMediaResponseFromChatMedia(ChatMedia media)
+    {
+        return new ChatMediaResponse(
+            media.MediaUrl, 
+            media.Type
+        );
+    }
+
+    public static List<ChatMediaResponse> MapToChatMediaResponseListFromChatMedias(List<ChatMedia> medias)
+    {
+        return [.. medias.Select(MapToChatMediaResponseFromChatMedia)];
+    }
 }
