@@ -28,4 +28,9 @@ public class ChatSessionRepository(ApplicationDbContext context)
     {
         return await _context.ChatSessions.FirstOrDefaultAsync(c => c.Id == id);
     }
+
+    public async Task<ChatSession?> FindByIdWithTrackingAsync(Guid id)
+    {
+        return await _context.ChatSessions.AsTracking().FirstOrDefaultAsync(c => c.Id == id);
+    }
 }

@@ -34,4 +34,10 @@
     <ProjectReference Include="..\TechExpress.Service\TechExpress.Service.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Prompts\chat-system-prompt.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

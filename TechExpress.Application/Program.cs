@@ -19,6 +19,7 @@ using TechExpress.Service.Hubs;
 using TechExpress.Service.Initializers;
 using TechExpress.Service.Services;
 using TechExpress.Service.Utils;
+using Anthropic;
 using TechExpress.Service.Workers;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -70,6 +71,15 @@ builder.Services.AddOpenApi(options =>
 
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
+
+// Anthropic AI configuration
+var anthropicApiKey = builder.Configuration["AI:ApiKey"] ?? "";
+var promptPath = Path.Combine(AppContext.BaseDirectory,
+    builder.Configuration["AI:SystemPromptPath"] ?? "Prompts/chat-system-prompt.txt");
+var systemPrompt = await File.ReadAllTextAsync(promptPath);
+var anthropicClient = new AnthropicClient() { ApiKey = anthropicApiKey };
+builder.Services.AddSingleton(anthropicClient);
+builder.Services.AddSingleton(new ChatAiService(anthropicClient, systemPrompt));
 
 // SQL Server configuration
 var sqlConnectionString = builder.Configuration.GetConnectionString("DefaultConnection");

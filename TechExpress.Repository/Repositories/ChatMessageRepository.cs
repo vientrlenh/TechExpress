@@ -30,4 +30,15 @@ public class ChatMessageRepository(ApplicationDbContext context)
     {
         return await _context.ChatMessages.Include(c => c.Medias).FirstOrDefaultAsync(c => c.Id == id);
     }
+
+    public async Task<List<ChatMessage>> FindRecentMessagesForAiContextAsync(Guid sessionId, int count)
+    {
+        var messages = await _context.ChatMessages
+            .Where(c => c.SessionId == sessionId)
+            .OrderByDescending(c => c.CreatedAt)
+            .Take(count)
+            .ToListAsync();
+        messages.Reverse();
+        return messages;
+    }
 }

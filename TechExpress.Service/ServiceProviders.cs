@@ -35,7 +35,7 @@ namespace TechExpress.Service
         public ChatService ChatService { get; }
 
 
-        public ServiceProviders(UnitOfWork unitOfWork, PayOsClient payOsClient, RedisUtils redisUtils, SmtpEmailSender emailSender, JwtUtils jwtUtils, UserContext userContext, OtpUtils otpUtils, GoogleAuthUtils googleAuthUtils, IConnectionMultiplexer redis)
+        public ServiceProviders(UnitOfWork unitOfWork, PayOsClient payOsClient, RedisUtils redisUtils, SmtpEmailSender emailSender, JwtUtils jwtUtils, UserContext userContext, OtpUtils otpUtils, GoogleAuthUtils googleAuthUtils, IConnectionMultiplexer redis, ChatAiService chatAiService)
         {
             AuthService = new AuthService(unitOfWork, jwtUtils, userContext, otpUtils, emailSender, googleAuthUtils);
             UserService = new UserService(unitOfWork, userContext, redis);
@@ -53,7 +53,7 @@ namespace TechExpress.Service
             PromotionService = new PromotionService(unitOfWork);
             CustomPCService = new CustomPCService(unitOfWork);
             OrderService = new OrderService(unitOfWork, userContext, PromotionService);
-            ChatService = new ChatService(unitOfWork);
+            ChatService = new ChatService(unitOfWork, chatAiService);
         }
     }
 }

@@ -1,3 +1,4 @@
+using System.ClientModel.Primitives;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
@@ -14,11 +15,12 @@ namespace TechExpress.Application.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class ChatController(ServiceProviders serviceProvider, UserContext userContext, IHubContext<ChatHub> chatHubContext) : ControllerBase
+    public class ChatController(ServiceProviders serviceProvider, UserContext userContext, IHubContext<ChatHub> chatHubContext, IConfiguration configuration) : ControllerBase
     {
         private readonly ServiceProviders _serviceProvider = serviceProvider;
         private readonly UserContext _userContext = userContext;
         private readonly IHubContext<ChatHub> _chatHubContext = chatHubContext;
+        private readonly IConfiguration _configuration = configuration;
 
         [HttpPost("sessions")]
         public async Task<IActionResult> CreateSession([FromBody] CreateChatSessionRequest request)
@@ -47,9 +49,20 @@ namespace TechExpress.Application.Controllers
         {
             var userId = _userContext.GetCurrentAuthenticatedUserIdIfExist();
             List<(string, ChatMediaType)> mediaReq = [.. request.Medias.Select(m => (m.MediaUrl, m.Type))];
-            var newMsg = await _serviceProvider.ChatService.HandleSendMessage(sessionId, userId, request.Phone?.Trim(), request.Message, mediaReq);
+            var (newMsg, shouldTriggerAi) = await _serviceProvider.ChatService.HandleSendMessage(sessionId, userId, request.Phone?.Trim(), request.Message, mediaReq);
             var response = ResponseMapper.MapToChatMessageResponseFromChatMessage(newMsg);
             await _chatHubContext.Clients.Group($"chat-{sessionId}").SendAsync(SignalRMessageConstant.ChatMessageReceive, response);
+
+            var aiApiKey = _configuration["AI:ApiKey"];
+            if (shouldTriggerAi && aiApiKey is not null)
+            {
+                var aiMsg = await _serviceProvider.ChatService.HandleGenerateAiReply(sessionId);
+                if (aiMsg is not null)
+                {
+                    var aiResponse = ResponseMapper.MapToChatMessageResponseFromChatMessage(aiMsg);
+                    await _chatHubContext.Clients.Group($"chat-{sessionId}").SendAsync(SignalRMessageConstant.ChatMessageReceive, aiResponse);
+                }
+            }
             return Ok(ApiResponse<ChatMessageResponse>.OkResponse(response));
         }
     }
