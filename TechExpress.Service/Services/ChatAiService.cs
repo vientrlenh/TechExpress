@@ -96,7 +96,7 @@ public class ChatAiService(AnthropicClient client, string systemPrompt)
         await _client.Messages.Create(new MessageCreateParams
         {
             Model = Model.ClaudeSonnet4_6,
-            MaxTokens = 1024,
+            MaxTokens = 4096,
             System = _systemPrompt,
             Messages = messages,
             Tools = GetTools()

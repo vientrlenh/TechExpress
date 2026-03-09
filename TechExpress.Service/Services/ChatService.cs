@@ -151,55 +151,73 @@ public class ChatService(UnitOfWork unitOfWork, ChatAiService chatAiService)
 
         var messages = _chatAiService.BuildMessagesFromHistory(history);
         string? finalReply = null;
+        bool aiUnavailable = false;
 
-        // Agentic loop — max 5 iterations to prevent runaway tool calls
-        for (int i = 0; i < 5; i++)
+        try
         {
-            var response = await _chatAiService.CallApiAsync(messages);
-
-            if (response.StopReason == StopReason.ToolUse)
+            // Agentic loop — max 10 iterations to prevent runaway tool calls
+            for (int i = 0; i < 10; i++)
             {
-                // Build assistant turn (text + tool_use blocks)
-                var assistantBlocks = new List<ContentBlockParam>();
-                var toolResultBlocks = new List<ContentBlockParam>();
+                var response = await _chatAiService.CallApiAsync(messages);
 
+                if (response.StopReason == StopReason.ToolUse)
+                {
+                    // Build assistant turn (text + tool_use blocks)
+                    var assistantBlocks = new List<ContentBlockParam>();
+                    var toolResultBlocks = new List<ContentBlockParam>();
+
+                    foreach (var block in response.Content)
+                    {
+                        if (block.TryPickText(out var textBlock))
+                        {
+                            assistantBlocks.Add(new ContentBlockParam(new TextBlockParam(textBlock.Text), null));
+                        }
+                        else if (block.TryPickToolUse(out var toolUseBlock))
+                        {
+                            assistantBlocks.Add(new ContentBlockParam(
+                                new ToolUseBlockParam { ID = toolUseBlock.ID, Name = toolUseBlock.Name, Input = toolUseBlock.Input },
+                                null));
+
+                            var result = await ExecuteToolAsync(toolUseBlock.Name, sessionId, toolUseBlock.Input);
+                            toolResultBlocks.Add(new ContentBlockParam(
+                                new ToolResultBlockParam(toolUseBlock.ID) { Content = new ToolResultBlockParamContent(result, null) },
+                                null));
+                        }
+                    }
+
+                    messages.Add(new MessageParam { Role = Role.Assistant, Content = new MessageParamContent(assistantBlocks, null) });
+                    messages.Add(new MessageParam { Role = Role.User, Content = new MessageParamContent(toolResultBlocks, null) });
+                    continue;
+                }
+
+                // EndTurn, MaxTokens, or other — extract text and stop
                 foreach (var block in response.Content)
                 {
                     if (block.TryPickText(out var textBlock))
                     {
-                        assistantBlocks.Add(new ContentBlockParam(new TextBlockParam(textBlock.Text), null));
-                    }
-                    else if (block.TryPickToolUse(out var toolUseBlock))
-                    {
-                        assistantBlocks.Add(new ContentBlockParam(
-                            new ToolUseBlockParam { ID = toolUseBlock.ID, Name = toolUseBlock.Name, Input = toolUseBlock.Input },
-                            null));
-
-                        var result = await ExecuteToolAsync(toolUseBlock.Name, sessionId, toolUseBlock.Input);
-                        toolResultBlocks.Add(new ContentBlockParam(
-                            new ToolResultBlockParam(toolUseBlock.ID) { Content = new ToolResultBlockParamContent(result, null) },
-                            null));
+                        finalReply = textBlock.Text;
+                        break;
                     }
                 }
-
-                messages.Add(new MessageParam { Role = Role.Assistant, Content = new MessageParamContent(assistantBlocks, null) });
-                messages.Add(new MessageParam { Role = Role.User, Content = new MessageParamContent(toolResultBlocks, null) });
-                continue;
+                break;
             }
-
-            // EndTurn, MaxTokens, or other — extract text and stop
-            foreach (var block in response.Content)
-            {
-                if (block.TryPickText(out var textBlock))
-                {
-                    finalReply = textBlock.Text;
-                    break;
-                }
-            }
-            break;
+        }
+        catch
+        {
+            aiUnavailable = true;
         }
 
-        if (string.IsNullOrEmpty(finalReply)) return null;
+        if (aiUnavailable || string.IsNullOrEmpty(finalReply))
+        {
+            var session = await _unitOfWork.ChatSessionRepository.FindByIdWithTrackingAsync(sessionId);
+            if (session is not null && !session.IsEscalated)
+            {
+                session.IsEscalated = true;
+                session.UpdatedAt = DateTimeOffset.Now;
+                await _unitOfWork.SaveChangesAsync();
+            }
+            finalReply = "Xin lỗi, trợ lý AI hiện không khả dụng. Phiên trò chuyện của bạn đã được chuyển đến nhân viên hỗ trợ, chúng tôi sẽ phản hồi sớm nhất có thể.";
+        }
 
         var aiMessageId = Guid.NewGuid();
         var aiMessage = new ChatMessage
@@ -306,22 +324,14 @@ public class ChatService(UnitOfWork unitOfWork, ChatAiService chatAiService)
             return $"Product with ID {productId} not found.";
 
         var sb = new StringBuilder();
-        sb.AppendLine($"Product: {product.Name}");
-        sb.AppendLine($"ID: {product.Id}");
-        sb.AppendLine($"SKU: {product.Sku}");
-        sb.AppendLine($"Category: {product.Category?.Name ?? "N/A"}");
-        sb.AppendLine($"Price: {product.Price:N0} VND");
-        sb.AppendLine($"Stock: {product.Stock}");
-        sb.AppendLine($"Warranty: {product.WarrantyMonth} months");
-        sb.AppendLine($"Status: {product.Status}");
-
-        if (!string.IsNullOrWhiteSpace(product.Description))
-            sb.AppendLine($"Description: {product.Description}");
+        sb.AppendLine($"[{product.Id}] {product.Name}");
+        sb.AppendLine($"Category: {product.Category?.Name ?? "N/A"} | Price: {product.Price:N0} VND | Stock: {product.Stock} | Warranty: {product.WarrantyMonth}mo");
 
         if (product.SpecValues?.Count > 0)
         {
-            sb.AppendLine("Specifications:");
-            foreach (var sv in product.SpecValues)
+            // Limit to 10 most relevant specs to keep token usage low
+            sb.AppendLine("Specs:");
+            foreach (var sv in product.SpecValues.Take(10))
             {
                 var specName = sv.SpecDefinition?.Name ?? sv.SpecDefinitionId.ToString();
                 var unit = sv.SpecDefinition?.Unit;

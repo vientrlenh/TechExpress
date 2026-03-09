@@ -15,12 +15,11 @@ namespace TechExpress.Application.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class ChatController(ServiceProviders serviceProvider, UserContext userContext, IHubContext<ChatHub> chatHubContext, IConfiguration configuration) : ControllerBase
+    public class ChatController(ServiceProviders serviceProvider, UserContext userContext, IHubContext<ChatHub> chatHubContext) : ControllerBase
     {
         private readonly ServiceProviders _serviceProvider = serviceProvider;
         private readonly UserContext _userContext = userContext;
         private readonly IHubContext<ChatHub> _chatHubContext = chatHubContext;
-        private readonly IConfiguration _configuration = configuration;
 
         [HttpPost("sessions")]
         public async Task<IActionResult> CreateSession([FromBody] CreateChatSessionRequest request)
@@ -33,7 +32,7 @@ namespace TechExpress.Application.Controllers
         }
 
         [HttpGet("sessions/{sessionId}/messages")]
-        public async Task<IActionResult> LoadMessages([FromRoute] Guid sessionId, [FromQuery] string? phone, [FromQuery] int size, [FromQuery] int pageIndex)
+        public async Task<IActionResult> LoadMessages([FromRoute] Guid sessionId, [FromQuery] string? phone, [FromQuery] int size = 20, [FromQuery] int pageIndex = 1)
         {
             if (size < 0 || size > 20) size = 20;
             if (pageIndex < 1) pageIndex = 1;
@@ -53,8 +52,7 @@ namespace TechExpress.Application.Controllers
             var response = ResponseMapper.MapToChatMessageResponseFromChatMessage(newMsg);
             await _chatHubContext.Clients.Group($"chat-{sessionId}").SendAsync(SignalRMessageConstant.ChatMessageReceive, response);
 
-            var aiApiKey = _configuration["AI:ApiKey"];
-            if (shouldTriggerAi && aiApiKey is not null)
+            if (shouldTriggerAi)
             {
                 var aiMsg = await _serviceProvider.ChatService.HandleGenerateAiReply(sessionId);
                 if (aiMsg is not null)
