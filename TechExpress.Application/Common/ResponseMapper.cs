@@ -907,6 +907,7 @@ public class ResponseMapper
     {
         return new ChatMessageResponse(
             message.Id, 
+            message.SessionId,
             message.SentById, 
             message.SentByFullName, 
             message.Message, 
@@ -941,5 +942,10 @@ public class ResponseMapper
     public static List<ChatMediaResponse> MapToChatMediaResponseListFromChatMedias(List<ChatMedia> medias)
     {
         return [.. medias.Select(MapToChatMediaResponseFromChatMedia)];
+    }
+
+    public static List<ChatSessionResponse> MapToChatSessionResponseListFromChatSessions(List<ChatSession> sessions)
+    {
+        return [.. sessions.Select(MapToChatSessionResponseFromChatSession)];
     }
 }

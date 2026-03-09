@@ -235,6 +235,20 @@ public class ChatService(UnitOfWork unitOfWork, ChatAiService chatAiService)
         return await _unitOfWork.ChatMessageRepository.FindByIdIncludeMediasAsync(aiMessageId);
     }
 
+    public async Task<List<ChatSession>> HandleGetAllSessions(bool? isClosed)
+    {
+        List<ChatSession> sessions = [];
+        if (isClosed is not null)
+        {
+            sessions = await _unitOfWork.ChatSessionRepository.FindByIsClosedAsync(isClosed.Value);
+        }
+        else
+        {
+            sessions = await _unitOfWork.ChatSessionRepository.FindAllAsync();
+        }
+        return sessions;
+    }
+
 
     private async Task<string> ExecuteToolAsync(string toolName, Guid sessionId, IReadOnlyDictionary<string, JsonElement> input)
     {

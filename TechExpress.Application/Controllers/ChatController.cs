@@ -1,4 +1,5 @@
 using System.ClientModel.Primitives;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
@@ -51,7 +52,7 @@ namespace TechExpress.Application.Controllers
             var (newMsg, shouldTriggerAi) = await _serviceProvider.ChatService.HandleSendMessage(sessionId, userId, request.Phone?.Trim(), request.Message, mediaReq);
             var response = ResponseMapper.MapToChatMessageResponseFromChatMessage(newMsg);
             await _chatHubContext.Clients.Group($"chat-{sessionId}").SendAsync(SignalRMessageConstant.ChatMessageReceive, response);
-
+            await _chatHubContext.Clients.Group("staff").SendAsync(SignalRMessageConstant.ChatMessageReceive, response);
             if (shouldTriggerAi)
             {
                 var aiMsg = await _serviceProvider.ChatService.HandleGenerateAiReply(sessionId);
@@ -59,9 +60,19 @@ namespace TechExpress.Application.Controllers
                 {
                     var aiResponse = ResponseMapper.MapToChatMessageResponseFromChatMessage(aiMsg);
                     await _chatHubContext.Clients.Group($"chat-{sessionId}").SendAsync(SignalRMessageConstant.ChatMessageReceive, aiResponse);
+                    await _chatHubContext.Clients.Group("staff").SendAsync(SignalRMessageConstant.ChatMessageReceive, aiResponse);
                 }
             }
             return Ok(ApiResponse<ChatMessageResponse>.OkResponse(response));
+        }
+
+        [HttpGet("sessions")]
+        [Authorize(Roles = "Admin, Staff")]
+        public async Task<IActionResult> GetAllSessions([FromQuery] bool? isClosed)
+        {
+            var sessions = await _serviceProvider.ChatService.HandleGetAllSessions(isClosed);
+            var response = ResponseMapper.MapToChatSessionResponseListFromChatSessions(sessions);
+            return Ok(ApiResponse<List<ChatSessionResponse>>.OkResponse(response));
         }
     }
 }

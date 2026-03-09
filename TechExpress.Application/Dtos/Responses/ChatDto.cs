@@ -16,6 +16,7 @@ public record ChatSessionResponse(
 
 public record ChatMessageResponse(
     Guid Id,
+    Guid SessionId,
     Guid? SentById,
     string? SentByFullName,
     string Message,

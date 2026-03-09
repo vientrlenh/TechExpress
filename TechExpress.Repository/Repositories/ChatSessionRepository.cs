@@ -33,4 +33,14 @@ public class ChatSessionRepository(ApplicationDbContext context)
     {
         return await _context.ChatSessions.AsTracking().FirstOrDefaultAsync(c => c.Id == id);
     }
+
+    public async Task<List<ChatSession>> FindAllAsync()
+    {
+        return await _context.ChatSessions.ToListAsync();
+    }
+
+    public async Task<List<ChatSession>> FindByIsClosedAsync(bool isClosed)
+    {
+        return await _context.ChatSessions.Where(c => c.IsClosed == isClosed).ToListAsync();
+    }
 }
