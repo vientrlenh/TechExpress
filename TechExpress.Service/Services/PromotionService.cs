@@ -628,7 +628,7 @@ public class PromotionService
 
     public async Task<Pagination<Promotion>> GetPromotionsPagedAsync(
         string? search,
-        string? status,
+        bool? status,
         DateTimeOffset? fromDate,
         DateTimeOffset? toDate,
         string sortBy,
