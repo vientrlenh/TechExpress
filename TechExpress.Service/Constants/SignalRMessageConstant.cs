@@ -13,4 +13,8 @@ public static class SignalRMessageConstant
     public const string ChatMessageReceive = "ReceiveChatMessage";
 
     public const string NewChatSession = "NewChatSession";
+
+    public const string ShowTypingIndicator = "ShowTypingIndicator";
+
+    public const string HideTypingIndicator = "HideTypingIndicator";
 }

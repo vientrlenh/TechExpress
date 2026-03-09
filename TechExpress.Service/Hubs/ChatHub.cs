@@ -2,6 +2,7 @@ using System;
 using System.Security.Claims;
 using Microsoft.AspNetCore.SignalR;
 using TechExpress.Repository;
+using TechExpress.Service.Constants;
 
 namespace TechExpress.Service.Hubs;
 
@@ -52,5 +53,25 @@ public class ChatHub(UnitOfWork unitOfWork) : Hub
             }
         }
         await base.OnConnectedAsync();
+    }
+
+    public async Task CustomerTyping(Guid sessionId)
+    {
+        await Clients.Group("staff").SendAsync(SignalRMessageConstant.ShowTypingIndicator);
+    }
+
+    public async Task StaffTyping(Guid sessionId)
+    {
+        await Clients.Group($"chat-{sessionId}").SendAsync(SignalRMessageConstant.ShowTypingIndicator);
+    }
+
+    public async Task CustomerStopTyping(Guid sessionId)
+    {
+        await Clients.Group("staff").SendAsync(SignalRMessageConstant.HideTypingIndicator);
+    }
+
+    public async Task StaffStopTyping(Guid sessionId)
+    {
+        await Clients.Group($"chat-{sessionId}").SendAsync(SignalRMessageConstant.HideTypingIndicator);
     }
 }
