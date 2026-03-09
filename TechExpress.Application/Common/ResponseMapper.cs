@@ -948,4 +948,15 @@ public class ResponseMapper
     {
         return [.. sessions.Select(MapToChatSessionResponseFromChatSession)];
     }
+
+    public static Pagination<ChatSessionResponse> MapToChatSessionPaginationResponse(Pagination<ChatSession> sessions)
+    {
+        return new Pagination<ChatSessionResponse>
+        {
+            Items = MapToChatSessionResponseListFromChatSessions(sessions.Items),
+            PageNumber = sessions.PageNumber,
+            PageSize = sessions.PageSize,
+            TotalCount = sessions.TotalCount 
+        };
+    }
 }

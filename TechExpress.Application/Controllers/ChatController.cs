@@ -11,6 +11,7 @@ using TechExpress.Service;
 using TechExpress.Service.Constants;
 using TechExpress.Service.Contexts;
 using TechExpress.Service.Hubs;
+using TechExpress.Service.Utils;
 
 namespace TechExpress.Application.Controllers
 {
@@ -68,11 +69,23 @@ namespace TechExpress.Application.Controllers
 
         [HttpGet("sessions")]
         [Authorize(Roles = "Admin, Staff")]
-        public async Task<IActionResult> GetAllSessions([FromQuery] bool? isClosed)
+        public async Task<IActionResult> GetAllSessions([FromQuery] bool? isClosed, [FromQuery] int page = 1, [FromQuery] int size = 20)
         {
-            var sessions = await _serviceProvider.ChatService.HandleGetAllSessions(isClosed);
-            var response = ResponseMapper.MapToChatSessionResponseListFromChatSessions(sessions);
-            return Ok(ApiResponse<List<ChatSessionResponse>>.OkResponse(response));
+            if (page < 1) page = 1;
+            if (size < 0 || size > 20) size = 20;
+            var sessions = await _serviceProvider.ChatService.HandleGetAllSessions(isClosed, page, size);
+            var response = ResponseMapper.MapToChatSessionPaginationResponse(sessions);
+            return Ok(ApiResponse<Pagination<ChatSessionResponse>>.OkResponse(response));
+        }
+
+
+        [HttpPatch("sessions/{sessionId}/close")]
+        [Authorize(Roles = "Admin, Staff")]
+        public async Task<IActionResult> CloseSession([FromRoute] Guid sessionId)
+        {
+            var session = await _serviceProvider.ChatService.HandleCloseSession(sessionId);
+            var response = ResponseMapper.MapToChatSessionResponseFromChatSession(session);
+            return Ok(ApiResponse<ChatSessionResponse>.OkResponse(response));
         }
     }
 }

@@ -1646,7 +1646,8 @@ namespace TechExpress.Repository.Contexts
 
                 cs.Property(c => c.FullName)
                     .HasColumnName("full_name")
-                    .HasMaxLength(256);
+                    .HasMaxLength(256)
+                    .IsRequired();
 
                 cs.Property(c => c.Phone)
                     .HasColumnName("phone")

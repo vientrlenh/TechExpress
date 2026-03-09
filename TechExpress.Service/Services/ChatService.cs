@@ -1,11 +1,12 @@
 using System.Text;
 using System.Text.Json;
 using Anthropic.Models.Messages;
-using PayOS.Exceptions;
 using TechExpress.Repository;
+using TechExpress.Repository.CustomExceptions;
 using TechExpress.Repository.Enums;
 using TechExpress.Repository.Models;
 using TechExpress.Service.Commands;
+using TechExpress.Service.Utils;
 
 namespace TechExpress.Service.Services;
 
@@ -23,7 +24,7 @@ public class ChatService(UnitOfWork unitOfWork, ChatAiService chatAiService)
             userId = Guid.Parse(userIdStr);
             var user = await _unitOfWork.UserRepository.FindUserByIdAsync(userId.Value) ?? throw new NotFoundException($"Không tìm thấy người dùng: {userId}");
             unclosedSession = await _unitOfWork.ChatSessionRepository.FindByUserIdAndNotClosedAsync(userId.Value);
-            fullName = user.FirstName + user.LastName;
+            fullName = user.FirstName + " " + user.LastName;
             phone = null;
         }
         else if (fullName is not null && phone is not null)
@@ -101,7 +102,7 @@ public class ChatService(UnitOfWork unitOfWork, ChatAiService chatAiService)
                 throw new ForbiddenException("Bạn không có quyền truy cập vào phiên trò chuyện này");
             }
             isCustomerOrGuest = user.IsCustomerUser();
-            sentByFullName = user.IsCustomerUser() ? user.FirstName + user.LastName : "Nhân viên hỗ trợ";
+            sentByFullName = user.IsCustomerUser() ? user.FirstName + " " + user.LastName : "Nhân viên hỗ trợ";
         }
         else if (phone is not null)
         {
@@ -116,6 +117,10 @@ public class ChatService(UnitOfWork unitOfWork, ChatAiService chatAiService)
         else
         {
             throw new BadRequestException("Đăng nhập hoặc yêu cầu thông qua số điện thoại để truy cập vào cuộc trò chuyện");
+        }
+        if (session.IsClosed)
+        {
+            throw new BadRequestException("Cuộc trò chuyện này đã kết thúc");
         }
         if (medias.Count > 5)
         {
@@ -235,18 +240,27 @@ public class ChatService(UnitOfWork unitOfWork, ChatAiService chatAiService)
         return await _unitOfWork.ChatMessageRepository.FindByIdIncludeMediasAsync(aiMessageId);
     }
 
-    public async Task<List<ChatSession>> HandleGetAllSessions(bool? isClosed)
+    public async Task<Pagination<ChatSession>> HandleGetAllSessions(bool? isClosed, int page, int size)
     {
-        List<ChatSession> sessions = [];
-        if (isClosed is not null)
+        var (sessions, totalCount) = await _unitOfWork.ChatSessionRepository.FindAllWithIsClosedFilterAsync(isClosed, page, size);
+        return new Pagination<ChatSession>
         {
-            sessions = await _unitOfWork.ChatSessionRepository.FindByIsClosedAsync(isClosed.Value);
-        }
-        else
-        {
-            sessions = await _unitOfWork.ChatSessionRepository.FindAllAsync();
-        }
-        return sessions;
+            Items = sessions,
+            PageNumber = page,
+            PageSize = size,
+            TotalCount = totalCount
+        };
+        
+    }
+
+
+    public async Task<ChatSession> HandleCloseSession(Guid sessionId)
+    {
+        var session = await _unitOfWork.ChatSessionRepository.FindByIdWithTrackingAsync(sessionId) ?? throw new NotFoundException($"Không tìm thấy phiên chat {sessionId}");
+        session.IsClosed = true;
+        session.UpdatedAt = DateTimeOffset.Now;
+        await _unitOfWork.SaveChangesAsync();
+        return session;
     }
 
 
