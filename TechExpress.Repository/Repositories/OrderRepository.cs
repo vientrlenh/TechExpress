@@ -175,5 +175,47 @@ namespace TechExpress.Repository.Repositories
                     .ThenInclude(i => i.Product)
                 .FirstOrDefaultAsync(o => o.Id == orderId);
         }
+
+        public async Task<(List<Order> Orders, int TotalCount)> FindCustomerOrdersPagedSortByOrderDateAsync(
+            Guid customerId, int page, int pageSize, bool isDescending, string? search, OrderStatus? status)
+        {
+            var query = BuildCustomerFilteredQuery(customerId, search, status);
+
+            query = isDescending ? query.OrderByDescending(o => o.OrderDate) : query.OrderBy(o => o.OrderDate);
+
+            return await ExecutePagedQueryAsync(query, page, pageSize);
+        }
+
+        public async Task<(List<Order> Orders, int TotalCount)> FindCustomerOrdersPagedSortByTotalPriceAsync(
+            Guid customerId, int page, int pageSize, bool isDescending, string? search, OrderStatus? status)
+        {
+            var query = BuildCustomerFilteredQuery(customerId, search, status);
+
+            query = isDescending ? query.OrderByDescending(o => o.TotalPrice) : query.OrderBy(o => o.TotalPrice);
+
+            return await ExecutePagedQueryAsync(query, page, pageSize);
+        }
+
+        private IQueryable<Order> BuildCustomerFilteredQuery(Guid customerId, string? search, OrderStatus? status)
+        {
+            var query = _context.Orders
+                .AsNoTracking()
+                .Include(o => o.Items)
+                    .ThenInclude(oi => oi.Product)
+                .Where(o => o.UserId == customerId)
+                .AsQueryable();
+
+            if (status.HasValue)
+                query = query.Where(o => o.Status == status.Value);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var s = search.Trim().ToLower();
+                query = query.Where(o =>
+                    o.Items.Any(oi => oi.Product.Name.ToLower().Contains(s)));
+            }
+
+            return query;
+        }
     }
 }
