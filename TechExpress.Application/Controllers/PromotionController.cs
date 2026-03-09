@@ -142,7 +142,8 @@ namespace TechExpress.Application.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetAllPromotions(
             [FromQuery] string? search,
-            [FromQuery] string? status, // Nhận filter status
+            //[FromQuery] string? status, // Nhận filter status
+            [FromQuery] bool? status, // Đổi tên và kiểu thành bool?
             [FromQuery] DateTimeOffset? fromDate,
             [FromQuery] DateTimeOffset? toDate,
             [FromQuery] string sortBy = "Code or Name",

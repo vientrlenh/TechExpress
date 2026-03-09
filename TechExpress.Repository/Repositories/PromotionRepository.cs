@@ -58,7 +58,7 @@ public class PromotionRepository
             .Include(p => p.AppliedProducts)
             .AsSplitQuery()
             .Where(p => !string.IsNullOrEmpty(p.Code) && codes.Contains(p.Code) && p.StartDate <= now && p.EndDate > now && p.IsActive).ToListAsync();
-    } 
+    }
 
     public async Task<int> IncrementUsageCountIfMaxUsageNotExceed(Guid id)
     {
@@ -79,7 +79,7 @@ public class PromotionRepository
 
     public async Task<(List<Promotion> Promotions, int TotalCount)> FindPromotionsPagedAsync(
         string? search,
-        string? status, // "Active", "Inactive", "Expired", "Upcoming"
+        bool? status,
         DateTimeOffset? fromDate,
         DateTimeOffset? toDate,
         string sortBy,
@@ -97,17 +97,10 @@ public class PromotionRepository
             query = query.Where(p => p.Name.Contains(s) || (p.Code != null && p.Code.Contains(s)));
         }
 
-        // 2. Filter Status (Logic tính toán động)
-        if (!string.IsNullOrWhiteSpace(status))
+        // 2. Filter theo IsActive
+        if (status.HasValue)
         {
-            query = status.ToLower() switch
-            {
-                "active" => query.Where(p => p.IsActive && now >= p.StartDate && now <= p.EndDate),
-                "inactive" => query.Where(p => !p.IsActive),
-                "expired" => query.Where(p => now > p.EndDate),
-                "upcoming" => query.Where(p => p.IsActive && now < p.StartDate),
-                _ => query
-            };
+            query = query.Where(p => p.IsActive == status.Value);
         }
 
         // 3. Filter Date Range
@@ -148,7 +141,7 @@ public class PromotionRepository
 
     public async Task<List<Promotion>> FindAllStartAndEndPromotionsWithTrackingAsync(DateTimeOffset now)
     {
-        return await _context.Promotions.AsTracking().Where(p => (p.StartDate <= now && p.EndDate > now  && !p.IsActive) || (p.EndDate < now && p.IsActive)).ToListAsync();
+        return await _context.Promotions.AsTracking().Where(p => (p.StartDate <= now && p.EndDate > now && !p.IsActive) || (p.EndDate < now && p.IsActive)).ToListAsync();
     }
 
     public async Task<Promotion?> FindByIdWithTrackingAsync(Guid id)
