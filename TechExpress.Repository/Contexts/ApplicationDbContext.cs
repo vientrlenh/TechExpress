@@ -669,6 +669,17 @@ namespace TechExpress.Repository.Contexts
                     .HasColumnName("order_date")
                     .IsRequired();
 
+                od.Property(o => o.DeliveredById)
+                    .HasColumnName("delivered_by_id");
+
+                od.Property(o => o.CourierService)
+                    .HasColumnName("courier_service")
+                    .HasMaxLength(100);
+
+                od.Property(o => o.CourierTrackingCode)
+                    .HasColumnName("courier_tracking_code")
+                    .HasMaxLength(100);
+
                 od.Property(o => o.ReceivedAt)
                     .HasColumnName("received_at");
 
@@ -691,6 +702,11 @@ namespace TechExpress.Repository.Contexts
                 od.HasOne(o => o.User)
                     .WithMany()
                     .HasForeignKey(o => o.UserId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                od.HasOne(o => o.DeliveredBy)
+                    .WithMany()
+                    .HasForeignKey(o => o.DeliveredById)
                     .OnDelete(DeleteBehavior.NoAction);
             });
 

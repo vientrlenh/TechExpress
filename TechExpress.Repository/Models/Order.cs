@@ -40,9 +40,17 @@ public class Order
 
     public DateTimeOffset OrderDate { get; set; } = DateTimeOffset.Now;
 
+    public Guid? DeliveredById { get; set; }
+
+    public string? CourierService { get; set; }
+
+    public string? CourierTrackingCode { get; set; }
+
     public DateTimeOffset? ReceivedAt { get; set; }
 
     public required OrderStatus Status { get; set; }
 
     public User? User { get; set; }
+
+    public User? DeliveredBy { get; set; }
 }
