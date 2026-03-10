@@ -78,9 +78,10 @@ namespace TechExpress.Service.Services
                     var products = await _unitOfWork.ProductRepository
                         .FindByIdsWithNoTrackingAsync(productIds);
 
-                    var productDict = products
-                        .GroupBy(p => p.Id)
-                        .ToDictionary(g => g.Key, g => g.First());
+                    if (products.Count != productIds.Count)
+                        throw new NotFoundException("Một số sản phẩm không tồn tại.");
+
+                    var productDict = products.ToDictionary(p => p.Id);
 
                     foreach (var item in groupedItems)
                     {
@@ -291,9 +292,10 @@ namespace TechExpress.Service.Services
                     var products = await _unitOfWork.ProductRepository
                         .FindByIdsWithNoTrackingAsync(productIds);
 
-                    var productDict = products
-                        .GroupBy(p => p.Id)
-                        .ToDictionary(g => g.Key, g => g.First());
+                    if (products.Count != productIds.Count)
+                        throw new NotFoundException("Một số sản phẩm không tồn tại.");
+
+                    var productDict = products.ToDictionary(p => p.Id);
 
                     foreach (var cartItem in groupedCartItems)
                     {
@@ -393,7 +395,6 @@ namespace TechExpress.Service.Services
         }
 
         // ============================== PRIVATE HELPERS ===============================
-
         private async Task ProcessPromotionUsages(
             Guid orderId,
             Guid? userId,
@@ -419,14 +420,17 @@ namespace TechExpress.Service.Services
 
             if (userId.HasValue)
             {
-                usageDict = await _unitOfWork.PromotionRepository
+                usageDict = await _unitOfWork.PromotionUsageRepository
                     .CountByPromotionIdsAndUserIdAsync(promoIds, userId.Value);
             }
             else
             {
-                usageDict = await _unitOfWork.PromotionRepository
+                usageDict = await _unitOfWork.PromotionUsageRepository
                     .CountByPromotionIdsAndPhoneAsync(promoIds, phone);
             }
+
+            // ===== TẠO LIST USAGES (BATCH INSERT) =====
+            var usageList = new List<PromotionUsage>();
 
             foreach (var applied in result.AppliedPromotions)
             {
@@ -450,7 +454,7 @@ namespace TechExpress.Service.Services
                     throw new BadRequestException($"Khuyến mãi '{applied.PromotionCode}' đã đạt giới hạn hệ thống.");
 
                 // ===== CREATE USAGE =====
-                var usage = new PromotionUsage
+                usageList.Add(new PromotionUsage
                 {
                     PromotionId = applied.PromotionId,
                     UserId = userId,
@@ -458,10 +462,12 @@ namespace TechExpress.Service.Services
                     FullName = fullName,
                     Phone = phone,
                     DiscountAmount = applied.DiscountAmount
-                };
-
-                await _unitOfWork.PromotionUsageRepository.AddAsync(usage);
+                });
             }
+
+            // ===== INSERT ALL USAGES 1 LẦN =====
+            if (usageList.Any())
+                await _unitOfWork.PromotionUsageRepository.AddRangeAsync(usageList);
 
             // ===== HANDLE FREE ITEMS =====
             foreach (var freeItem in result.TotalFreeItems)
@@ -497,8 +503,8 @@ namespace TechExpress.Service.Services
             }
         }
 
-        // ===== các function còn lại giữ nguyên logic của bạn =====
 
+        // Tạo đối tượng Order từ các tham số đã chuẩn bị
         private Order CreateOrderObject(Guid id, Guid? userId, DeliveryType deliveryType, decimal subTotal, decimal discountAmount,
                                       string? email, string name, string? address, string phone,
                                       PaidType paidType, string? idCard, int? duration, string? notes,

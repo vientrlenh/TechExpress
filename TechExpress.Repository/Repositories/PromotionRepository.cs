@@ -83,33 +83,7 @@ public class PromotionRepository
             .ToListAsync();
     }
 
-    // == Đếm số lần sử dụng của một người dùng cho nhiều khuyến mãi ==
-    public async Task<Dictionary<Guid, int>> CountByPromotionIdsAndUserIdAsync(List<Guid> promoIds, Guid userId)
-    {
-        return await _context.PromotionUsages
-            .Where(u => promoIds.Contains(u.PromotionId) && u.UserId == userId)
-            .GroupBy(u => u.PromotionId)
-            .Select(g => new
-            {
-                PromotionId = g.Key,
-                Count = g.Count()
-            })
-            .ToDictionaryAsync(x => x.PromotionId, x => x.Count);
-    }
 
-    //== Đếm số lần sử dụng của một người dùng cho nhiều khuyến mãi dựa trên số điện thoại ==
-    public async Task<Dictionary<Guid, int>> CountByPromotionIdsAndPhoneAsync(List<Guid> promoIds, string phone)
-    {
-        return await _context.PromotionUsages
-            .Where(u => promoIds.Contains(u.PromotionId) && u.Phone == phone)
-            .GroupBy(u => u.PromotionId)
-            .Select(g => new
-            {
-                PromotionId = g.Key,
-                Count = g.Count()
-            })
-            .ToDictionaryAsync(x => x.PromotionId, x => x.Count);
-    }
 
     // TechExpress.Repository/Repositories/PromotionRepository.cs
 
