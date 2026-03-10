@@ -173,6 +173,14 @@ namespace TechExpress.Repository.Repositories
                 .FirstOrDefaultAsync(p => p.Id == id);
         }
 
+        public async Task<List<Product>> FindByIdsWithNoTrackingAsync(List<Guid> ids)
+        {
+            return await _context.Products
+                .Where(p => ids.Contains(p.Id))
+                .AsNoTracking()
+                .ToListAsync();
+        }
+
         public async Task<List<Product>> FindByIdsWithTrackingAsync(IEnumerable<Guid> ids)
         {
             var idList = ids.ToList();

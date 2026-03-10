@@ -74,6 +74,42 @@ public class PromotionRepository
             .AsSplitQuery() // Tách lệnh truy vấn nếu danh sách sản phẩm đi kèm quá lớn
             .FirstOrDefaultAsync(p => p.Id == id);
     }
+    // == Tìm kiếm nhiều khuyến mãi theo ID và bao gồm các sản phẩm đã áp dụng == 
+    public async Task<List<Promotion>> FindByIdsIncludeAppliedProductsAsync(List<Guid> ids)
+    {
+        return await _context.Promotions
+            .Include(p => p.AppliedProducts)
+            .Where(p => ids.Contains(p.Id))
+            .ToListAsync();
+    }
+
+    // == Đếm số lần sử dụng của một người dùng cho nhiều khuyến mãi ==
+    public async Task<Dictionary<Guid, int>> CountByPromotionIdsAndUserIdAsync(List<Guid> promoIds, Guid userId)
+    {
+        return await _context.PromotionUsages
+            .Where(u => promoIds.Contains(u.PromotionId) && u.UserId == userId)
+            .GroupBy(u => u.PromotionId)
+            .Select(g => new
+            {
+                PromotionId = g.Key,
+                Count = g.Count()
+            })
+            .ToDictionaryAsync(x => x.PromotionId, x => x.Count);
+    }
+
+    //== Đếm số lần sử dụng của một người dùng cho nhiều khuyến mãi dựa trên số điện thoại ==
+    public async Task<Dictionary<Guid, int>> CountByPromotionIdsAndPhoneAsync(List<Guid> promoIds, string phone)
+    {
+        return await _context.PromotionUsages
+            .Where(u => promoIds.Contains(u.PromotionId) && u.Phone == phone)
+            .GroupBy(u => u.PromotionId)
+            .Select(g => new
+            {
+                PromotionId = g.Key,
+                Count = g.Count()
+            })
+            .ToDictionaryAsync(x => x.PromotionId, x => x.Count);
+    }
 
     // TechExpress.Repository/Repositories/PromotionRepository.cs
 
