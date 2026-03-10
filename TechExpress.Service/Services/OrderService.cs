@@ -442,6 +442,38 @@ namespace TechExpress.Service.Services
             };
         }
 
+        public async Task<Pagination<Order>> HandleGetCustomerOrderListWithPaginationAsync(
+                                    Guid customerId,
+                                    int page,
+                                    int pageSize,
+                                    OrderSortBy sortBy,
+                                    SortDirection sortDirection,
+                                    string? search,
+                                    OrderStatus? status)
+        {
+            if (page < 1) page = 1;
+            if (pageSize < 1 || pageSize > 100) pageSize = 20;
+
+            var isDescending = sortDirection == SortDirection.Desc;
+
+            var (orders, totalCount) = sortBy switch
+            {
+                OrderSortBy.TotalPrice => await _unitOfWork.OrderRepository
+                    .FindCustomerOrdersPagedSortByTotalPriceAsync(customerId, page, pageSize, isDescending, search, status),
+
+                _ => await _unitOfWork.OrderRepository
+                    .FindCustomerOrdersPagedSortByOrderDateAsync(customerId, page, pageSize, isDescending, search, status)
+            };
+
+            return new Pagination<Order>
+            {
+                Items = orders,
+                PageNumber = page,
+                PageSize = pageSize,
+                TotalCount = totalCount
+            };
+        }
+
         // ============================== ORDER DETAIL ===============================
         public async Task<(Order Order, List<Installment> Installments, List<Payment> Payments)>
             HandleGetOrderDetailAsync(Guid orderId)

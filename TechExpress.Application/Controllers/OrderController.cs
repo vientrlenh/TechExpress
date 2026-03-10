@@ -82,6 +82,43 @@ namespace TechExpress.Application.Controllers
         }
 
         /// <summary>
+        /// Lấy danh sách đơn hàng của khách hàng hiện tại với search tìm item trong đơn hàng , filter và sort
+        /// </summary>
+        [HttpGet("my-orders")]
+        [Authorize(Roles = "Customer")]
+        [ProducesResponseType(typeof(ApiResponse<Pagination<OrderListItemResponse>>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> GetMyOrderList([FromQuery] OrderFilterRequest request)
+        {
+            if (request.Page < 1)
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    StatusCode = StatusCodes.Status400BadRequest,
+                    Message = "Page must be greater than 0"
+                });
+            }
+
+            var customerId = _userContext.GetCurrentAuthenticatedUserId();
+
+            var orderPagination = await _serviceProvider.OrderService
+                .HandleGetCustomerOrderListWithPaginationAsync(
+                    customerId,
+                    request.Page,
+                    request.PageSize,
+                    request.SortBy,
+                    request.SortDirection,
+                    request.Search,
+                    request.Status
+                );
+
+            var response = ResponseMapper
+                .MapToOrderListResponsePaginationFromOrderPagination(orderPagination);
+
+            return Ok(ApiResponse<Pagination<OrderListItemResponse>>.OkResponse(response));
+        }
+
+        /// <summary>
         /// Mua hàng không cần tài khoản (Guest Checkout)
         /// </summary>
         [HttpPost("guest-checkout")]
