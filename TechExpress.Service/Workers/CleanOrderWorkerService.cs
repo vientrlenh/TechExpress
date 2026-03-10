@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Data;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -51,23 +52,28 @@ namespace TechExpress.Service.Workers
                 {
                     var now = DateTimeOffset.Now;
                     var expiration = now.AddMinutes(-15);
-                    await using var transaction = await unitOfWork.BeginTransactionAsync();
+                    await using var transaction = await unitOfWork.BeginTransactionAsync(IsolationLevel.Serializable);
                     try
                     {
                         await unitOfWork.PromotionRepository.ReclaimUserUsageOnExpiredOrders(expiration);
                         await unitOfWork.PromotionUsageRepository.DeletePromotionUsagesOnExpiredOrders(expiration);
                         await unitOfWork.ProductRepository.RestockProductAfterPendingOrderExpiration(expiration);
-                        var deleted = await unitOfWork.OrderRepository.DeleteExpiredUnpaidOrdersAsync(expiration);
+                        var expired = await unitOfWork.OrderRepository.ExpireUnpaidOrdersAsync(expiration);
 
-                        await unitOfWork.SaveChangesAsync();
+                        var purgecutoff = now.AddDays(-30);
+                        var purged = await unitOfWork.OrderRepository.DeleteExpiredOrdersOlderThanAsync(purgecutoff);
+
                         await transaction.CommitAsync();
 
-                        if (deleted > 0)
-                        {
+                        if (expired > 0)
                             _logger.LogInformation(
-                                "CleanOrderWorkerService deleted {Count} expired unpaid pending orders and restocked products (cutoff: {Cutoff}).",
-                                deleted, expiration);
-                        }
+                                "CleanOrderWorkerService marked {Count} unpaid pending orders as Expired (cutoff: {Cutoff}).",
+                                expired, expiration);
+
+                        if (purged > 0)
+                            _logger.LogInformation(
+                                "CleanOrderWorkerService purged {Count} Expired orders older than 30 days (cutoff: {Cutoff}).",
+                                purged, purgecutoff);
                     }
                     catch (Exception)
                     {

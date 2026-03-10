@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using TechExpress.Repository.Contexts;
 using TechExpress.Repository.Models;
@@ -62,6 +63,11 @@ namespace TechExpress.Repository
         public async Task<IDbContextTransaction> BeginTransactionAsync()
         {
             return await _context.Database.BeginTransactionAsync();
+        }
+
+        public async Task<IDbContextTransaction> BeginTransactionAsync(System.Data.IsolationLevel isolationLevel)
+        {
+            return await _context.Database.BeginTransactionAsync(isolationLevel, CancellationToken.None);
         }
 
         public IExecutionStrategy CreateExecutionStrategy()

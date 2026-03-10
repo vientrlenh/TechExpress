@@ -81,8 +81,7 @@ namespace TechExpress.Repository.Repositories
                 .ToListAsync(ct);
         }
 
-        public Task<int> DeleteExpiredUnpaidOrdersAsync(
-            DateTimeOffset expiration)
+        public Task<int> ExpireUnpaidOrdersAsync(DateTimeOffset expiration)
         {
             return _context.Orders
                 .Where(o =>
@@ -90,6 +89,13 @@ namespace TechExpress.Repository.Repositories
                     o.OrderDate <= expiration &&
                     !_context.Payments.Any(p => p.OrderId == o.Id && p.Status == PaymentStatus.Success)
                 )
+                .ExecuteUpdateAsync(x => x.SetProperty(o => o.Status, OrderStatus.Expired));
+        }
+
+        public Task<int> DeleteExpiredOrdersOlderThanAsync(DateTimeOffset cutoff)
+        {
+            return _context.Orders
+                .Where(o => o.Status == OrderStatus.Expired && o.OrderDate <= cutoff)
                 .ExecuteDeleteAsync();
         }
 

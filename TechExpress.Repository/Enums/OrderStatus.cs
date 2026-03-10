@@ -12,5 +12,6 @@ public enum OrderStatus
     Completed,
     Installing,
     Canceled,
-    Refunded
+    Refunded,
+    Expired
 }
