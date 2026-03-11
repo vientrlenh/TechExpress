@@ -959,4 +959,39 @@ public class ResponseMapper
             TotalCount = sessions.TotalCount 
         };
     }
+
+    public static PromotionDetailResponse MapToPromotionDetailResponseFromPromotion(Promotion promotion)
+    {
+        var now = DateTimeOffset.Now;
+
+        return new PromotionDetailResponse
+        {
+            Id = promotion.Id,
+            Name = promotion.Name,
+            Code = promotion.Code,
+            Description = promotion.Description,
+            DiscountType = promotion.Type,
+            DiscountValue = promotion.DiscountValue,
+            MaxDiscountValue = promotion.MaxDiscountValue,
+            StartDate = promotion.StartDate,
+            EndDate = promotion.EndDate,
+            UsageLimit = promotion.MaxUsageCount,
+            UsagePerUser = promotion.MaxUsagePerUser,
+            Status = promotion.IsActive,
+            IsExpired = promotion.EndDate <= now,
+            CreatedAt = promotion.CreatedAt,
+            UpdatedAt = promotion.UpdatedAt,
+            Scope = promotion.Scope,
+            MinOrderValue = promotion.MinOrderValue,
+            CategoryId = promotion.CategoryId,
+            BrandId = promotion.BrandId,
+            MinAppliedQuantity = promotion.MinAppliedQuantity,
+            RequiredProductLogic = promotion.RequiredProductLogic,
+            FreeItemPickCount = promotion.FreeItemPickCount,
+            IsStackable = promotion.IsStackable,
+            UsageCount = promotion.UsageCount,
+
+           
+        };
+    }
 }

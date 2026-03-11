@@ -148,4 +148,31 @@ public class PromotionRepository
     {
         return await _context.Promotions.AsTracking().FirstOrDefaultAsync(p => p.Id == id);
     }
+
+    public async Task<Promotion?> FindByIdAsync(Guid id)
+    {
+        return await _context.Promotions
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == id);
+    }
+
+
+    public async Task<bool> HasAnyUsageAsync(Guid promotionId)
+    {
+        return await _context.PromotionUsages
+            .AnyAsync(x => x.PromotionId == promotionId);
+    }
+
+    public void Delete(Promotion promotion)
+    {
+        _context.Promotions.Remove(promotion);
+    }
+
+    public async Task<int> HardDeleteByIdIfUnusedAsync(Guid promotionId)
+    {
+        return await _context.Promotions
+            .Where(p => p.Id == promotionId &&
+                        !_context.PromotionUsages.Any(pu => pu.PromotionId == p.Id))
+            .ExecuteDeleteAsync();
+    }
 }
