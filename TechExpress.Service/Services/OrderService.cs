@@ -51,7 +51,7 @@ namespace TechExpress.Service.Services
                 if (string.IsNullOrWhiteSpace(trackingPhone))
                     throw new BadRequestException("Số điện thoại liên lạc là bắt buộc.");
 
-                using var transaction = await _unitOfWork.BeginTransactionAsync();
+                await using var transaction = await _unitOfWork.BeginTransactionAsync();
 
                 try
                 {
@@ -75,27 +75,31 @@ namespace TechExpress.Service.Services
                         .Distinct()
                         .ToList();
 
+                    var requestProducts = groupedItems.SelectMany(i => new List<(Guid, int)>
+                    {
+                        (i.ProductId, i.Quantity)
+                    }).ToList();
+
                     var products = await _unitOfWork.ProductRepository
-                        .FindByIdsWithNoTrackingAsync(productIds);
+                        .FindByIdsAndAvailableAsync(productIds);
 
                     if (products.Count != productIds.Count)
-                        throw new NotFoundException("Một số sản phẩm không tồn tại.");
+                        throw new NotFoundException("Một số sản phẩm không tồn tại hoặc không còn kinh doanh.");
 
                     var productDict = products.ToDictionary(p => p.Id);
+
+                    var decrementResults = await _unitOfWork.ProductRepository.DecrementStockBatchAsync(requestProducts);
+                    var failedIds = decrementResults.Where(r => r.IsUpdated == 0).Select(r => r.ProductId).ToList();
+                    if (failedIds.Count > 0)
+                    {
+                        var failedName = productDict[failedIds[0]].Name;
+                        throw new BadRequestException($"Sản phẩm ${failedName} hiện không đủ tồn kho");
+                    }
 
                     foreach (var item in groupedItems)
                     {
                         if (!productDict.TryGetValue(item.ProductId, out var product))
                             throw new NotFoundException($"Sản phẩm không tồn tại.");
-
-                        if (product.Status != ProductStatus.Available)
-                            throw new BadRequestException($"Sản phẩm '{product.Name}' hiện không khả dụng.");
-
-                        var affectedRows = await _unitOfWork.ProductRepository
-                            .DecrementStockAtomicAsync(item.ProductId, item.Quantity);
-
-                        if (affectedRows == 0)
-                            throw new BadRequestException($"Sản phẩm '{product.Name}' không đủ tồn kho.");
 
                         subTotal += product.Price * item.Quantity;
 

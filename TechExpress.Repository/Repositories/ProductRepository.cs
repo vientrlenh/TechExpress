@@ -1,6 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Azure.Core;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Text;
 using TechExpress.Repository.Contexts;
@@ -178,6 +181,13 @@ namespace TechExpress.Repository.Repositories
             return await _context.Products
                 .Where(p => ids.Contains(p.Id))
                 .AsNoTracking()
+                .ToListAsync();
+        }
+
+        public async Task<List<Product>> FindByIdsAndAvailableAsync(List<Guid> ids)
+        {
+            return await _context.Products
+                .Where(p => ids.Contains(p.Id) && p.Status == ProductStatus.Available)
                 .ToListAsync();
         }
 
@@ -485,5 +495,48 @@ namespace TechExpress.Repository.Repositories
                                 !_context.Payments.Any(pay => pay.OrderId == oi.OrderId && pay.Status == PaymentStatus.Success))
                             .Sum(oi => oi.Quantity)));
         }
+
+        public async Task<List<RestockProductResult>> DecrementStockBatchAsync(List<(Guid, int)> requestProducts)
+        {
+            var tvp = new DataTable();
+            tvp.Columns.Add("ProductId", typeof(Guid));
+            tvp.Columns.Add("Quantity", typeof(int));
+
+            foreach (var product in requestProducts)
+            {
+                tvp.Rows.Add(product.Item1, product.Item2);
+            }
+
+            var param = new SqlParameter("@Restock", SqlDbType.Structured)
+            {
+                TypeName = "dbo.OrderItemType",
+                Value = tvp
+            };
+
+            return await _context.Database.SqlQueryRaw<RestockProductResult>("""
+                DECLARE @Updated TABLE (ProductId UNIQUEIDENTIFIER, Quantity INT, NewStock INT);
+
+                UPDATE p
+                SET p.stock = p.stock - r.Quantity 
+                OUTPUT r.ProductId, r.Quantity, inserted.stock 
+                INTO @Updated(ProductId, Quantity, NewStock) 
+                From Products p 
+                INNER JOIN @Restock r ON p.id = r.ProductId
+                WHERE p.stock - r.Quantity >= 0; 
+
+                SELECT r.ProductId, r.Quantity AS RequestedQuantity, u.NewStock, 
+                CASE WHEN u.ProductId IS NOT NULL THEN 1 ELSE 0 END AS IsUpdated 
+                FROM @Restock r 
+                LEFT JOIN @Updated u ON r.ProductId = u.ProductId;
+            """, param).ToListAsync();
+        }
     }
+}
+
+public class RestockProductResult
+{
+    public Guid ProductId { get; set; }
+    public int RequestedQuantity { get; set; }
+    public int NewStock { get; set; }
+    public int IsUpdated { get; set; }
 }
