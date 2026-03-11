@@ -537,6 +537,6 @@ public class RestockProductResult
 {
     public Guid ProductId { get; set; }
     public int RequestedQuantity { get; set; }
-    public int NewStock { get; set; }
+    public int? NewStock { get; set; }
     public int IsUpdated { get; set; }
 }
