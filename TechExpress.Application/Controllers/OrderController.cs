@@ -211,6 +211,40 @@ namespace TechExpress.Application.Controllers
             }
         }
 
+
+
+        [HttpPost("checkout/custom-pc/{customPCId}")]
+        [Authorize(Roles = "Customer")]
+        public async Task<IActionResult> CustomPCCheckout([FromRoute] Guid customPCId, [FromBody] CustomPCCheckoutRequest request)
+        {
+            var userId = _userContext.GetCurrentAuthenticatedUserId();
+
+            var (order, installments, usages) = await _serviceProvider.OrderService.HandleCustomPCCheckoutAsync(
+                userId,
+                customPCId,
+                request.PromotionCodes,
+                request.ChosenFreeProductIds,
+                request.DeliveryType,
+                request.ReceiverEmail,
+                request.ReceiverFullName,
+                request.ShippingAddress,
+                request.TrackingPhone,
+                request.PaidType,
+                request.ReceiverIdentityCard,
+                request.InstallmentDurationMonth,
+                request.Notes
+            );
+
+            // SỬA LẠI DÒNG NÀY: Phải truyền đủ cả order, installments, và usages vào hàm Map
+            var orderResponse = ResponseMapper.MapToOrderResponseFromOrder(order, installments, usages);
+
+            // Xử lý logic gọi cổng thanh toán VNPay/PayOS ở đây nếu Order yêu cầu thanh toán Online.
+            // Ví dụ: var paymentUrl = await _serviceProvider.PaymentService.CreatePaymentUrl(order);
+
+            return Ok(ApiResponse<OrderResponse>.OkResponse(orderResponse));
+        }
+
+
         /// <summary>
         /// Query: danh sách Payment theo Order.
         /// </summary>

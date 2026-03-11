@@ -394,6 +394,156 @@ namespace TechExpress.Service.Services
             });
         }
 
+        // ============================== CUSTOM PC CHECKOUT ===============================
+        public async Task<(Order order, List<Installment> installments, List<PromotionUsage> usages)> HandleCustomPCCheckoutAsync(
+            Guid userId,
+            Guid customPCId,
+            List<string>? promotionCodes,
+            List<Guid>? chosenFreeProductIds,
+            DeliveryType deliveryType,
+            string? receiverEmail,
+            string? receiverFullName,
+            string? shippingAddress,
+            string? trackingPhone,
+            PaidType paidType,
+            string? receiverIdentityCard,
+            int? installmentDurationMonth,
+            string? notes)
+        {
+            var strategy = _unitOfWork.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
+            {
+                var authenticatedUserId = _userContext.GetCurrentAuthenticatedUserId();
+
+                if (authenticatedUserId != userId)
+                    throw new UnauthorizedAccessException("Bạn không có quyền thực hiện hành động này.");
+
+                var user = await _unitOfWork.UserRepository.FindUserByIdAsync(userId)
+                    ?? throw new NotFoundException("Người dùng không tồn tại.");
+
+                var customPC = await _unitOfWork.CustomPCRepository.FindByIdIncludeItemsAsync(customPCId)
+                    ?? throw new NotFoundException($"Không tìm thấy cấu hình PC này: {customPCId}.");
+
+                if (customPC.UserId != userId)
+                    throw new ForbiddenException("Bạn không có quyền thanh toán cấu hình PC của người khác.");
+
+                if (customPC.Items == null || !customPC.Items.Any())
+                    throw new BadRequestException("Cấu hình PC này chưa có linh kiện nào.");
+
+                using var transaction = await _unitOfWork.BeginTransactionAsync();
+
+                try
+                {
+                    var finalFullName = !string.IsNullOrWhiteSpace(receiverFullName) ? receiverFullName : $"{user.FirstName} {user.LastName}".Trim();
+                    var finalEmail = !string.IsNullOrWhiteSpace(receiverEmail) ? receiverEmail : user.Email;
+                    var finalAddress = !string.IsNullOrWhiteSpace(shippingAddress) ? shippingAddress : user.Address;
+
+                    // --- ĐÃ TỐI ƯU: Logic xử lý số điện thoại gọn gàng hơn ---
+                    if (string.IsNullOrWhiteSpace(user.Phone) && string.IsNullOrWhiteSpace(trackingPhone))
+                        throw new BadRequestException("Số điện thoại liên lạc là bắt buộc.");
+
+                    if (!string.IsNullOrWhiteSpace(user.Phone) && !string.IsNullOrWhiteSpace(trackingPhone) && user.Phone != trackingPhone)
+                        throw new BadRequestException("Số điện thoại không khớp với hồ sơ.");
+
+                    string finalPhone = string.IsNullOrWhiteSpace(user.Phone) ? trackingPhone! : user.Phone;
+                    user.Phone = finalPhone; // Cập nhật số điện thoại cho User nếu họ chưa có
+
+                    ValidateOrderRequirements(deliveryType, finalAddress, user.Address, paidType, receiverIdentityCard, installmentDurationMonth);
+
+                    var orderId = Guid.NewGuid();
+                    var orderItems = new List<OrderItem>();
+                    var checkoutCommands = new List<CheckoutItemCommand>();
+                    decimal subTotal = 0;
+
+                    // ===== GROUP CUSTOM PC ITEMS =====
+                    var groupedItems = customPC.Items
+                        .GroupBy(x => x.ProductId)
+                        .Select(g => new { ProductId = g.Key, Quantity = g.Sum(x => x.Quantity) })
+                        .ToList();
+
+                    var productIds = groupedItems.Select(i => i.ProductId).Distinct().ToList();
+                    var products = await _unitOfWork.ProductRepository.FindByIdsWithNoTrackingAsync(productIds);
+
+                    if (products.Count != productIds.Count)
+                        throw new NotFoundException("Một số linh kiện trong cấu hình không tồn tại trong hệ thống.");
+
+                    var productDict = products.ToDictionary(p => p.Id);
+
+                    foreach (var item in groupedItems)
+                    {
+                        if (!productDict.TryGetValue(item.ProductId, out var product))
+                            throw new NotFoundException($"Linh kiện không tồn tại.");
+
+                        if (product.Status != ProductStatus.Available)
+                            throw new BadRequestException($"Linh kiện '{product.Name}' hiện không khả dụng.");
+
+                        // Trừ tồn kho
+                        var affectedRows = await _unitOfWork.ProductRepository.DecrementStockAtomicAsync(item.ProductId, item.Quantity);
+                        if (affectedRows == 0)
+                            throw new BadRequestException($"Linh kiện '{product.Name}' không đủ tồn kho để lắp ráp.");
+
+                        subTotal += product.Price * item.Quantity;
+
+                        orderItems.Add(new OrderItem
+                        {
+                            OrderId = orderId,
+                            ProductId = product.Id,
+                            Quantity = item.Quantity,
+                            UnitPrice = product.Price
+                        });
+
+                        checkoutCommands.Add(new CheckoutItemCommand
+                        {
+                            ProductId = product.Id,
+                            Quantity = item.Quantity,
+                            UnitPrice = product.Price,
+                            CategoryId = product.CategoryId,
+                            BrandId = product.BrandId
+                        });
+                    }
+
+                    // Tính toán Promotion
+                    var promoResult = await _promotionService.CalculatePromotionAsync(
+                        promotionCodes ?? new List<string>(), checkoutCommands, subTotal, userId, finalPhone);
+
+                    await ProcessPromotionUsages(
+                        orderId, userId, finalPhone, finalFullName, promoResult, orderItems, chosenFreeProductIds);
+
+                    // TẠO ĐƠN HÀNG (Không truyền CustomPCId)
+                    var order = CreateOrderObject(
+                        orderId, userId, deliveryType, subTotal, promoResult.TotalDiscountAmount,
+                        finalEmail, finalFullName, finalAddress, finalPhone, paidType,
+                        receiverIdentityCard, installmentDurationMonth, notes, orderItems
+                    );
+
+                    await _unitOfWork.OrderRepository.AddOrderAsync(order);
+
+                    if (paidType == PaidType.Installment)
+                        await CreateInstallmentRecords(order, installmentDurationMonth!.Value);
+
+                    // --- ĐÃ TỐI ƯU: Dọn dẹp Custom PC sau khi đã mua ---
+                    // Tùy vào repository của bạn có hàm Remove hoặc Delete
+                    //_unitOfWork.CustomPCRepository.Delete(customPC); 
+
+                    // Lưu thay đổi và commit
+                    await _unitOfWork.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    var finalOrder = await GetOrderDetailsAsync(orderId);
+                    var installmentList = await _unitOfWork.InstallmentRepository.GetByOrderIdAsync(orderId);
+                    var usageList = await _unitOfWork.PromotionUsageRepository.GetByOrderIdIncludePromotionAsync(orderId);
+
+                    return (finalOrder, installmentList, usageList);
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            });
+        }
+
         // ============================== PRIVATE HELPERS ===============================
         private async Task ProcessPromotionUsages(
             Guid orderId,
