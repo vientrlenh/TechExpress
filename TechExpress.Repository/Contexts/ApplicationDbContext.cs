@@ -863,8 +863,11 @@ namespace TechExpress.Repository.Contexts
                     .HasColumnName("id");
 
                 cp.Property(c => c.UserId)
-                    .HasColumnName("user_id")
-                    .IsRequired();
+                    .HasColumnName("user_id");
+
+                cp.Property(c => c.SessionId)
+                    .HasColumnName("session_id")
+                    .HasMaxLength(64);
 
                 cp.Property(c => c.Name)
                     .HasColumnName("name")
@@ -888,6 +891,9 @@ namespace TechExpress.Repository.Contexts
 
                 cp.HasIndex(c => c.UserId)
                     .HasDatabaseName("idx_custom_pc_user");
+
+                cp.HasIndex(c => c.SessionId)
+                    .HasDatabaseName("idx_custom_pc_session");
 
                 cp.HasOne(c => c.User)
                     .WithMany()

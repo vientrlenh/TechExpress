@@ -871,7 +871,15 @@ public class ResponseMapper
 
     public static CustomPCItemResponse MapToCustomPCItemResponseFromCustomPCItem(CustomPCItem item)
     {
-        return new CustomPCItemResponse(item.Id, item.CustomPCId, item.ProductId, item.Quantity);
+        return new CustomPCItemResponse(
+            item.Id, 
+            item.CustomPCId, 
+            item.ProductId, 
+            item.Product.Name,
+            item.Product.Price,
+            item.Product.WarrantyMonth,
+            item.Quantity
+        );
     }
 
     public static CustomPCResponse MapToCustomPCResponseFromCustomPC(CustomPC customPC)
@@ -880,15 +888,16 @@ public class ResponseMapper
         (
             customPC.Id,
             customPC.UserId,
+            customPC.SessionId,
             customPC.Name,
             customPC.UpdatedAt,
             [..customPC.Items.Select(MapToCustomPCItemResponseFromCustomPCItem)]
         );
     }
 
-    public static List<CustomPCResponse> MapToCustomPCResponseListFromCustomPCs(List<CustomPC> customPCs)
+    public static List<CustomPCResponseList> MapToCustomPCResponseListFromCustomPCs(List<CustomPC> customPCs)
     {
-        return [.. customPCs.Select(MapToCustomPCResponseFromCustomPC)];
+        return [.. customPCs.Select(c => new CustomPCResponseList(c.Id, c.UserId, c.SessionId, c.Name, c.UpdatedAt))];
     }
 
     public static ChatSessionResponse MapToChatSessionResponseFromChatSession(ChatSession session)

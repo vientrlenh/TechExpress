@@ -1,5 +1,3 @@
-using System;
-using Microsoft.Identity.Client;
 using PayOS.Exceptions;
 using TechExpress.Repository;
 using TechExpress.Repository.Models;
@@ -17,9 +15,18 @@ public class CustomPCService
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<CustomPC> HandleCreateCustomPCBuild(Guid userId, string name)
+    private static bool IsOwner(CustomPC pc, Guid? userId, string? sessionId)
     {
-        int count = await _unitOfWork.CustomPCRepository.CountByUserIdAsync(userId);
+        if (userId.HasValue) return pc.UserId == userId;
+        return sessionId != null && pc.SessionId == sessionId;
+    }
+
+    public async Task<CustomPC> HandleCreateCustomPCBuild(Guid? userId, string? sessionId, string name)
+    {
+        int count = userId.HasValue
+            ? await _unitOfWork.CustomPCRepository.CountByUserIdAsync(userId.Value)
+            : await _unitOfWork.CustomPCRepository.CountBySessionIdAsync(sessionId!);
+
         if (count >= 20)
         {
             throw new BadRequestException($"Người dùng chỉ có thể sở hữu tối đa 20 cấu hình tự chọn cùng lúc");
@@ -28,6 +35,7 @@ public class CustomPCService
         {
             Id = Guid.NewGuid(),
             UserId = userId,
+            SessionId = userId.HasValue ? null : sessionId,
             Name = name,
         };
         await _unitOfWork.CustomPCRepository.AddAsync(customPC);
@@ -37,10 +45,10 @@ public class CustomPCService
         return newCustomPC;
     }
 
-    public async Task<CustomPC> HandleAddItemToCustomPC(Guid userId, Guid customPCId, Guid productId, int quantity)
+    public async Task<CustomPC> HandleAddItemToCustomPC(Guid? userId, string? sessionId, Guid customPCId, Guid productId, int quantity)
     {
         CustomPC customPC = await _unitOfWork.CustomPCRepository.FindByIdIncludeItemsWithTrackingAsync(customPCId) ?? throw new NotFoundException($"Không tìm thấy cấu hình tự chọn {customPCId}");
-        if (customPC.UserId != userId)
+        if (!IsOwner(customPC, userId, sessionId))
         {
             throw new ForbiddenException($"Bạn không có quyền thực hiện trên cấu hình tự chọn này");
         }
@@ -77,18 +85,34 @@ public class CustomPCService
         }
         customPC.UpdatedAt = DateTimeOffset.Now;
         await _unitOfWork.SaveChangesAsync();
+
+        var newCustomPC = await _unitOfWork.CustomPCRepository.FindByIdIncludeItemsThenIncludeProductWithSplitQueryAsync(customPC.Id) ?? throw new NotFoundException($"Không tìm thấy cấu hình tự chọn {customPC.Id}");
+        return newCustomPC;
+    }
+
+    public async Task<List<CustomPC>> HandleGetCustomPCs(Guid? userId, string? sessionId)
+    {
+        if (userId.HasValue)
+            return await _unitOfWork.CustomPCRepository.FindByUserIdIncludeItemsThenIncludeProductWithSplitQueryAsync(userId.Value);
+
+        return await _unitOfWork.CustomPCRepository.FindBySessionIdIncludeItemsThenIncludeProductWithSplitQueryAsync(sessionId!);
+    }
+
+    public async Task<CustomPC> HandleGetCustomPCById(Guid id, Guid? userId, string? sessionId)
+    {
+        var customPC = await _unitOfWork.CustomPCRepository.FindByIdIncludeItemsThenIncludeProductWithSplitQueryAsync(id)
+            ?? throw new NotFoundException($"Không tìm thấy cấu hình tự chọn: {id}");
+
+        if (!IsOwner(customPC, userId, sessionId))
+            throw new ForbiddenException("Bạn không có quyền xem cấu hình tự chọn này");
+
         return customPC;
     }
 
-    public async Task<List<CustomPC>> HandleGetCustomPCs(Guid userId)
-    {
-        return await _unitOfWork.CustomPCRepository.FindByUserIdIncludeItemsWithSplitQueryAsync(userId);
-    }
-
-    public async Task<string> HandleDeleteCustomPC(Guid userId, Guid customPCId)
+    public async Task<string> HandleDeleteCustomPC(Guid? userId, string? sessionId, Guid customPCId)
     {
         var customPC = await _unitOfWork.CustomPCRepository.FindByIdWithTrackingAsync(customPCId) ?? throw new NotFoundException($"Không tìm thấy cấu hình tự chọn: {customPCId}");
-        if (customPC.UserId != userId)
+        if (!IsOwner(customPC, userId, sessionId))
         {
             throw new ForbiddenException($"Bạn không có quyền thực hiện hành động trên cấu hình này");
         }
