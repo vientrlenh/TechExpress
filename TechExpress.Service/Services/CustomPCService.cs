@@ -1,7 +1,6 @@
 using PayOS.Exceptions;
 using TechExpress.Repository;
 using TechExpress.Repository.Models;
-using TechExpress.Repository.Repositories;
 
 namespace TechExpress.Service.Services;
 
@@ -15,14 +14,12 @@ public class CustomPCService
         _unitOfWork = unitOfWork;
     }
 
-    private static bool IsOwner(CustomPC pc, Guid? userId, string? sessionId)
-    {
-        if (userId.HasValue) return pc.UserId == userId;
-        return sessionId != null && pc.SessionId == sessionId;
-    }
-
     public async Task<CustomPC> HandleCreateCustomPCBuild(Guid? userId, string? sessionId, string name)
     {
+        if (!userId.HasValue && string.IsNullOrWhiteSpace(sessionId))
+        {
+            throw new BadRequestException("Không nhận diện được người dùng hoặc session hiện tại");
+        }
         int count = userId.HasValue
             ? await _unitOfWork.CustomPCRepository.CountByUserIdAsync(userId.Value)
             : await _unitOfWork.CustomPCRepository.CountBySessionIdAsync(sessionId!);
@@ -60,7 +57,7 @@ public class CustomPCService
         {
             if (quantity == 0)
             {
-                return customPC;
+                return await _unitOfWork.CustomPCRepository.FindByIdIncludeItemsThenIncludeProductWithSplitQueryAsync(customPC.Id) ?? throw new NotFoundException($"Không tìm thấy cấu hình tự chọn {customPC.Id}");
             }
             CustomPCItem item = customPC.Items.First(i => i.ProductId == productId);
             item.Quantity += quantity;
@@ -73,7 +70,7 @@ public class CustomPCService
         {
             if (quantity <= 0)
             {
-                return customPC;
+                return await _unitOfWork.CustomPCRepository.FindByIdIncludeItemsThenIncludeProductWithSplitQueryAsync(customPC.Id) ?? throw new NotFoundException($"Không tìm thấy cấu hình tự chọn {customPC.Id}");
             }
             CustomPCItem item = new CustomPCItem
             {
@@ -92,6 +89,10 @@ public class CustomPCService
 
     public async Task<List<CustomPC>> HandleGetCustomPCs(Guid? userId, string? sessionId)
     {
+        if (!userId.HasValue && string.IsNullOrWhiteSpace(sessionId))
+        {
+            throw new BadRequestException("Không tìm thấy người dùng hoặc session hiện tại");
+        }
         if (userId.HasValue)
             return await _unitOfWork.CustomPCRepository.FindByUserIdIncludeItemsThenIncludeProductWithSplitQueryAsync(userId.Value);
 
@@ -103,7 +104,7 @@ public class CustomPCService
         var customPC = await _unitOfWork.CustomPCRepository.FindByIdIncludeItemsThenIncludeProductWithSplitQueryAsync(id)
             ?? throw new NotFoundException($"Không tìm thấy cấu hình tự chọn: {id}");
 
-        if (!IsOwner(customPC, userId, sessionId))
+        if (!await CanAccess(customPC, userId, sessionId))
             throw new ForbiddenException("Bạn không có quyền xem cấu hình tự chọn này");
 
         return customPC;
@@ -120,5 +121,24 @@ public class CustomPCService
         _unitOfWork.CustomPCRepository.Remove(customPC);
         await _unitOfWork.SaveChangesAsync();
         return $"Cấu hình {removalName} đã xóa thành công";
+    }
+
+    private static bool IsOwner(CustomPC pc, Guid? userId, string? sessionId)
+    {
+        if (userId.HasValue) {
+            return userId == pc.UserId;
+        }
+        return sessionId != null && pc.SessionId == sessionId;
+    }
+
+    private async Task<bool> CanAccess(CustomPC pc, Guid? userId, string? sessionId)
+    {
+        if (IsOwner(pc, userId, sessionId)) return true;
+        if (userId.HasValue)
+        {
+            var user = await _unitOfWork.UserRepository.FindUserByIdAsync(userId.Value) ?? throw new NotFoundException($"Không tìm thấy người dùng {userId.Value}");
+            return !user.IsCustomerUser() && pc.IsStaffAccessible;
+        }
+        return false;
     }
 }

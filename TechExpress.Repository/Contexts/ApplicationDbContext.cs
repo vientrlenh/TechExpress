@@ -672,6 +672,9 @@ namespace TechExpress.Repository.Contexts
                 od.Property(o => o.DeliveredById)
                     .HasColumnName("delivered_by_id");
 
+                od.Property(o => o.CreatedByStaffId)
+                    .HasColumnName("created_by_staff_id");
+
                 od.Property(o => o.CourierService)
                     .HasColumnName("courier_service")
                     .HasMaxLength(100);
@@ -707,6 +710,11 @@ namespace TechExpress.Repository.Contexts
                 od.HasOne(o => o.DeliveredBy)
                     .WithMany()
                     .HasForeignKey(o => o.DeliveredById)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                od.HasOne(o => o.CreatedByStaff)
+                    .WithMany()
+                    .HasForeignKey(o => o.CreatedByStaffId)
                     .OnDelete(DeleteBehavior.NoAction);
             });
 
