@@ -683,6 +683,9 @@ namespace TechExpress.Repository.Contexts
                 od.Property(o => o.ReceivedAt)
                     .HasColumnName("received_at");
 
+                od.Property(o => o.DeliveredAt)
+                    .HasColumnName("delivered_at");
+
                 od.Property(o => o.Status)
                     .HasColumnName("status")
                     .HasConversion<string>()

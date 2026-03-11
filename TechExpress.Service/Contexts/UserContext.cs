@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Security.Claims;
 using System.Text;
 using TechExpress.Repository.CustomExceptions;
+using TechExpress.Repository.Enums;
 
 namespace TechExpress.Service.Contexts
 {
@@ -25,6 +26,13 @@ namespace TechExpress.Service.Contexts
         public string? GetCurrentAuthenticatedUserIdIfExist()
         {
             return _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        }
+
+        public UserRole? GetCurrentUserRole()
+        {
+            var roleStr = _httpContextAccessor.HttpContext?.User?.FindFirst("role")?.Value;
+            if (roleStr == null) return null;
+            return Enum.TryParse<UserRole>(roleStr, out var role) ? role : null;
         }
     }
 }

@@ -60,6 +60,9 @@ namespace TechExpress.Service.Workers
                         await unitOfWork.ProductRepository.RestockProductAfterPendingOrderExpiration(expiration);
                         var expired = await unitOfWork.OrderRepository.ExpireUnpaidOrdersAsync(expiration);
 
+                        var deliveredCutoff = now.AddDays(-3);
+                        var autoCompleted = await unitOfWork.OrderRepository.AutoCompleteDeliveredOrdersAsync(deliveredCutoff);
+
                         var purgecutoff = now.AddDays(-30);
                         var purged = await unitOfWork.OrderRepository.DeleteExpiredOrdersOlderThanAsync(purgecutoff);
 
@@ -69,6 +72,11 @@ namespace TechExpress.Service.Workers
                             _logger.LogInformation(
                                 "CleanOrderWorkerService marked {Count} unpaid pending orders as Expired (cutoff: {Cutoff}).",
                                 expired, expiration);
+
+                        if (autoCompleted > 0)
+                            _logger.LogInformation(
+                                "CleanOrderWorkerService auto-completed {Count} delivered orders not confirmed by customer (cutoff: {Cutoff}).",
+                                autoCompleted, deliveredCutoff);
 
                         if (purged > 0)
                             _logger.LogInformation(

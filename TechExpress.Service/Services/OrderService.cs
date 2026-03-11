@@ -499,16 +499,69 @@ namespace TechExpress.Service.Services
 
         /// <summary>
         /// Cập nhật trạng thái đơn hàng theo luồng nghiệp vụ.
-        /// Nhân viên / Khách hàng gọi API này để chuyển trạng thái.
+        /// - Processing → Shipping: bắt buộc cung cấp DeliveredById (tự vận chuyển) HOẶC CourierService (bên thứ 3).
+        /// - Shipping → Delivered: nếu tự vận chuyển, chỉ nhân viên được phân công (hoặc Admin) mới được cập nhật.
+        /// - Delivered → Completed/Installing: set ReceivedAt = now (bảo hành bắt đầu).
         /// </summary>
-        public async Task<Order> HandleUpdateOrderStatusAsync(Guid orderId, OrderStatus newStatus)
+        public async Task<Order> HandleUpdateOrderStatusAsync(
+            Guid orderId,
+            OrderStatus newStatus,
+            Guid? deliveredById = null,
+            string? courierService = null,
+            string? courierTrackingCode = null)
         {
             var order = await _unitOfWork.OrderRepository.FindByIdWithTrackingAsync(orderId)
                 ?? throw new NotFoundException("Không tìm thấy đơn hàng.");
 
             ValidateStatusTransition(order, newStatus);
 
-            // Nếu đích đến là Completed hoặc Installing, tự động xác định dựa trên PaidType
+            var currentUserId = _userContext.GetCurrentAuthenticatedUserId();
+            var currentUserRole = _userContext.GetCurrentUserRole();
+
+            // === Processing → Shipping: gán thông tin vận chuyển ===
+            if (order.Status == OrderStatus.Processing && newStatus == OrderStatus.Shipping)
+            {
+                bool hasSelfDelivery = deliveredById.HasValue;
+                bool hasThirdParty = !string.IsNullOrWhiteSpace(courierService);
+
+                if (!hasSelfDelivery && !hasThirdParty)
+                    throw new BadRequestException("Cần chỉ định nhân viên tự vận chuyển (DeliveredById) hoặc dịch vụ vận chuyển bên thứ 3 (CourierService).");
+
+                if (hasSelfDelivery && hasThirdParty)
+                    throw new BadRequestException("Chỉ được chọn một trong hai: nhân viên tự vận chuyển hoặc dịch vụ vận chuyển bên thứ 3.");
+
+                order.DeliveredById = deliveredById;
+                order.CourierService = courierService;
+                order.CourierTrackingCode = courierTrackingCode;
+            }
+
+            // === Shipping → Delivered: kiểm tra quyền vận chuyển ===
+            if (order.Status == OrderStatus.Shipping && newStatus == OrderStatus.Delivered)
+            {
+                // Nếu là tự vận chuyển (có DeliveredById): chỉ nhân viên được phân công hoặc Admin mới được cập nhật
+                if (order.DeliveredById.HasValue
+                    && order.DeliveredById.Value != currentUserId
+                    && currentUserRole != UserRole.Admin)
+                {
+                    throw new ForbiddenException("Chỉ nhân viên được phân công mới có thể cập nhật trạng thái giao hàng này.");
+                }
+
+                order.DeliveredAt = DateTimeOffset.Now;
+            }
+
+            // === ReadyForPickup → PickedUp: khách đã đến lấy, bắt đầu đếm ngược 3 ngày ===
+            if (order.Status == OrderStatus.ReadyForPickup && newStatus == OrderStatus.PickedUp)
+            {
+                order.DeliveredAt = DateTimeOffset.Now;
+            }
+
+            // === Delivered/PickedUp → Completed/Installing: set ReceivedAt (bảo hành bắt đầu) ===
+            if ((order.Status == OrderStatus.Delivered || order.Status == OrderStatus.PickedUp)
+                && (newStatus == OrderStatus.Completed || newStatus == OrderStatus.Installing))
+            {
+                order.ReceivedAt = DateTimeOffset.Now;
+            }
+
             if (newStatus == OrderStatus.Completed || newStatus == OrderStatus.Installing)
             {
                 order.Status = order.PaidType == PaidType.Installment

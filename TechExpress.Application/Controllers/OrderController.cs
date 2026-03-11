@@ -326,7 +326,7 @@ namespace TechExpress.Application.Controllers
             [FromBody] UpdateOrderStatusRequest request)
         {
             var order = await _serviceProvider.OrderService
-                .HandleUpdateOrderStatusAsync(orderId, request.Status);
+                    .HandleUpdateOrderStatusAsync(orderId, request.Status, request.DeliveredById, request.CourierService, request.CourierTrackingCode);
 
             var response = ResponseMapper.MapToOrderResponseFromOrder(order);
             return Ok(ApiResponse<OrderResponse>.OkResponse(response));
