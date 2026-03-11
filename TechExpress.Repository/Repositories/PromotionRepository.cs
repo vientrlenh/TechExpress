@@ -74,6 +74,16 @@ public class PromotionRepository
             .AsSplitQuery() // Tách lệnh truy vấn nếu danh sách sản phẩm đi kèm quá lớn
             .FirstOrDefaultAsync(p => p.Id == id);
     }
+    // == Tìm kiếm nhiều khuyến mãi theo ID và bao gồm các sản phẩm đã áp dụng == 
+    public async Task<List<Promotion>> FindByIdsIncludeAppliedProductsAsync(List<Guid> ids)
+    {
+        return await _context.Promotions
+            .Include(p => p.AppliedProducts)
+            .Where(p => ids.Contains(p.Id))
+            .ToListAsync();
+    }
+
+
 
     // TechExpress.Repository/Repositories/PromotionRepository.cs
 
