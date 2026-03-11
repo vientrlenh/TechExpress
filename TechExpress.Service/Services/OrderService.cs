@@ -293,6 +293,11 @@ namespace TechExpress.Service.Services
                         .Distinct()
                         .ToList();
 
+                    var requestProducts = groupedCartItems.SelectMany(i => new List<(Guid, int)>
+                    {
+                        (i.ProductId, i.Quantity)
+                    }).ToList();
+
                     var products = await _unitOfWork.ProductRepository
                         .FindByIdsWithNoTrackingAsync(productIds);
 
@@ -310,10 +315,15 @@ namespace TechExpress.Service.Services
                             throw new BadRequestException($"Sản phẩm '{product.Name}' hiện không khả dụng.");
 
                         var affectedRows = await _unitOfWork.ProductRepository
-                            .DecrementStockAtomicAsync(cartItem.ProductId, cartItem.Quantity);
+                            .DecrementStockBatchAsync(requestProducts);
 
-                        if (affectedRows == 0)
-                            throw new BadRequestException($"Sản phẩm '{product.Name}' vừa hết hàng.");
+                        var failedIds = affectedRows.Where(r => r.IsUpdated == 0).Select(r => r.ProductId).ToList();
+                        if (failedIds.Count > 0)
+                        {
+                            var failedName = productDict[failedIds[0]].Name;
+                            throw new BadRequestException($"Sản phẩm ${failedName} hiện không đủ tồn kho");
+                        }
+
 
                         subTotal += product.Price * cartItem.Quantity;
 
@@ -466,6 +476,11 @@ namespace TechExpress.Service.Services
                         .Select(g => new { ProductId = g.Key, Quantity = g.Sum(x => x.Quantity) })
                         .ToList();
 
+                    var requestProducts = groupedItems.SelectMany(i => new List<(Guid, int)>
+                    {
+                        (i.ProductId, i.Quantity)
+                    }).ToList();
+
                     var productIds = groupedItems.Select(i => i.ProductId).Distinct().ToList();
                     var products = await _unitOfWork.ProductRepository.FindByIdsWithNoTrackingAsync(productIds);
 
@@ -483,9 +498,14 @@ namespace TechExpress.Service.Services
                             throw new BadRequestException($"Linh kiện '{product.Name}' hiện không khả dụng.");
 
                         // Trừ tồn kho
-                        var affectedRows = await _unitOfWork.ProductRepository.DecrementStockAtomicAsync(item.ProductId, item.Quantity);
-                        if (affectedRows == 0)
-                            throw new BadRequestException($"Linh kiện '{product.Name}' không đủ tồn kho để lắp ráp.");
+                        var affectedRows = await _unitOfWork.ProductRepository.DecrementStockBatchAsync(requestProducts);
+        
+                        var failedIds = affectedRows.Where(r => r.IsUpdated == 0).Select(r => r.ProductId).ToList();
+                        if (failedIds.Count > 0)
+                        {
+                            var failedName = productDict[failedIds[0]].Name;
+                            throw new BadRequestException($"Sản phẩm ${failedName} hiện không đủ tồn kho");
+                        }
 
                         subTotal += product.Price * item.Quantity;
 
