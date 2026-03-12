@@ -310,5 +310,6 @@ using (var scope = app.Services.CreateScope())
 
 app.MapHub<CartHub>("/cartHub");
 app.MapHub<ChatHub>("/chatHub");
+app.MapHub<NotificationHub>("/notificationHub");
 
 app.Run();

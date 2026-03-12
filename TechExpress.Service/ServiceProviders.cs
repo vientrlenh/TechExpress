@@ -33,6 +33,7 @@ namespace TechExpress.Service
         public PromotionService PromotionService { get; }
         public CustomPCService CustomPCService { get; }
         public ChatService ChatService { get; }
+        public TicketService TicketService { get; }
 
 
         public ServiceProviders(UnitOfWork unitOfWork, PayOsClient payOsClient, RedisUtils redisUtils, SmtpEmailSender emailSender, JwtUtils jwtUtils, UserContext userContext, OtpUtils otpUtils, GoogleAuthUtils googleAuthUtils, IConnectionMultiplexer redis, ChatAiService chatAiService)
@@ -54,6 +55,7 @@ namespace TechExpress.Service
             CustomPCService = new CustomPCService(unitOfWork);
             OrderService = new OrderService(unitOfWork, userContext, PromotionService);
             ChatService = new ChatService(unitOfWork, chatAiService);
+            TicketService = new TicketService(unitOfWork);
         }
     }
 }

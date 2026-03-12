@@ -31,6 +31,10 @@ public class Ticket
 
     public Guid? AssignedToUserId { get; set; }
 
+    public Guid? CompletedByUserId { get; set; }
+
+    public string? Result { get; set; }
+
     public DateTimeOffset? ResolvedAt { get; set; }
 
     public DateTimeOffset? ClosedAt { get; set; }
@@ -48,6 +52,8 @@ public class Ticket
     public OrderItem? OrderItem { get; set; }
 
     public User? AssignedTo { get; set; }
+
+    public User? CompletedBy { get; set; }
 
     public ICollection<TicketMessage> Messages { get; set; } = [];
 }

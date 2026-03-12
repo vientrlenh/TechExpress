@@ -17,4 +17,6 @@ public static class SignalRMessageConstant
     public const string ShowTypingIndicator = "ShowTypingIndicator";
 
     public const string HideTypingIndicator = "HideTypingIndicator";
+
+    public const string TicketNotification = "TicketNotification";
 }
