@@ -6,13 +6,25 @@ public record CustomPCItemResponse(
     long Id,
     Guid CustomPCId,
     Guid ProductId,
+    string ProductName,
+    decimal Price,
+    int WarrantyMonth,
     int Quantity
 );
 
 public record CustomPCResponse(
     Guid Id,
-    Guid UserId,
+    Guid? UserId,
+    string? SessionId,
     string Name,
     DateTimeOffset UpdatedAt,
     List<CustomPCItemResponse> Items
+);
+
+public record CustomPCResponseList(
+    Guid Id,
+    Guid? UserId,
+    string? SessionId,
+    string Name,
+    DateTimeOffset UpdatedAt
 );
