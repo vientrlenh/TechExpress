@@ -110,5 +110,26 @@ namespace TechExpress.Application.Common
             }
             return commands;
         }
+
+
+        public static List<AddComputerComponentCommand> MapToAddComputerComponentCommandListFromAddItemToCustomPCRequests(List<AddItemToCustomPCRequest> requests)
+        {
+            List<AddComputerComponentCommand> commands = [];
+            HashSet<Guid> productIds = [];
+            foreach (var request in requests)
+            {
+                if (productIds.Contains(request.ProductId))
+                {
+                    throw new BadRequestException($"Sản phẩm trùng lặp khi gửi yêu cầu tính toán khuyến mãi {request.ProductId}");
+                }
+                commands.Add(new AddComputerComponentCommand
+                {
+                    ComponentId = request.ProductId,
+                    Quantity = request.Quantity
+                });
+                productIds.Add(request.ProductId);
+            }
+            return commands;
+        }
     }
 }
