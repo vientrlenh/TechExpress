@@ -33,7 +33,7 @@ public class CustomPCRepository
     {
         return await _context.CustomPCs
             .Include(c => c.Items)
-            .ThenInclude(i => i.Product)
+                .ThenInclude(i => i.Product)
             .AsSplitQuery()
             .FirstOrDefaultAsync(c => c.Id == id);
     }       

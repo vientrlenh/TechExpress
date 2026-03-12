@@ -64,7 +64,7 @@ namespace TechExpress.Application.Controllers
             return Ok(ApiResponse<List<CustomPCResponseList>>.OkResponse(response));
         }
 
-        [HttpGet("{customPCId}")]
+        [HttpGet("{customPCId}/items")]
         public async Task<IActionResult> GetCustomPCById(
             [FromHeader(Name = "X-CustomPC-Guest-Session")] string? sessionId,
             [FromRoute] Guid customPCId)
