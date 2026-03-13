@@ -1035,6 +1035,7 @@ public class ResponseMapper
             ticket.Status,
             ticket.Priority,
             ticket.CustomPCId,
+            ticket.CustomPC is null ? null : MapToCustomPCResponseFromCustomPC(ticket.CustomPC),
             ticket.Messages.Select(MapToTicketMessageResponse).ToList(),
             ticket.CompletedByUserId,
             string.IsNullOrWhiteSpace(completedByName) ? null : completedByName,

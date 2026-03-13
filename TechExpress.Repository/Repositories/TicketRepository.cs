@@ -17,8 +17,13 @@ public class TicketRepository(ApplicationDbContext context)
     public async Task<Ticket?> FindByIdIncludeMessagesWithAttachmentsAsync(Guid id)
     {
         return await _context.Tickets
+            .AsSplitQuery()
             .Include(t => t.Messages.OrderByDescending(m => m.SentAt))
             .ThenInclude(m => m.Attachments)
+            .Include(t => t.CustomPC)
+                .ThenInclude(pc => pc!.Items)
+                    .ThenInclude(i => i.Product)
+                        .ThenInclude(p => p.Images)
             .Include(t => t.CompletedBy)
             .FirstOrDefaultAsync(t => t.Id == id);
     }

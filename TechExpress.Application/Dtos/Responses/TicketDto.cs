@@ -39,6 +39,7 @@ public record TicketResponse(
     TicketStatus Status,
     TicketPriority Priority,
     Guid? CustomPCId,
+    CustomPCResponse? CustomPC,
     List<TicketMessageResponse> Messages,
     Guid? CompletedByUserId,
     string? CompletedByName,
