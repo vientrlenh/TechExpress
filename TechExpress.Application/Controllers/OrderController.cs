@@ -314,7 +314,7 @@ namespace TechExpress.Application.Controllers
         /// Cập nhật trạng thái đơn hàng theo luồng nghiệp vụ.
         /// Luồng Shipping: Confirmed → Processing → Shipping → Delivered → Completed/Installing
         /// Luồng PickUp: Confirmed → Processing → ReadyForPickup → PickedUp → Completed/Installing
-        /// Lưu ý: bước hoàn thành cuối (Completed/Installing) dùng API auto-complete riêng.
+        /// Lưu ý: bước Delivered → Completed/Installing chỉ customer/staff sở hữu đúng order mới được phép cập nhật.
         /// </summary>
         [HttpPut("{orderId:guid}/status")]
         [Authorize(Roles = "Admin,Staff,Customer")]
@@ -328,6 +328,35 @@ namespace TechExpress.Application.Controllers
         {
             var order = await _serviceProvider.OrderService
                     .HandleUpdateOrderStatusAsync(orderId, request.Status, request.DeliveredById, request.CourierService, request.CourierTrackingCode);
+
+            var response = ResponseMapper.MapToOrderResponseFromOrder(order);
+            return Ok(ApiResponse<OrderResponse>.OkResponse(response));
+        }
+
+        /// <summary>
+        /// Guest checkout cập nhật trạng thái hoàn tất ngay (Completed/Installing), bỏ qua bước Delivered.
+        /// Chỉ áp dụng cho đơn hàng guest (không có UserId).
+        /// </summary>
+        [HttpPut("guest/{orderId:guid}/status")]
+        [AllowAnonymous]
+        [ProducesResponseType(typeof(ApiResponse<OrderResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateGuestOrderStatus(
+            [FromRoute] Guid orderId,
+            [FromBody] UpdateOrderStatusRequest request)
+        {
+            if (User.Identity?.IsAuthenticated == true)
+            {
+                return BadRequest(new ErrorResponse
+                {
+                    StatusCode = StatusCodes.Status400BadRequest,
+                    Message = "API này chỉ dành cho guest."
+                });
+            }
+
+            var order = await _serviceProvider.OrderService
+                .HandleUpdateGuestOrderStatusAsync(orderId, request.Status);
 
             var response = ResponseMapper.MapToOrderResponseFromOrder(order);
             return Ok(ApiResponse<OrderResponse>.OkResponse(response));

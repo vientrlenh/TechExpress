@@ -501,7 +501,7 @@ namespace TechExpress.Service.Services
         /// Cập nhật trạng thái đơn hàng theo luồng nghiệp vụ.
         /// - Processing → Shipping: bắt buộc cung cấp DeliveredById (tự vận chuyển) HOẶC CourierService (bên thứ 3).
         /// - Shipping → Delivered: nếu tự vận chuyển, chỉ nhân viên được phân công (hoặc Admin) mới được cập nhật.
-        /// - Không xử lý bước auto-complete (Completed/Installing), dùng API riêng.
+        /// - Delivered → Completed/Installing: chỉ customer/staff sở hữu đúng order mới được cập nhật.
         /// </summary>
         public async Task<Order> HandleUpdateOrderStatusAsync(
             Guid orderId,
@@ -510,16 +510,31 @@ namespace TechExpress.Service.Services
             string? courierService = null,
             string? courierTrackingCode = null)
         {
-            if (newStatus == OrderStatus.Completed || newStatus == OrderStatus.Installing)
-                throw new BadRequestException("Vui lòng sử dụng API auto-complete để hoàn thành đơn hàng.");
-
             var order = await _unitOfWork.OrderRepository.FindByIdWithTrackingAsync(orderId)
                 ?? throw new NotFoundException("Không tìm thấy đơn hàng.");
 
-            ValidateStatusTransition(order, newStatus);
-
             var currentUserId = _userContext.GetCurrentAuthenticatedUserId();
             var currentUserRole = _userContext.GetCurrentUserRole();
+
+            if (newStatus == OrderStatus.Completed || newStatus == OrderStatus.Installing)
+            {
+                if (order.Status != OrderStatus.Delivered)
+                    throw new BadRequestException("Chỉ cho phép chuyển sang Completed/Installing khi đơn hàng đang ở trạng thái Delivered.");
+
+                var isOwner = order.UserId.HasValue && order.UserId.Value == currentUserId;
+                var isAllowedRole = currentUserRole == UserRole.Customer || currentUserRole == UserRole.Staff;
+
+                if (!isOwner || !isAllowedRole)
+                    throw new ForbiddenException("Chỉ người sở hữu đơn hàng mới được xác nhận hoàn thành.");
+
+                order.ReceivedAt = DateTimeOffset.Now;
+                order.Status = ResolveAutoCompletionStatus(order, newStatus);
+
+                await _unitOfWork.SaveChangesAsync();
+                return order;
+            }
+
+            ValidateStatusTransition(order, newStatus);
 
             // === Processing → Shipping: gán thông tin vận chuyển ===
             if (order.Status == OrderStatus.Processing && newStatus == OrderStatus.Shipping)
@@ -559,6 +574,28 @@ namespace TechExpress.Service.Services
             }
 
             order.Status = newStatus;
+
+            await _unitOfWork.SaveChangesAsync();
+
+            return order;
+        }
+
+        public async Task<Order> HandleUpdateGuestOrderStatusAsync(Guid orderId, OrderStatus newStatus)
+        {
+            if (newStatus != OrderStatus.Completed && newStatus != OrderStatus.Installing)
+                throw new BadRequestException("Guest chỉ được cập nhật sang trạng thái Completed/Installing.");
+
+            var order = await _unitOfWork.OrderRepository.FindByIdWithTrackingAsync(orderId)
+                ?? throw new NotFoundException("Không tìm thấy đơn hàng.");
+
+            if (order.UserId.HasValue)
+                throw new BadRequestException("API guest chỉ áp dụng cho đơn hàng guest checkout.");
+
+            if (order.Status != OrderStatus.Shipping && order.Status != OrderStatus.Delivered && order.Status != OrderStatus.PickedUp)
+                throw new BadRequestException("Đơn guest chỉ có thể hoàn tất khi đang ở Shipping/Delivered/PickedUp.");
+
+            order.ReceivedAt = DateTimeOffset.Now;
+            order.Status = ResolveAutoCompletionStatus(order, newStatus);
 
             await _unitOfWork.SaveChangesAsync();
 
