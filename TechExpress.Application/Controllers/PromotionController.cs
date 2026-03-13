@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using TechExpress.Application.Common;
 using TechExpress.Application.Dtos.Requests;
 using TechExpress.Application.Dtos.Responses;
+using TechExpress.Application.DTOs.Responses;
 using TechExpress.Service;
 using TechExpress.Service.Contexts;
 using TechExpress.Service.Dtos;
@@ -168,6 +169,25 @@ namespace TechExpress.Application.Controllers
             var promotion = await _serviceProvider.PromotionService.HandleDisablePromotion(request.PromotionId);
             var response = ResponseMapper.MapToPromotionResponseFromPromotion(promotion);
             return Ok(ApiResponse<PromotionResponse>.OkResponse(response));
+        }
+
+        [HttpDelete("{promotionId}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> DeletePromotion(Guid promotionId)
+        {
+            await _serviceProvider.PromotionService.HandleDeletePromotion(promotionId);
+            return Ok(ApiResponse<string>.OkResponse("Xóa khuyến mãi thành công."));
+        }
+
+
+        [HttpGet("{promotionId}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetPromotionDetail(Guid promotionId)
+        {
+            var promotion = await _serviceProvider.PromotionService.HandleGetPromotionDetail(promotionId);
+            var response = ResponseMapper.MapToPromotionDetailResponseFromPromotion(promotion);
+
+            return Ok(ApiResponse<PromotionDetailResponse>.OkResponse(response));
         }
     }
 }

@@ -1,35 +1,54 @@
-using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using TechExpress.Repository.Contexts;
 using TechExpress.Repository.Models;
 
-namespace TechExpress.Repository.Repositories;
-
-public class TicketMessageRepository(ApplicationDbContext context)
+namespace TechExpress.Repository.Repositories
 {
-    private readonly ApplicationDbContext _context = context;
-
-    public async Task AddAsync(TicketMessage message)
+    public class TicketMessageRepository
     {
-        await _context.TicketMessages.AddAsync(message);
-    }
+        private readonly ApplicationDbContext _context;
 
-    public async Task<(List<TicketMessage> Items, int TotalCount)> FindByTicketIdPaginatedAsync(
-        Guid ticketId,
-        int page,
-        int size)
-    {
-        var query = _context.TicketMessages
-            .Include(m => m.Attachments)
-            .Where(m => m.TicketId == ticketId);
+        public TicketMessageRepository(ApplicationDbContext context)
+        {
+            _context = context;
+        }
 
-        var total = await query.CountAsync();
+        public async Task<TicketMessage> AddAsync(TicketMessage message)
+        {
+            await _context.TicketMessages.AddAsync(message);
+            return message;
+        }
 
-        var items = await query
-            .OrderByDescending(m => m.SentAt)
-            .Skip((page - 1) * size)
-            .Take(size)
-            .ToListAsync();
+        public async Task<List<TicketMessage>> GetByTicketIdAsync(Guid ticketId)
+        {
+            return await _context.TicketMessages
+                .AsNoTracking()
+                .Where(tm => tm.TicketId == ticketId)
+                .OrderBy(tm => tm.SentAt)
+                .ToListAsync();
+        }
 
-        return (items, total);
+        public async Task<(List<TicketMessage> Items, int TotalCount)> FindByTicketIdPaginatedAsync(
+            Guid ticketId,
+            int page,
+            int size)
+        {
+            var query = _context.TicketMessages
+                .Include(m => m.Attachments)
+                .Where(m => m.TicketId == ticketId);
+
+            var total = await query.CountAsync();
+
+            var items = await query
+                .OrderByDescending(m => m.SentAt)
+                .Skip((page - 1) * size)
+                .Take(size)
+                .ToListAsync();
+
+            return (items, total);
+        }
     }
 }

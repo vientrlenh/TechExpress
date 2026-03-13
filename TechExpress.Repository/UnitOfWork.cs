@@ -34,6 +34,10 @@ namespace TechExpress.Repository
         public TicketMessageRepository TicketMessageRepository { get; }
         public NotificationRepository NotificationRepository { get; }
 
+        public TicketMessageRepository TicketMessageRepository { get; }
+        public TicketRepository TicketRepository { get; }
+        public OrderItemRepository OrderItemRepository { get; }
+
         public UnitOfWork(ApplicationDbContext context)
         {
             _context = context;
@@ -56,9 +60,10 @@ namespace TechExpress.Repository
             CustomPCRepository = new CustomPCRepository(context);
             ChatSessionRepository = new ChatSessionRepository(context);
             ChatMessageRepository = new ChatMessageRepository(context);
-            TicketRepository = new TicketRepository(context);
-            TicketMessageRepository = new TicketMessageRepository(context);
             NotificationRepository = new NotificationRepository(context);
+            TicketMessageRepository = new TicketMessageRepository(context);
+            TicketRepository = new TicketRepository(context);
+            OrderItemRepository = new OrderItemRepository(context);
         }
 
         public async Task SaveChangesAsync()
