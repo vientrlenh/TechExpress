@@ -42,6 +42,8 @@ public class Order
 
     public Guid? DeliveredById { get; set; }
 
+    public Guid? CreatedByStaffId { get; set; }
+
     public string? CourierService { get; set; }
 
     public string? CourierTrackingCode { get; set; }
@@ -53,4 +55,6 @@ public class Order
     public User? User { get; set; }
 
     public User? DeliveredBy { get; set; }
+
+    public User? CreatedByStaff { get; set; }
 }
