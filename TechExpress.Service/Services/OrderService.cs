@@ -230,7 +230,7 @@ namespace TechExpress.Service.Services
                 if (!selectedItems.Any())
                     throw new BadRequestException("Vui lòng chọn ít nhất một sản phẩm.");
 
-                using var transaction = await _unitOfWork.BeginTransactionAsync();
+                await using var transaction = await _unitOfWork.BeginTransactionAsync();
 
                 try
                 {
@@ -445,7 +445,7 @@ namespace TechExpress.Service.Services
                 if (customPC.Items == null || !customPC.Items.Any())
                     throw new BadRequestException("Cấu hình PC này chưa có linh kiện nào.");
 
-                using var transaction = await _unitOfWork.BeginTransactionAsync();
+                await using var transaction = await _unitOfWork.BeginTransactionAsync();
 
                 try
                 {
