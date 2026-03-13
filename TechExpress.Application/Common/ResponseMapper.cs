@@ -993,5 +993,27 @@ public class ResponseMapper
 
            
         };
+
+
+
+    }
+
+    public static WarrantyCheckResponse MapToWarrantyCheckResponseFromResult(WarrantyCheckResult result)
+    {
+        return new WarrantyCheckResponse
+        {
+            OrderItemId = result.OrderItemId,
+            ProductName = result.ProductName,
+            ProductSku = result.ProductSku,
+            WarrantyStartDate = result.WarrantyStartDate,
+            WarrantyMonths = result.WarrantyMonths,
+            WarrantyExpiredAt = result.WarrantyExpiredAt,
+            CheckedAt = result.CheckedAt,
+            IsValid = result.IsValid,
+            RemainingDays = result.RemainingDays,
+            Message = result.Message,
+            TicketId = result.TicketId,
+            MessageId = result.MessageId
+        };
     }
 }
