@@ -501,7 +501,7 @@ namespace TechExpress.Service.Services
         /// Cập nhật trạng thái đơn hàng theo luồng nghiệp vụ.
         /// - Processing → Shipping: bắt buộc cung cấp DeliveredById (tự vận chuyển) HOẶC CourierService (bên thứ 3).
         /// - Shipping → Delivered: nếu tự vận chuyển, chỉ nhân viên được phân công (hoặc Admin) mới được cập nhật.
-        /// - Delivered → Completed/Installing: set ReceivedAt = now (bảo hành bắt đầu).
+        /// - Không xử lý bước auto-complete (Completed/Installing), dùng API riêng.
         /// </summary>
         public async Task<Order> HandleUpdateOrderStatusAsync(
             Guid orderId,
@@ -510,6 +510,9 @@ namespace TechExpress.Service.Services
             string? courierService = null,
             string? courierTrackingCode = null)
         {
+            if (newStatus == OrderStatus.Completed || newStatus == OrderStatus.Installing)
+                throw new BadRequestException("Vui lòng sử dụng API auto-complete để hoàn thành đơn hàng.");
+
             var order = await _unitOfWork.OrderRepository.FindByIdWithTrackingAsync(orderId)
                 ?? throw new NotFoundException("Không tìm thấy đơn hàng.");
 
@@ -555,27 +558,48 @@ namespace TechExpress.Service.Services
                 order.DeliveredAt = DateTimeOffset.Now;
             }
 
-            // === Delivered/PickedUp → Completed/Installing: set ReceivedAt (bảo hành bắt đầu) ===
-            if ((order.Status == OrderStatus.Delivered || order.Status == OrderStatus.PickedUp)
-                && (newStatus == OrderStatus.Completed || newStatus == OrderStatus.Installing))
-            {
-                order.ReceivedAt = DateTimeOffset.Now;
-            }
-
-            if (newStatus == OrderStatus.Completed || newStatus == OrderStatus.Installing)
-            {
-                order.Status = order.PaidType == PaidType.Installment
-                    ? OrderStatus.Installing
-                    : OrderStatus.Completed;
-            }
-            else
-            {
-                order.Status = newStatus;
-            }
+            order.Status = newStatus;
 
             await _unitOfWork.SaveChangesAsync();
 
             return order;
+        }
+
+        public async Task<Order> HandleAutoCompleteOrderStatusAsync(Guid orderId)
+        {
+            var order = await _unitOfWork.OrderRepository.FindByIdWithTrackingAsync(orderId)
+                ?? throw new NotFoundException("Không tìm thấy đơn hàng.");
+
+            if (order.Status != OrderStatus.Delivered && order.Status != OrderStatus.PickedUp)
+                throw new BadRequestException("Chỉ đơn hàng ở trạng thái Delivered hoặc PickedUp mới có thể tự động hoàn thành.");
+
+            if (!order.DeliveredAt.HasValue)
+                throw new BadRequestException("Đơn hàng chưa có mốc thời gian giao/nhận để tính tự động hoàn thành.");
+
+            var autoCompleteAt = order.DeliveredAt.Value.AddDays(3);
+            if (DateTimeOffset.Now < autoCompleteAt)
+                throw new BadRequestException($"Đơn hàng chỉ được tự động hoàn thành sau {autoCompleteAt:dd/MM/yyyy HH:mm}.");
+
+            ValidateStatusTransition(order, OrderStatus.Completed);
+
+            order.ReceivedAt = DateTimeOffset.Now;
+            order.Status = ResolveAutoCompletionStatus(order, OrderStatus.Completed);
+
+            await _unitOfWork.SaveChangesAsync();
+
+            return order;
+        }
+
+        private static OrderStatus ResolveAutoCompletionStatus(Order order, OrderStatus requestedStatus)
+        {
+            if (requestedStatus != OrderStatus.Completed && requestedStatus != OrderStatus.Installing)
+            {
+                return requestedStatus;
+            }
+
+            return order.PaidType == PaidType.Installment
+                ? OrderStatus.Installing
+                : OrderStatus.Completed;
         }
 
         /// <summary>

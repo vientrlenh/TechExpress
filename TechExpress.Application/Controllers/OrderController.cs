@@ -314,6 +314,7 @@ namespace TechExpress.Application.Controllers
         /// Cập nhật trạng thái đơn hàng theo luồng nghiệp vụ.
         /// Luồng Shipping: Confirmed → Processing → Shipping → Delivered → Completed/Installing
         /// Luồng PickUp: Confirmed → Processing → ReadyForPickup → PickedUp → Completed/Installing
+        /// Lưu ý: bước hoàn thành cuối (Completed/Installing) dùng API auto-complete riêng.
         /// </summary>
         [HttpPut("{orderId:guid}/status")]
         [Authorize(Roles = "Admin,Staff,Customer")]
@@ -327,6 +328,26 @@ namespace TechExpress.Application.Controllers
         {
             var order = await _serviceProvider.OrderService
                     .HandleUpdateOrderStatusAsync(orderId, request.Status, request.DeliveredById, request.CourierService, request.CourierTrackingCode);
+
+            var response = ResponseMapper.MapToOrderResponseFromOrder(order);
+            return Ok(ApiResponse<OrderResponse>.OkResponse(response));
+        }
+
+        /// <summary>
+        /// Auto-complete đơn hàng sau khi đã Delivered/PickedUp.
+        /// Trạng thái cuối sẽ tự động là Completed (trả thẳng) hoặc Installing (trả góp).
+        /// Chỉ cho phép sau 3 ngày kể từ mốc DeliveredAt.
+        /// </summary>
+        [HttpPut("{orderId:guid}/status/auto-complete")]
+        [Authorize(Roles = "Admin,Staff,Customer")]
+        [ProducesResponseType(typeof(ApiResponse<OrderResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> AutoCompleteOrderStatus([FromRoute] Guid orderId)
+        {
+            var order = await _serviceProvider.OrderService
+                .HandleAutoCompleteOrderStatusAsync(orderId);
 
             var response = ResponseMapper.MapToOrderResponseFromOrder(order);
             return Ok(ApiResponse<OrderResponse>.OkResponse(response));
