@@ -1,28 +1,25 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Data;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using TechExpress.Repository;
-using TechExpress.Repository.Contexts;
 
 namespace TechExpress.Service.Workers
 {
-    public class CleanOrderWorkerService : BackgroundService
+    public class SetOrderCompleteWorker : BackgroundService
     {
         private readonly IServiceScopeFactory _scopeFactory;
-        private readonly ILogger<CleanOrderWorkerService> _logger;
+        private readonly ILogger<SetOrderCompleteWorker> _logger;
 
         private static readonly TimeSpan CheckInterval = TimeSpan.FromMinutes(1);
 
-        public CleanOrderWorkerService(
+        public SetOrderCompleteWorker(
             IServiceScopeFactory scopeFactory,
-            ILogger<CleanOrderWorkerService> logger)
+            ILogger<SetOrderCompleteWorker> logger)
         {
             _scopeFactory = scopeFactory;
             _logger = logger;
@@ -35,7 +32,6 @@ namespace TechExpress.Service.Workers
             while (!stoppingToken.IsCancellationRequested)
             {
                 await RunOnce(stoppingToken);
-
                 await timer.WaitForNextTickAsync(stoppingToken);
             }
         }
@@ -50,30 +46,21 @@ namespace TechExpress.Service.Workers
 
                 await strategy.ExecuteAsync(async () =>
                 {
-                    var now = DateTimeOffset.Now;
-                    var expiration = now.AddMinutes(-15);
+                    var deliveredCutoff = DateTimeOffset.Now.AddDays(-3);
                     await using var transaction = await unitOfWork.BeginTransactionAsync(IsolationLevel.Serializable);
                     try
                     {
-                        await unitOfWork.PromotionRepository.ReclaimUserUsageOnExpiredOrders(expiration);
-                        await unitOfWork.PromotionUsageRepository.DeletePromotionUsagesOnExpiredOrders(expiration);
-                        await unitOfWork.ProductRepository.RestockProductAfterPendingOrderExpiration(expiration);
-                        var expired = await unitOfWork.OrderRepository.ExpireUnpaidOrdersAsync(expiration);
-
-                        var purgecutoff = now.AddDays(-30);
-                        var purged = await unitOfWork.OrderRepository.DeleteExpiredOrdersOlderThanAsync(purgecutoff);
+                        var autoCompleted = await unitOfWork.OrderRepository.AutoCompleteDeliveredOrdersAsync(deliveredCutoff);
 
                         await transaction.CommitAsync();
 
-                        if (expired > 0)
+                        if (autoCompleted > 0)
+                        {
                             _logger.LogInformation(
-                                "CleanOrderWorkerService marked {Count} unpaid pending orders as Expired (cutoff: {Cutoff}).",
-                                expired, expiration);
-
-                        if (purged > 0)
-                            _logger.LogInformation(
-                                "CleanOrderWorkerService purged {Count} Expired orders older than 30 days (cutoff: {Cutoff}).",
-                                purged, purgecutoff);
+                                "SetOrderCompleteWorker auto-completed {Count} delivered/picked-up orders after 3 days (cutoff: {Cutoff}).",
+                                autoCompleted,
+                                deliveredCutoff);
+                        }
                     }
                     catch (Exception)
                     {
@@ -87,7 +74,7 @@ namespace TechExpress.Service.Workers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "CleanOrderWorkerService error while deleting expired unpaid orders.");
+                _logger.LogError(ex, "SetOrderCompleteWorker error while auto-completing orders.");
             }
         }
     }

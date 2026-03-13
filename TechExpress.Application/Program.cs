@@ -217,6 +217,7 @@ builder.Services.AddScoped<OtpUtils>();
 builder.Services.AddScoped<SmtpEmailSender>();
 
 builder.Services.AddHostedService<CleanOrderWorkerService>();
+builder.Services.AddHostedService<SetOrderCompleteWorker>();
 
 
 builder.Services.AddCors(options =>
