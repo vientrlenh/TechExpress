@@ -1,4 +1,5 @@
-﻿using Microsoft.Identity.Client;
+﻿using Microsoft.AspNetCore.Http.Features;
+using Microsoft.Identity.Client;
 using System;
 using TechExpress.Application.Controllers;
 using TechExpress.Application.Dtos.Responses;
@@ -875,10 +876,12 @@ public class ResponseMapper
             item.Id, 
             item.CustomPCId, 
             item.ProductId, 
+            item.Product.CategoryId,
             item.Product.Name,
             item.Product.Price,
             item.Product.WarrantyMonth,
-            item.Quantity
+            item.Quantity,
+            item.Product.Images.Select(i => i.ImageUrl).FirstOrDefault()
         );
     }
 

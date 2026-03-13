@@ -6,10 +6,12 @@ public record CustomPCItemResponse(
     long Id,
     Guid CustomPCId,
     Guid ProductId,
+    Guid CategoryId,
     string ProductName,
     decimal Price,
     int WarrantyMonth,
-    int Quantity
+    int Quantity,
+    string? FirstImageUrl
 );
 
 public record CustomPCResponse(

@@ -103,5 +103,13 @@ namespace TechExpress.Service.Services
                 }
             });
         }
+
+        public async Task<List<string>> HandleCheckPCCompatibility(List<AddComputerComponentCommand> commands)
+        {
+            var componentIds = commands.Select(c => c.ComponentId).ToList();
+            var components = await _computerCompatibilityService.GetComponentProductsFromRequestedIds(componentIds);
+            var results = await _computerCompatibilityService.CheckComputerCompatibility(commands, components);
+            return results;
+        }
     }
 }
