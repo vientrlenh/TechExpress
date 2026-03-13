@@ -6,7 +6,9 @@ public class CustomPC
 {
     public Guid Id { get; set; }
 
-    public Guid UserId { get; set; }
+    public Guid? UserId { get; set; }
+
+    public string? SessionId { get; set; }
 
     public required string Name { get; set; }
 
@@ -16,7 +18,7 @@ public class CustomPC
 
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.Now;
 
-    public User User { get; set; } = null!;
+    public User? User { get; set; }
 
     public ICollection<CustomPCItem> Items { get; set; } = [];
 }

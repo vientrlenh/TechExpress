@@ -29,9 +29,23 @@ public class CustomPCRepository
         return await _context.CustomPCs.AsTracking().Include(c => c.Items).FirstOrDefaultAsync(c => c.Id == id);
     }
 
-    public async Task<List<CustomPC>> FindByUserIdIncludeItemsWithSplitQueryAsync(Guid userId)
+    public async Task<CustomPC?> FindByIdIncludeItemsThenIncludeProductWithSplitQueryAsync(Guid id)
     {
-        return await _context.CustomPCs.Include(c => c.Items).Where(c => c.UserId == userId).ToListAsync();
+        return await _context.CustomPCs
+            .Include(c => c.Items)
+                .ThenInclude(i => i.Product)
+            .AsSplitQuery()
+            .FirstOrDefaultAsync(c => c.Id == id);
+    }       
+
+    public async Task<List<CustomPC>> FindByUserIdIncludeItemsThenIncludeProductWithSplitQueryAsync(Guid userId)
+    {
+        return await _context.CustomPCs
+            .Include(c => c.Items)
+                .ThenInclude(i => i.Product)
+            .Where(c => c.UserId == userId)
+            .AsSplitQuery()
+            .ToListAsync();
     }
 
     public async Task<int> CountByUserIdAsync(Guid userId)
@@ -39,9 +53,32 @@ public class CustomPCRepository
         return await _context.CustomPCs.CountAsync(c => c.UserId == userId);
     }
 
+    public async Task<int> CountBySessionIdAsync(string sessionId)
+    {
+        return await _context.CustomPCs.CountAsync(c => c.SessionId == sessionId);
+    }
+
+    public async Task<List<CustomPC>> FindBySessionIdIncludeItemsThenIncludeProductWithSplitQueryAsync(string sessionId)
+    {
+        return await _context.CustomPCs
+            .Include(c => c.Items)
+                .ThenInclude(i => i.Product)
+            .Where(c => c.SessionId == sessionId)
+            .AsSplitQuery()
+            .ToListAsync();
+    }
+
     public async Task<CustomPC?> FindByIdWithTrackingAsync(Guid id)
     {
         return await _context.CustomPCs.AsTracking().FirstOrDefaultAsync(c => c.Id == id);
+    }
+
+    public async Task<CustomPC?> FindByIdIncludeItemsWithTrackingBySessionAsync(Guid id, string sessionId)
+    {
+        return await _context.CustomPCs
+            .AsTracking()
+            .Include(c => c.Items)
+            .FirstOrDefaultAsync(c => c.Id == id && c.SessionId == sessionId);
     }
 
     public void Remove(CustomPC customPC)

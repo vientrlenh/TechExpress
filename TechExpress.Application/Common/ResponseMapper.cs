@@ -1,4 +1,5 @@
-﻿using Microsoft.Identity.Client;
+﻿using Microsoft.AspNetCore.Http.Features;
+using Microsoft.Identity.Client;
 using System;
 using TechExpress.Application.Controllers;
 using TechExpress.Application.Dtos.Responses;
@@ -871,7 +872,17 @@ public class ResponseMapper
 
     public static CustomPCItemResponse MapToCustomPCItemResponseFromCustomPCItem(CustomPCItem item)
     {
-        return new CustomPCItemResponse(item.Id, item.CustomPCId, item.ProductId, item.Quantity);
+        return new CustomPCItemResponse(
+            item.Id, 
+            item.CustomPCId, 
+            item.ProductId, 
+            item.Product.CategoryId,
+            item.Product.Name,
+            item.Product.Price,
+            item.Product.WarrantyMonth,
+            item.Quantity,
+            item.Product.Images.Select(i => i.ImageUrl).FirstOrDefault()
+        );
     }
 
     public static CustomPCResponse MapToCustomPCResponseFromCustomPC(CustomPC customPC)
@@ -880,15 +891,16 @@ public class ResponseMapper
         (
             customPC.Id,
             customPC.UserId,
+            customPC.SessionId,
             customPC.Name,
             customPC.UpdatedAt,
             [..customPC.Items.Select(MapToCustomPCItemResponseFromCustomPCItem)]
         );
     }
 
-    public static List<CustomPCResponse> MapToCustomPCResponseListFromCustomPCs(List<CustomPC> customPCs)
+    public static List<CustomPCResponseList> MapToCustomPCResponseListFromCustomPCs(List<CustomPC> customPCs)
     {
-        return [.. customPCs.Select(MapToCustomPCResponseFromCustomPC)];
+        return [.. customPCs.Select(c => new CustomPCResponseList(c.Id, c.UserId, c.SessionId, c.Name, c.UpdatedAt))];
     }
 
     public static ChatSessionResponse MapToChatSessionResponseFromChatSession(ChatSession session)
@@ -957,6 +969,63 @@ public class ResponseMapper
             PageNumber = sessions.PageNumber,
             PageSize = sessions.PageSize,
             TotalCount = sessions.TotalCount 
+        };
+    }
+
+    public static PromotionDetailResponse MapToPromotionDetailResponseFromPromotion(Promotion promotion)
+    {
+        var now = DateTimeOffset.Now;
+
+        return new PromotionDetailResponse
+        {
+            Id = promotion.Id,
+            Name = promotion.Name,
+            Code = promotion.Code,
+            Description = promotion.Description,
+            DiscountType = promotion.Type,
+            DiscountValue = promotion.DiscountValue,
+            MaxDiscountValue = promotion.MaxDiscountValue,
+            StartDate = promotion.StartDate,
+            EndDate = promotion.EndDate,
+            UsageLimit = promotion.MaxUsageCount,
+            UsagePerUser = promotion.MaxUsagePerUser,
+            Status = promotion.IsActive,
+            IsExpired = promotion.EndDate <= now,
+            CreatedAt = promotion.CreatedAt,
+            UpdatedAt = promotion.UpdatedAt,
+            Scope = promotion.Scope,
+            MinOrderValue = promotion.MinOrderValue,
+            CategoryId = promotion.CategoryId,
+            BrandId = promotion.BrandId,
+            MinAppliedQuantity = promotion.MinAppliedQuantity,
+            RequiredProductLogic = promotion.RequiredProductLogic,
+            FreeItemPickCount = promotion.FreeItemPickCount,
+            IsStackable = promotion.IsStackable,
+            UsageCount = promotion.UsageCount,
+
+           
+        };
+
+
+
+    }
+
+    public static WarrantyCheckResponse MapToWarrantyCheckResponseFromResult(WarrantyCheckResult result)
+    {
+        return new WarrantyCheckResponse
+        {
+            OrderItemId = result.OrderItemId,
+            ProductName = result.ProductName,
+            ProductSku = result.ProductSku,
+            WarrantyStartDate = result.WarrantyStartDate,
+            WarrantyMonths = result.WarrantyMonths,
+            WarrantyExpiredAt = result.WarrantyExpiredAt,
+            CheckedAt = result.CheckedAt,
+            IsValid = result.IsValid,
+            RemainingDays = result.RemainingDays,
+            Message = result.Message,
+            TicketId = result.TicketId,
+            MessageId = result.MessageId
         };
     }
 }

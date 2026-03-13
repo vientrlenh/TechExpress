@@ -46,5 +46,13 @@ namespace TechExpress.Application.Controllers
 
             return CreatedAtAction(nameof(CreateProductPC), ApiResponse<PCDetailsWithCompatibilityWarningResponse>.CreatedResponse(response));
         }
+
+        [HttpPost("compatibility")]
+        public async Task<IActionResult> CheckPCCompatibility([FromBody] CheckPCCompatibilityRequest request)
+        {
+            var commands = RequestMapper.MapToAddComputerComponentCommandListFromAddItemToCustomPCRequests(request.Schema);
+            var response = await _serviceProvider.ProductPCService.HandleCheckPCCompatibility(commands);
+            return Ok(ApiResponse<List<string>>.OkResponse(response));
+        }
     }
 }

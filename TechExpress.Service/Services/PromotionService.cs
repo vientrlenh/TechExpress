@@ -662,5 +662,42 @@ public class PromotionService
         return disabledPromotion;
     }
 
+    public async Task HandleDeletePromotion(Guid promotionId)
+    {
+        var promotion = await _unitOfWork.PromotionRepository.FindByIdWithTrackingAsync(promotionId)
+            ?? throw new NotFoundException($"Không tìm thấy khuyến mãi: {promotionId}");
+
+        bool hasUsage = await _unitOfWork.PromotionRepository.HasAnyUsageAsync(promotionId);
+
+        if (hasUsage)
+        {
+            if (!promotion.IsActive)
+            {
+                throw new BadRequestException("Khuyến mãi đã bị ngưng hoạt động.");
+            }
+
+            promotion.IsActive = false;
+            promotion.UpdatedAt = DateTimeOffset.Now;
+            await _unitOfWork.SaveChangesAsync();
+            return;
+        }
+
+        int affected = await _unitOfWork.PromotionRepository.HardDeleteByIdIfUnusedAsync(promotionId);
+        if (affected == 0)
+        {
+            throw new BadRequestException("Không thể xóa khuyến mãi.");
+        }
+    }
+
+
+    public async Task<Promotion> HandleGetPromotionDetail(Guid promotionId)
+    {
+        var promotion = await _unitOfWork.PromotionRepository
+            .FindByIdAsync(promotionId)
+            ?? throw new NotFoundException($"Không tìm thấy khuyến mãi: {promotionId}");
+
+        return promotion;
+    }
+
 
 }
