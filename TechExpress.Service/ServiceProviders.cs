@@ -35,6 +35,8 @@ namespace TechExpress.Service
         public ChatService ChatService { get; }
         public TicketService TicketService { get; }
 
+        public WarrantySupportService WarrantySupportService { get; }
+
 
         public ServiceProviders(UnitOfWork unitOfWork, PayOsClient payOsClient, RedisUtils redisUtils, SmtpEmailSender emailSender, JwtUtils jwtUtils, UserContext userContext, OtpUtils otpUtils, GoogleAuthUtils googleAuthUtils, IConnectionMultiplexer redis, ChatAiService chatAiService)
         {
@@ -56,6 +58,7 @@ namespace TechExpress.Service
             OrderService = new OrderService(unitOfWork, userContext, PromotionService);
             ChatService = new ChatService(unitOfWork, chatAiService);
             TicketService = new TicketService(unitOfWork);
+            WarrantySupportService = new WarrantySupportService(unitOfWork, userContext);
         }
     }
 }

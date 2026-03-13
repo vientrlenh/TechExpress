@@ -972,6 +972,60 @@ public class ResponseMapper
         };
     }
 
+// FROM MAIN BRANCH
+    public static PromotionDetailResponse MapToPromotionDetailResponseFromPromotion(Promotion promotion)
+    {
+        var now = DateTimeOffset.Now;
+
+        return new PromotionDetailResponse
+        {
+            Id = promotion.Id,
+            Name = promotion.Name,
+            Code = promotion.Code,
+            Description = promotion.Description,
+            DiscountType = promotion.Type,
+            DiscountValue = promotion.DiscountValue,
+            MaxDiscountValue = promotion.MaxDiscountValue,
+            StartDate = promotion.StartDate,
+            EndDate = promotion.EndDate,
+            UsageLimit = promotion.MaxUsageCount,
+            UsagePerUser = promotion.MaxUsagePerUser,
+            Status = promotion.IsActive,
+            IsExpired = promotion.EndDate <= now,
+            CreatedAt = promotion.CreatedAt,
+            UpdatedAt = promotion.UpdatedAt,
+            Scope = promotion.Scope,
+            MinOrderValue = promotion.MinOrderValue,
+            CategoryId = promotion.CategoryId,
+            BrandId = promotion.BrandId,
+            MinAppliedQuantity = promotion.MinAppliedQuantity,
+            RequiredProductLogic = promotion.RequiredProductLogic,
+            FreeItemPickCount = promotion.FreeItemPickCount,
+            IsStackable = promotion.IsStackable,
+            UsageCount = promotion.UsageCount
+        };
+    }
+
+    public static WarrantyCheckResponse MapToWarrantyCheckResponseFromResult(WarrantyCheckResult result)
+    {
+        return new WarrantyCheckResponse
+        {
+            OrderItemId = result.OrderItemId,
+            ProductName = result.ProductName,
+            ProductSku = result.ProductSku,
+            WarrantyStartDate = result.WarrantyStartDate,
+            WarrantyMonths = result.WarrantyMonths,
+            WarrantyExpiredAt = result.WarrantyExpiredAt,
+            CheckedAt = result.CheckedAt,
+            IsValid = result.IsValid,
+            RemainingDays = result.RemainingDays,
+            Message = result.Message,
+            TicketId = result.TicketId,
+            MessageId = result.MessageId
+        };
+    }
+
+    // FROM FEATURE BRANCH (new additions)
     public static TicketAttachmentResponse MapToTicketAttachmentResponse(TicketAttachment attachment)
     {
         return new TicketAttachmentResponse(
