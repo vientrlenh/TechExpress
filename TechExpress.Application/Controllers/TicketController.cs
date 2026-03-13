@@ -45,7 +45,7 @@ public class TicketController(
     }
 
     // ── POST /api/tickets  (customer only) ───────────────────────────────
-    [HttpPost]
+    [HttpPost("customer/Auto-fill-information")]
     [Authorize(Roles = "Customer")]
     public async Task<IActionResult> CreateTicket([FromBody] CreateTicketRequest request)
     {
@@ -62,24 +62,22 @@ public class TicketController(
         return CreatedAtAction(nameof(CreateTicket), ApiResponse<TicketResponse>.CreatedResponse(response));
     }
 
-    // ── GET /api/tickets/my  (customer only) ─────────────────────────────
-    [HttpGet("my")]
-    [Authorize(Roles = "Customer")]
+    [HttpGet("List-ticket")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetMyTickets([FromQuery] TicketFilterRequest filter)
     {
         if (filter.Page < 1) filter.Page = 1;
         if (filter.PageSize < 1 || filter.PageSize > 50) filter.PageSize = 10;
 
-        var userId = _userContext.GetCurrentAuthenticatedUserId();
         var pagination = await _serviceProviders.TicketService.HandleGetMyTickets(
-            userId, filter.Status, filter.SortBy, filter.SortDirection, filter.Page, filter.PageSize);
+            filter.Status, filter.SortBy, filter.SortDirection, filter.Page, filter.PageSize);
 
         var response = ResponseMapper.MapToTicketListItemResponsePagination(pagination);
         return Ok(ApiResponse<Pagination<TicketListItemResponse>>.OkResponse(response));
     }
 
     // ── GET /api/tickets/my/{ticketId}  (customer only) ──────────────────
-    [HttpGet("my/{ticketId:guid}")]
+    [HttpGet("customer/{ticketId:guid}")]
     [Authorize(Roles = "Customer")]
     public async Task<IActionResult> GetMyTicketDetail([FromRoute] Guid ticketId)
     {
@@ -97,8 +95,7 @@ public class TicketController(
         [FromBody] ReplyTicketRequest request)
     {
         var userId = _userContext.GetCurrentAuthenticatedUserId();
-        var role = _userContext.GetCurrentUserRole();
-        bool isStaff = role == Repository.Enums.UserRole.Staff || role == Repository.Enums.UserRole.Admin;
+        bool isStaff = User.IsInRole(nameof(UserRole.Staff)) || User.IsInRole(nameof(UserRole.Admin));
 
         var (message, ticket, notifyUserId) = await _serviceProviders.TicketService.HandleReplyToTicket(
             userId, ticketId, request.Content.Trim(), request.Attachments, isStaff);
@@ -120,24 +117,8 @@ public class TicketController(
         return Ok(ApiResponse<TicketMessageResponse>.OkResponse(response));
     }
 
-    // ── GET /api/tickets/assigned  (staff/admin only) ────────────────────
-    [HttpGet("assigned")]
-    [Authorize(Roles = "Admin, Staff")]
-    public async Task<IActionResult> GetAssignedTickets([FromQuery] TicketFilterRequest filter)
-    {
-        if (filter.Page < 1) filter.Page = 1;
-        if (filter.PageSize < 1 || filter.PageSize > 50) filter.PageSize = 10;
-
-        var staffId = _userContext.GetCurrentAuthenticatedUserId();
-        var pagination = await _serviceProviders.TicketService.HandleGetAssignedTickets(
-            staffId, filter.Status, filter.SortBy, filter.SortDirection, filter.Page, filter.PageSize);
-
-        var response = ResponseMapper.MapToTicketListItemResponsePagination(pagination);
-        return Ok(ApiResponse<Pagination<TicketListItemResponse>>.OkResponse(response));
-    }
-
     // ── GET /api/tickets/{ticketId}  (staff/admin only) ──────────────────
-    [HttpGet("{ticketId:guid}")]
+    [HttpGet("admin-staff/{ticketId:guid}")]
     [Authorize(Roles = "Admin, Staff")]
     public async Task<IActionResult> GetTicketDetail([FromRoute] Guid ticketId)
     {
@@ -154,7 +135,7 @@ public class TicketController(
         [FromBody] UpdateTicketStatusRequest request)
     {
         var (ticket, notifyUserId) = await _serviceProviders.TicketService.HandleUpdateTicketStatus(
-            ticketId, request.Status, request.Result);
+            ticketId, request.Status);
 
         if (notifyUserId.HasValue)
         {
@@ -182,7 +163,7 @@ public class TicketController(
     {
         var staffId = _userContext.GetCurrentAuthenticatedUserId();
         var (ticket, notifyUserId) = await _serviceProviders.TicketService.HandleCompleteTicket(
-            staffId, ticketId, request.Status, request.Result.Trim());
+            staffId, ticketId, request.Status);
 
         if (notifyUserId.HasValue)
         {
@@ -191,7 +172,7 @@ public class TicketController(
             {
                 TicketId = ticketId,
                 Title = "Ticket của bạn đã được xử lý",
-                Message = $"Ticket \"{ticket.Title}\" {statusLabel}. Kết quả: {request.Result.Trim()}"
+                Message = $"Ticket \"{ticket.Title}\" {statusLabel}."
             };
             await _notificationHub.Clients
                 .Group($"user-{notifyUserId.Value}")

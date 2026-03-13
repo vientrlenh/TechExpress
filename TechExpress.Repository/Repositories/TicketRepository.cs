@@ -28,14 +28,13 @@ public class TicketRepository(ApplicationDbContext context)
         return await _context.Tickets.AsTracking().FirstOrDefaultAsync(t => t.Id == id);
     }
 
-    public async Task<(List<Ticket> Items, int TotalCount)> FindByUserIdPaginatedAsync(
-        Guid userId,
+    public async Task<(List<Ticket> Items, int TotalCount)> FindPaginatedAsync(
         TicketStatus? status,
         bool sortAsc,
         int page,
         int size)
     {
-        var query = _context.Tickets.Where(t => t.UserId == userId);
+        var query = _context.Tickets.AsQueryable();
 
         if (status.HasValue)
             query = query.Where(t => t.Status == status.Value);
@@ -54,29 +53,4 @@ public class TicketRepository(ApplicationDbContext context)
         return (items, total);
     }
 
-    public async Task<(List<Ticket> Items, int TotalCount)> FindByAssignedToUserIdPaginatedAsync(
-        Guid staffId,
-        TicketStatus? status,
-        bool sortAsc,
-        int page,
-        int size)
-    {
-        var query = _context.Tickets.Where(t => t.AssignedToUserId == staffId);
-
-        if (status.HasValue)
-            query = query.Where(t => t.Status == status.Value);
-
-        var total = await query.CountAsync();
-
-        query = sortAsc
-            ? query.OrderBy(t => t.CreatedAt)
-            : query.OrderByDescending(t => t.CreatedAt);
-
-        var items = await query
-            .Skip((page - 1) * size)
-            .Take(size)
-            .ToListAsync();
-
-        return (items, total);
-    }
 }

@@ -137,9 +137,8 @@ public class TicketService(UnitOfWork unitOfWork)
             ?? throw new NotFoundException($"Không tìm thấy ticket: {ticket.Id}");
     }
 
-    // ── Customer: paginated list of own tickets ───────────────────────────
+    // ── Public: paginated list of tickets ──────────────────────────────────
     public async Task<Pagination<Ticket>> HandleGetMyTickets(
-        Guid userId,
         TicketStatus? status,
         TicketSortBy sortBy,
         SortDirection sortDirection,
@@ -147,8 +146,8 @@ public class TicketService(UnitOfWork unitOfWork)
         int size)
     {
         bool sortAsc = sortDirection == SortDirection.Asc;
-        var (items, total) = await _unitOfWork.TicketRepository.FindByUserIdPaginatedAsync(
-            userId, status, sortAsc, page, size);
+        var (items, total) = await _unitOfWork.TicketRepository.FindPaginatedAsync(
+            status, sortAsc, page, size);
 
         return new Pagination<Ticket>
         {
@@ -171,28 +170,6 @@ public class TicketService(UnitOfWork unitOfWork)
         return ticket;
     }
 
-    // ── Staff / Admin: paginated list of assigned tickets ─────────────────
-    public async Task<Pagination<Ticket>> HandleGetAssignedTickets(
-        Guid staffId,
-        TicketStatus? status,
-        TicketSortBy sortBy,
-        SortDirection sortDirection,
-        int page,
-        int size)
-    {
-        bool sortAsc = sortDirection == SortDirection.Asc;
-        var (items, total) = await _unitOfWork.TicketRepository.FindByAssignedToUserIdPaginatedAsync(
-            staffId, status, sortAsc, page, size);
-
-        return new Pagination<Ticket>
-        {
-            Items = items,
-            PageNumber = page,
-            PageSize = size,
-            TotalCount = total
-        };
-    }
-
     // ── Staff / Admin: any ticket detail ─────────────────────────────────
     public async Task<Ticket> HandleGetTicketDetail(Guid ticketId)
     {
@@ -212,8 +189,8 @@ public class TicketService(UnitOfWork unitOfWork)
         var ticket = await _unitOfWork.TicketRepository.FindByIdWithTrackingAsync(ticketId)
             ?? throw new NotFoundException($"Không tìm thấy ticket: {ticketId}");
 
-        if (ticket.Status == TicketStatus.Closed)
-            throw new BadRequestException("Không thể phản hồi ticket đã đóng");
+        if (ticket.Status == TicketStatus.Resolved || ticket.Status == TicketStatus.Closed)
+            throw new BadRequestException($"Không thể phản hồi ticket đã được {ticket.Status}");
 
         if (!isStaff && ticket.UserId != userId)
             throw new ForbiddenException("Bạn không có quyền phản hồi ticket này");
@@ -232,8 +209,6 @@ public class TicketService(UnitOfWork unitOfWork)
         await _unitOfWork.TicketMessageRepository.AddAsync(message);
 
         ticket.UpdatedAt = DateTimeOffset.Now;
-        if (ticket.Status == TicketStatus.Resolved && !isStaff)
-            ticket.Status = TicketStatus.InProgress;
 
         Guid? notifyUserId = isStaff ? ticket.UserId : ticket.AssignedToUserId;
 
@@ -264,8 +239,7 @@ public class TicketService(UnitOfWork unitOfWork)
     // Returns (updated ticket, notificationTargetUserId?)
     public async Task<(Ticket Ticket, Guid? NotifyUserId)> HandleUpdateTicketStatus(
         Guid ticketId,
-        TicketStatus newStatus,
-        string? result)
+        TicketStatus newStatus)
     {
         if (newStatus == TicketStatus.Resolved || newStatus == TicketStatus.Closed)
             throw new BadRequestException(
@@ -279,9 +253,6 @@ public class TicketService(UnitOfWork unitOfWork)
 
         ticket.Status = newStatus;
         ticket.UpdatedAt = DateTimeOffset.Now;
-
-        if (!string.IsNullOrWhiteSpace(result))
-            ticket.Result = result;
 
         Guid? notifyUserId = ticket.UserId;
 
@@ -312,8 +283,7 @@ public class TicketService(UnitOfWork unitOfWork)
     public async Task<(Ticket Ticket, Guid? NotifyUserId)> HandleCompleteTicket(
         Guid staffId,
         Guid ticketId,
-        TicketStatus targetStatus,
-        string result)
+        TicketStatus targetStatus)
     {
         if (targetStatus != TicketStatus.Resolved && targetStatus != TicketStatus.Closed)
             throw new BadRequestException("Trạng thái hoàn thành phải là Resolved hoặc Closed");
@@ -328,7 +298,6 @@ public class TicketService(UnitOfWork unitOfWork)
             throw new BadRequestException("Ticket đã ở trạng thái Resolved");
 
         ticket.Status = targetStatus;
-        ticket.Result = result;
         ticket.CompletedByUserId = staffId;
         ticket.UpdatedAt = DateTimeOffset.Now;
 
@@ -353,7 +322,7 @@ public class TicketService(UnitOfWork unitOfWork)
                 UserId = notifyUserId.Value,
                 Type = NotificationType.TicketAlert,
                 Title = "Ticket của bạn đã được xử lý",
-                Message = $"Ticket \"{ticket.Title}\" {statusLabel}. Kết quả: {result}",
+                Message = $"Ticket \"{ticket.Title}\" {statusLabel}.",
                 ReferenceId = ticketId,
                 ReferenceType = NotificationReferenceType.Ticket
             });

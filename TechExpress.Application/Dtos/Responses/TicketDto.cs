@@ -23,7 +23,6 @@ public record TicketListItemResponse(
     Guid? UserId,
     string Title,
     string Content,
-    string? Result,
     TicketStatus Status,
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt
@@ -36,7 +35,6 @@ public record TicketResponse(
     string? Phone,
     string Title,
     string Description,
-    string? Result,
     TicketType Type,
     TicketStatus Status,
     TicketPriority Priority,
@@ -54,7 +52,6 @@ public record CompleteTicketResponse(
     Guid Id,
     string Title,
     TicketStatus Status,
-    string Result,
     Guid? CompletedByUserId,
     string? CompletedByName,
     DateTimeOffset? ResolvedAt,

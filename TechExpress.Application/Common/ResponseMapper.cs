@@ -998,7 +998,6 @@ public class ResponseMapper
             ticket.UserId,
             ticket.Title,
             ticket.Description,
-            ticket.Result,
             ticket.Status,
             ticket.CreatedAt,
             ticket.UpdatedAt
@@ -1029,7 +1028,6 @@ public class ResponseMapper
             ticket.Phone,
             ticket.Title,
             ticket.Description,
-            ticket.Result,
             ticket.Type,
             ticket.Status,
             ticket.Priority,
@@ -1054,7 +1052,6 @@ public class ResponseMapper
             ticket.Id,
             ticket.Title,
             ticket.Status,
-            ticket.Result ?? string.Empty,
             ticket.CompletedByUserId,
             string.IsNullOrWhiteSpace(completedByName) ? null : completedByName,
             ticket.ResolvedAt,

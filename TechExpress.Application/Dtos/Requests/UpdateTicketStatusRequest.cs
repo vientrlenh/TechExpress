@@ -4,6 +4,5 @@ using TechExpress.Repository.Enums;
 namespace TechExpress.Application.Dtos.Requests;
 
 public record UpdateTicketStatusRequest(
-    [Required] TicketStatus Status,
-    string? Result
+    [Required] TicketStatus Status
 );
