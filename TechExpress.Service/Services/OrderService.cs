@@ -87,7 +87,7 @@ namespace TechExpress.Service.Services
                 if (authenticatedUserId != userId)
                     throw new UnauthorizedAccessException("Bạn không có quyền thực hiện hành động này.");
 
-                var user = await _unitOfWork.UserRepository.FindUserByIdAsync(userId)
+                var user = await _unitOfWork.UserRepository.FindUserByIdWithTrackingAsync(userId)
                     ?? throw new NotFoundException("Người dùng không tồn tại.");
 
                 var cart = await _unitOfWork.CartRepository
@@ -126,11 +126,24 @@ namespace TechExpress.Service.Services
                 // Chuyển CartItem thành dạng List raw
                 var rawItems = selectedItems.Select(ci => (ci.ProductId, ci.Quantity)).ToList();
 
-                // Sử dụng Hàm Helper Dùng Chung
-                return await ExecuteCoreCheckoutInTransactionAsync(
+                // GỌI HÀM HELPER BÌNH THƯỜNG
+                var result = await ExecuteCoreCheckoutInTransactionAsync(
                     userId, rawItems, promotionCodes, chosenFreeProductIds, deliveryType, finalEmail, finalFullName,
                     finalAddress, finalPhone, paidType, receiverIdentityCard, installmentDurationMonth, notes
                 );
+
+               
+                // XÓA SẢN PHẨM TRONG GIỎ HÀNG SAU KHI ĐÃ LÊN ĐƠN THÀNH CÔNG
+                foreach (var item in selectedItems)
+                {
+                    _unitOfWork.CartItemRepository.RemoveCartItem(item);
+                }
+
+                // Gọi SaveChanges thêm 1 lần nữa để lưu việc dọn dẹp giỏ hàng
+                await _unitOfWork.SaveChangesAsync();
+
+                return result;
+
             });
         }
 
