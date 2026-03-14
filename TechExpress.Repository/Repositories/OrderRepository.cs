@@ -42,6 +42,15 @@ namespace TechExpress.Repository.Repositories
                 .FirstOrDefaultAsync(o => o.Id == orderId);
         }
 
+        public async Task<Order?> FindByIdIncludeDetailsWithTrackingAsync(Guid orderId)
+        {
+            return await _context.Orders
+                .AsTracking()
+                .Include(o => o.Items)
+                .AsSplitQuery()
+                .FirstOrDefaultAsync(o => o.Id == orderId);
+        }
+
         public async Task<Order?> FindByIdIncludeItemsWithProductAsync(Guid orderId)
         {
             return await _context.Orders

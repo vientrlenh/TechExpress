@@ -314,7 +314,8 @@ namespace TechExpress.Application.Controllers
         /// Cập nhật trạng thái đơn hàng theo luồng nghiệp vụ.
         /// Luồng Shipping: Confirmed → Processing → Shipping → Delivered → Completed/Installing
         /// Luồng PickUp: Confirmed → Processing → ReadyForPickup → PickedUp → Completed/Installing
-        /// Lưu ý: bước Delivered → Completed/Installing chỉ customer/staff sở hữu đúng order mới được phép cập nhật.
+        /// Với đơn có tài khoản, khách có thể xác nhận Completed/Installing thủ công.
+        /// Nếu khách không xác nhận, worker nền sẽ tự động hoàn tất sau 3 ngày kể từ Delivered/PickedUp.
         /// </summary>
         [HttpPut("{orderId:guid}/status")]
         [Authorize(Roles = "Admin,Staff,Customer")]
@@ -328,55 +329,6 @@ namespace TechExpress.Application.Controllers
         {
             var order = await _serviceProvider.OrderService
                     .HandleUpdateOrderStatusAsync(orderId, request.Status, request.DeliveredById, request.CourierService, request.CourierTrackingCode);
-
-            var response = ResponseMapper.MapToOrderResponseFromOrder(order);
-            return Ok(ApiResponse<OrderResponse>.OkResponse(response));
-        }
-
-        /// <summary>
-        /// Guest checkout cập nhật trạng thái hoàn tất ngay (Completed/Installing), bỏ qua bước Delivered.
-        /// Chỉ áp dụng cho đơn hàng guest (không có UserId).
-        /// </summary>
-        [HttpPut("guest/{orderId:guid}/status")]
-        [AllowAnonymous]
-        [ProducesResponseType(typeof(ApiResponse<OrderResponse>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> UpdateGuestOrderStatus(
-            [FromRoute] Guid orderId,
-            [FromBody] UpdateOrderStatusRequest request)
-        {
-            if (User.Identity?.IsAuthenticated == true)
-            {
-                return BadRequest(new ErrorResponse
-                {
-                    StatusCode = StatusCodes.Status400BadRequest,
-                    Message = "API này chỉ dành cho guest."
-                });
-            }
-
-            var order = await _serviceProvider.OrderService
-                .HandleUpdateGuestOrderStatusAsync(orderId, request.Status);
-
-            var response = ResponseMapper.MapToOrderResponseFromOrder(order);
-            return Ok(ApiResponse<OrderResponse>.OkResponse(response));
-        }
-
-        /// <summary>
-        /// Auto-complete đơn hàng sau khi đã Delivered/PickedUp.
-        /// Trạng thái cuối sẽ tự động là Completed (trả thẳng) hoặc Installing (trả góp).
-        /// Chỉ cho phép sau 3 ngày kể từ mốc DeliveredAt.
-        /// </summary>
-        [HttpPut("{orderId:guid}/status/auto-complete")]
-        [Authorize(Roles = "Admin,Staff,Customer")]
-        [ProducesResponseType(typeof(ApiResponse<OrderResponse>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> AutoCompleteOrderStatus([FromRoute] Guid orderId)
-        {
-            var order = await _serviceProvider.OrderService
-                .HandleAutoCompleteOrderStatusAsync(orderId);
 
             var response = ResponseMapper.MapToOrderResponseFromOrder(order);
             return Ok(ApiResponse<OrderResponse>.OkResponse(response));
