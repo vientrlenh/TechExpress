@@ -1,16 +1,17 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using TechExpress.Application.Common;
 using TechExpress.Application.Dtos.Requests;
 using TechExpress.Application.Dtos.Responses;
 using TechExpress.Application.DTOs.Requests;
 using TechExpress.Application.DTOs.Responses;
+using TechExpress.Repository.Enums;
 using TechExpress.Service;
 using TechExpress.Service.Contexts;
 using TechExpress.Service.Utils;
-using TechExpress.Repository.Enums;
 
 namespace TechExpress.Application.Controllers
 {
@@ -212,15 +213,69 @@ namespace TechExpress.Application.Controllers
         }
 
 
-
-        [HttpPost("checkout/custom-pc/{customPCId}")]
+        /// <summary>
+        /// khách hàng tạo order từ khi tạo xong CustomPCS
+        /// </summary>
+        /// <param name="customPCId"></param>
+        /// <param name="sessionId"></param>
+        /// <param name="request"></param>
+        /// <returns></returns>
+        [HttpPost("checkout/custom-pc/{customPCId}/customer")]
         [Authorize(Roles = "Customer")]
-        public async Task<IActionResult> CustomPCCheckout([FromRoute] Guid customPCId, [FromBody] CustomPCCheckoutRequest request)
+        public async Task<IActionResult> CustomPCCheckout(
+            [FromRoute] Guid customPCId, 
+            [FromHeader(Name = "CustomPC-guest-SessionID")] string? sessionId,
+            [FromBody] CustomPCCheckoutRequest request)
         {
             var userId = _userContext.GetCurrentAuthenticatedUserId();
 
             var (order, installments, usages) = await _serviceProvider.OrderService.HandleCustomPCCheckoutAsync(
                 userId,
+                sessionId,
+                customPCId,
+                request.PromotionCodes,
+                request.ChosenFreeProductIds,
+                request.DeliveryType,
+                request.ReceiverEmail,
+                request.ReceiverFullName,
+                request.ShippingAddress,
+                request.TrackingPhone,
+                request.PaidType,
+                request.ReceiverIdentityCard,
+                request.InstallmentDurationMonth,
+                request.Notes
+            );
+
+            // SỬA LẠI DÒNG NÀY: Phải truyền đủ cả order, installments, và usages vào hàm Map
+            var orderResponse = ResponseMapper.MapToOrderResponseFromOrder(order, installments, usages);
+
+            // Xử lý logic gọi cổng thanh toán VNPay/PayOS ở đây nếu Order yêu cầu thanh toán Online.
+            // Ví dụ: var paymentUrl = await _serviceProvider.PaymentService.CreatePaymentUrl(order);
+
+            return Ok(ApiResponse<OrderResponse>.OkResponse(orderResponse));
+        }
+
+
+
+        /// <summary>
+        /// staff tạo order từ khi tạo xong CustomPCS cho khách hàng
+        /// </summary>
+        /// <param name="customPCId"></param>
+        /// <param name="sessionId"></param>
+        /// <param name="request"></param>
+        /// <returns></returns>
+        [HttpPost("checkout/custom-pc/{customPCId}/staff")]
+        [Authorize(Roles = "Customer")]
+        public async Task<IActionResult> CustomPCStaffCheckout(
+            [FromRoute] Guid customPCId,
+            [FromHeader(Name = "CustomPC-guest-SessionID")] string? sessionId,
+            [FromBody] CustomPCCheckoutRequest request)
+        {
+            var userId = _userContext.GetCurrentAuthenticatedUserId();
+
+            var (order, installments, usages) = await _serviceProvider.OrderService.HandleCustomPCStaffCheckoutAsync(
+                userId,
+                sessionId,
                 customPCId,
                 request.PromotionCodes,
                 request.ChosenFreeProductIds,
