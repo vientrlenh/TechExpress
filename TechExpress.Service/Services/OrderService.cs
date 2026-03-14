@@ -126,27 +126,22 @@ namespace TechExpress.Service.Services
                 // Chuyển CartItem thành dạng List raw
                 var rawItems = selectedItems.Select(ci => (ci.ProductId, ci.Quantity)).ToList();
 
-                // GỌI HÀM HELPER BÌNH THƯỜNG
-                var result = await ExecuteCoreCheckoutInTransactionAsync(
+                // GỌI HÀM HELPER VÀ DÙNG onBeforeSaveAsync ĐỂ ĐẢM BẢO ATOMIC (CÙNG 1 TRANSACTION)
+                return await ExecuteCoreCheckoutInTransactionAsync(
                     userId, rawItems, promotionCodes, chosenFreeProductIds, deliveryType, finalEmail, finalFullName,
-                    finalAddress, finalPhone, paidType, receiverIdentityCard, installmentDurationMonth, notes
+                    finalAddress, finalPhone, paidType, receiverIdentityCard, installmentDurationMonth, notes,
+                    onBeforeSaveAsync: async () =>
+                    {
+                        // Đoạn code này sẽ được Helper gọi ngay trước khi nó SaveChanges() và Commit()
+                        foreach (var item in selectedItems)
+                        {
+                            _unitOfWork.CartItemRepository.RemoveCartItem(item);
+                        }
+                        await Task.CompletedTask;
+                    }
                 );
-
-               
-                // XÓA SẢN PHẨM TRONG GIỎ HÀNG SAU KHI ĐÃ LÊN ĐƠN THÀNH CÔNG
-                foreach (var item in selectedItems)
-                {
-                    _unitOfWork.CartItemRepository.RemoveCartItem(item);
-                }
-
-                // Gọi SaveChanges thêm 1 lần nữa để lưu việc dọn dẹp giỏ hàng
-                await _unitOfWork.SaveChangesAsync();
-
-                return result;
-
-            });
+            }); // Kết thúc strategy.ExecuteAsync
         }
-
         // ============================== CUSTOM PC CHECKOUT (DÙNG CHUNG CHO CẢ GUEST VÀ MEMBER) ===============================
         public async Task<(Order order, List<Installment> installments, List<PromotionUsage> usages)> HandleCustomPCCheckoutAsync(
             Guid? userId, // ĐỔI THÀNH Guid? ĐỂ NHẬN GUEST
@@ -367,6 +362,7 @@ namespace TechExpress.Service.Services
             string? receiverIdentityCard,
             int? installmentDurationMonth,
             string? notes,
+            Func<Task>? onBeforeSaveAsync = null, // <-- 1. THÊM LẠI THAM SỐ NÀY VÀO ĐÂY
             Guid? createdByStaffId = null) // Bổ sung tham số lưu lại người tạo đơn (nếu là Staff)
         {
             ValidateOrderRequirements(deliveryType, shippingAddress, null, paidType, receiverIdentityCard, installmentDurationMonth);
@@ -458,6 +454,11 @@ namespace TechExpress.Service.Services
                     installmentList = await CreateInstallmentRecords(order, installmentDurationMonth!.Value);
                 }
 
+
+                if (onBeforeSaveAsync != null)
+                {
+                    await onBeforeSaveAsync();
+                }
 
                 // Lưu thay đổi và commit
                 await _unitOfWork.SaveChangesAsync();
