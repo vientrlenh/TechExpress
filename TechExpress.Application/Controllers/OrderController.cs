@@ -221,14 +221,17 @@ namespace TechExpress.Application.Controllers
         /// <param name="request"></param>
         /// <returns></returns>
         [HttpPost("checkout/custom-pc/{customPCId}/customer")]
-        [Authorize(Roles = "Customer")]
+        // BỎ [Authorize] ĐỂ GUEST CŨNG GỌI ĐƯỢC API NÀY
         public async Task<IActionResult> CustomPCCheckout(
-            [FromRoute] Guid customPCId, 
+            [FromRoute] Guid customPCId,
             [FromHeader(Name = "CustomPC-guest-SessionID")] string? sessionId,
             [FromBody] CustomPCCheckoutRequest request)
         {
-            var userId = _userContext.GetCurrentAuthenticatedUserId();
+            // Lấy ID nếu có Token, nếu không có Token sẽ trả về chuỗi rỗng/null
+            var userIdStr = _userContext.GetCurrentAuthenticatedUserIdIfExist();
+            Guid? userId = !string.IsNullOrEmpty(userIdStr) ? Guid.Parse(userIdStr) : null;
 
+            // Truyền Guid? userId xuống Service
             var (order, installments, usages) = await _serviceProvider.OrderService.HandleCustomPCCheckoutAsync(
                 userId,
                 sessionId,
@@ -246,11 +249,7 @@ namespace TechExpress.Application.Controllers
                 request.Notes
             );
 
-            // SỬA LẠI DÒNG NÀY: Phải truyền đủ cả order, installments, và usages vào hàm Map
             var orderResponse = ResponseMapper.MapToOrderResponseFromOrder(order, installments, usages);
-
-            // Xử lý logic gọi cổng thanh toán VNPay/PayOS ở đây nếu Order yêu cầu thanh toán Online.
-            // Ví dụ: var paymentUrl = await _serviceProvider.PaymentService.CreatePaymentUrl(order);
 
             return Ok(ApiResponse<OrderResponse>.OkResponse(orderResponse));
         }
@@ -261,21 +260,19 @@ namespace TechExpress.Application.Controllers
         /// staff tạo order từ khi tạo xong CustomPCS cho khách hàng
         /// </summary>
         /// <param name="customPCId"></param>
-        /// <param name="sessionId"></param>
         /// <param name="request"></param>
         /// <returns></returns>
         [HttpPost("checkout/custom-pc/{customPCId}/staff")]
-        [Authorize(Roles = "Customer")]
+        [Authorize(Roles = "Staff")] // Lưu ý Role hệ thống của bạn (có thể là "Staff")
         public async Task<IActionResult> CustomPCStaffCheckout(
-            [FromRoute] Guid customPCId,
-            [FromHeader(Name = "CustomPC-guest-SessionID")] string? sessionId,
-            [FromBody] CustomPCCheckoutRequest request)
+             [FromRoute] Guid customPCId,
+             [FromBody] CustomPCCheckoutRequest request)
         {
-            var userId = _userContext.GetCurrentAuthenticatedUserId();
+            // 1. BẮT BUỘC PHẢI LẤY STAFF ID TỪ TOKEN ĐỂ GÁN VÀO ORDER
+            var staffId = _userContext.GetCurrentAuthenticatedUserId();
 
             var (order, installments, usages) = await _serviceProvider.OrderService.HandleCustomPCStaffCheckoutAsync(
-                userId,
-                sessionId,
+                staffId, // 2. TRUYỀN STAFF ID VÀO SERVICE
                 customPCId,
                 request.PromotionCodes,
                 request.ChosenFreeProductIds,
@@ -290,11 +287,7 @@ namespace TechExpress.Application.Controllers
                 request.Notes
             );
 
-            // SỬA LẠI DÒNG NÀY: Phải truyền đủ cả order, installments, và usages vào hàm Map
             var orderResponse = ResponseMapper.MapToOrderResponseFromOrder(order, installments, usages);
-
-            // Xử lý logic gọi cổng thanh toán VNPay/PayOS ở đây nếu Order yêu cầu thanh toán Online.
-            // Ví dụ: var paymentUrl = await _serviceProvider.PaymentService.CreatePaymentUrl(order);
 
             return Ok(ApiResponse<OrderResponse>.OkResponse(orderResponse));
         }

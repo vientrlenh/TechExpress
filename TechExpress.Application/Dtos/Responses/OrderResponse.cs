@@ -21,6 +21,8 @@ namespace TechExpress.Application.DTOs.Responses
         public string? ShippingAddress { get; set; }
         public string TrackingPhone { get; set; } = string.Empty;
         public string? Notes { get; set; }
+
+        public Guid? CreatedByStaffId { get; set; }
         public string? ReceiverIdentityCard { get; set; }
         public int? InstallmentDurationMonth { get; set; }
         // Tách làm 2 danh sách riêng biệt
