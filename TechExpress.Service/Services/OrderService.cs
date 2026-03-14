@@ -298,7 +298,7 @@ namespace TechExpress.Service.Services
                 User? customer = null;
                 if (customPC.UserId.HasValue)
                 {
-                    customer = await _unitOfWork.UserRepository.FindUserByIdAsync(customPC.UserId.Value);
+                    customer = await _unitOfWork.UserRepository.FindUserByIdWithTrackingAsync(customPC.UserId.Value);
                 }
 
                 // Xử lý thông tin người nhận (Ưu tiên dữ liệu Request -> Dữ liệu Khách hàng -> Mặc định)
@@ -323,6 +323,8 @@ namespace TechExpress.Service.Services
                         throw new BadRequestException("Số điện thoại không khớp với hồ sơ khách hàng.");
 
                     finalPhone = string.IsNullOrWhiteSpace(customer.Phone) ? trackingPhone! : customer.Phone;
+
+                    customer.Phone = finalPhone;
                 }
                 else
                 {
