@@ -212,7 +212,7 @@ namespace TechExpress.Service.Services
                 User? user = null;
                 if (userId.HasValue)
                 {
-                    user = await _unitOfWork.UserRepository.FindUserByIdAsync(userId.Value)
+                    user = await _unitOfWork.UserRepository.FindUserByIdWithTrackingAsync(userId.Value)
                         ?? throw new NotFoundException("Người dùng không tồn tại.");
                 }
 
