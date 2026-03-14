@@ -18,5 +18,7 @@ public static class SignalRMessageConstant
 
     public const string HideTypingIndicator = "HideTypingIndicator";
 
-    public const string TicketNotification = "TicketNotification";
+    public const string TicketMessageReceived = "TicketMessageReceived";
+
+    public const string TicketUpdated = "TicketUpdated";
 }

@@ -34,8 +34,6 @@ namespace TechExpress.Repository
         public TicketMessageRepository TicketMessageRepository { get; }
         public NotificationRepository NotificationRepository { get; }
 
-        public TicketMessageRepository TicketMessageRepository { get; }
-        public TicketRepository TicketRepository { get; }
         public OrderItemRepository OrderItemRepository { get; }
 
         public UnitOfWork(ApplicationDbContext context)

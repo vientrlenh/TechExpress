@@ -179,7 +179,7 @@ public class TicketService(UnitOfWork unitOfWork)
 
     // ── Both: add a reply message ────────────────────────────────────────
     // Returns (new message, updated ticket, notificationTargetUserId?)
-    public async Task<(TicketMessage Message, Ticket Ticket, Guid? NotifyUserId)> HandleReplyToTicket(
+    public async Task<(TicketMessage Message, Ticket Ticket)> HandleReplyToTicket(
         Guid userId,
         Guid ticketId,
         string content,
@@ -210,13 +210,11 @@ public class TicketService(UnitOfWork unitOfWork)
 
         ticket.UpdatedAt = DateTimeOffset.Now;
 
-        Guid? notifyUserId = isStaff ? ticket.UserId : ticket.AssignedToUserId;
+        await _unitOfWork.SaveChangesAsync();
 
-        Notification? notification = null;
-        if (notifyUserId.HasValue)
         {
-            notification = new Notification
-            {
+            await Task.CompletedTask;
+            /*
                 UserId = notifyUserId.Value,
                 Type = NotificationType.TicketAlert,
                 Title = "Ticket có phản hồi mới",
@@ -224,7 +222,7 @@ public class TicketService(UnitOfWork unitOfWork)
                 ReferenceId = ticketId,
                 ReferenceType = NotificationReferenceType.Ticket
             };
-            await _unitOfWork.NotificationRepository.AddAsync(notification);
+            */
         }
 
         await _unitOfWork.SaveChangesAsync();
@@ -232,12 +230,12 @@ public class TicketService(UnitOfWork unitOfWork)
         var updatedTicket = await _unitOfWork.TicketRepository.FindByIdIncludeMessagesWithAttachmentsAsync(ticketId)
             ?? throw new NotFoundException($"Không tìm thấy ticket: {ticketId}");
 
-        return (message, updatedTicket, notifyUserId);
+        return (message, updatedTicket);
     }
 
     // ── Staff / Admin: update ticket status (non-terminal only) ─────────
-    // Returns (updated ticket, notificationTargetUserId?)
-    public async Task<(Ticket Ticket, Guid? NotifyUserId)> HandleUpdateTicketStatus(
+    // Returns updated ticket
+    public async Task<Ticket> HandleUpdateTicketStatus(
         Guid ticketId,
         TicketStatus newStatus)
     {
@@ -254,11 +252,11 @@ public class TicketService(UnitOfWork unitOfWork)
         ticket.Status = newStatus;
         ticket.UpdatedAt = DateTimeOffset.Now;
 
-        Guid? notifyUserId = ticket.UserId;
+        await _unitOfWork.SaveChangesAsync();
 
-        if (notifyUserId.HasValue)
+        if (false)
         {
-            var notification = new Notification
+            /*
             {
                 UserId = notifyUserId.Value,
                 Type = NotificationType.TicketAlert,
@@ -267,7 +265,7 @@ public class TicketService(UnitOfWork unitOfWork)
                 ReferenceId = ticketId,
                 ReferenceType = NotificationReferenceType.Ticket
             };
-            await _unitOfWork.NotificationRepository.AddAsync(notification);
+            */
         }
 
         await _unitOfWork.SaveChangesAsync();
@@ -275,12 +273,12 @@ public class TicketService(UnitOfWork unitOfWork)
         var updatedTicket = await _unitOfWork.TicketRepository.FindByIdIncludeMessagesWithAttachmentsAsync(ticketId)
             ?? throw new NotFoundException($"Không tìm thấy ticket: {ticketId}");
 
-        return (updatedTicket, notifyUserId);
+        return updatedTicket;
     }
 
     // ── Staff / Admin: complete a ticket (Resolved or Closed) ───────────
-    // Returns (completed ticket, notificationTargetUserId?)
-    public async Task<(Ticket Ticket, Guid? NotifyUserId)> HandleCompleteTicket(
+    // Returns completed ticket
+    public async Task<Ticket> HandleCompleteTicket(
         Guid staffId,
         Guid ticketId,
         TicketStatus targetStatus)
@@ -312,12 +310,12 @@ public class TicketService(UnitOfWork unitOfWork)
             ticket.ClosedAt = DateTimeOffset.Now;
         }
 
-        Guid? notifyUserId = ticket.UserId;
+        await _unitOfWork.SaveChangesAsync();
 
-        if (notifyUserId.HasValue)
+        if (false)
         {
             var statusLabel = targetStatus == TicketStatus.Resolved ? "đã được giải quyết" : "đã được đóng";
-            await _unitOfWork.NotificationRepository.AddAsync(new Notification
+            /*
             {
                 UserId = notifyUserId.Value,
                 Type = NotificationType.TicketAlert,
@@ -325,7 +323,7 @@ public class TicketService(UnitOfWork unitOfWork)
                 Message = $"Ticket \"{ticket.Title}\" {statusLabel}.",
                 ReferenceId = ticketId,
                 ReferenceType = NotificationReferenceType.Ticket
-            });
+            */
         }
 
         await _unitOfWork.SaveChangesAsync();
@@ -333,6 +331,6 @@ public class TicketService(UnitOfWork unitOfWork)
         var completedTicket = await _unitOfWork.TicketRepository.FindByIdIncludeMessagesWithAttachmentsAsync(ticketId)
             ?? throw new NotFoundException($"Không tìm thấy ticket: {ticketId}");
 
-        return (completedTicket, notifyUserId);
+        return completedTicket;
     }
 }

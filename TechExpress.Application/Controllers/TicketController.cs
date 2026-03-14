@@ -19,11 +19,11 @@ namespace TechExpress.Application.Controllers;
 public class TicketController(
     ServiceProviders serviceProviders,
     UserContext userContext,
-    IHubContext<NotificationHub> notificationHub) : ControllerBase
+    IHubContext<TicketHub> ticketHub) : ControllerBase
 {
     private readonly ServiceProviders _serviceProviders = serviceProviders;
     private readonly UserContext _userContext = userContext;
-    private readonly IHubContext<NotificationHub> _notificationHub = notificationHub;
+    private readonly IHubContext<TicketHub> _ticketHub = ticketHub;
 
     // ── POST /api/tickets/custom-pc-build  (guest + logged-in) ──────────
     [AllowAnonymous]
@@ -41,6 +41,8 @@ public class TicketController(
             request.Attachments
         );
         var response = ResponseMapper.MapToTicketResponse(ticket);
+        await _ticketHub.Clients.Group("staff")
+            .SendAsync(SignalRMessageConstant.TicketUpdated, response);
         return CreatedAtAction(nameof(CreateCustomPCBuildTicket), ApiResponse<TicketResponse>.CreatedResponse(response));
     }
 
@@ -59,6 +61,8 @@ public class TicketController(
             request.Attachments
         );
         var response = ResponseMapper.MapToTicketResponse(ticket);
+        await _ticketHub.Clients.Group("staff")
+            .SendAsync(SignalRMessageConstant.TicketUpdated, response);
         return CreatedAtAction(nameof(CreateTicket), ApiResponse<TicketResponse>.CreatedResponse(response));
     }
 
@@ -97,12 +101,29 @@ public class TicketController(
         var userId = _userContext.GetCurrentAuthenticatedUserId();
         bool isStaff = User.IsInRole(nameof(UserRole.Staff)) || User.IsInRole(nameof(UserRole.Admin));
 
-        var (message, ticket, notifyUserId) = await _serviceProviders.TicketService.HandleReplyToTicket(
+        var (message, ticket) = await _serviceProviders.TicketService.HandleReplyToTicket(
             userId, ticketId, request.Content.Trim(), request.Attachments, isStaff);
 
-        if (notifyUserId.HasValue)
+
+        var response = ResponseMapper.MapToTicketMessageResponse(message);
+
+        if (isStaff)
         {
-            var notificationPayload = new
+            if (ticket.UserId.HasValue)
+            {
+                await _ticketHub.Clients
+                    .Group($"user-{ticket.UserId.Value}")
+                    .SendAsync(SignalRMessageConstant.TicketMessageReceived, response);
+            }
+        }
+        else
+        {
+            await _ticketHub.Clients
+                .Group("staff")
+                .SendAsync(SignalRMessageConstant.TicketMessageReceived, response);
+        }
+        {
+            /*
             {
                 TicketId = ticketId,
                 Title = "Ticket có phản hồi mới",
@@ -110,10 +131,9 @@ public class TicketController(
             };
             await _notificationHub.Clients
                 .Group($"user-{notifyUserId.Value}")
-                .SendAsync(SignalRMessageConstant.TicketNotification, notificationPayload);
+            */
         }
 
-        var response = ResponseMapper.MapToTicketMessageResponse(message);
         return Ok(ApiResponse<TicketMessageResponse>.OkResponse(response));
     }
 
@@ -134,12 +154,16 @@ public class TicketController(
         [FromRoute] Guid ticketId,
         [FromBody] UpdateTicketStatusRequest request)
     {
-        var (ticket, notifyUserId) = await _serviceProviders.TicketService.HandleUpdateTicketStatus(
+        var ticket = await _serviceProviders.TicketService.HandleUpdateTicketStatus(
             ticketId, request.Status);
 
-        if (notifyUserId.HasValue)
+        var response = ResponseMapper.MapToTicketResponse(ticket);
+        if (response.UserId.HasValue)
         {
-            var notificationPayload = new
+            await _ticketHub.Clients
+                .Group($"user-{response.UserId.Value}")
+                .SendAsync(SignalRMessageConstant.TicketUpdated, response);
+            /*
             {
                 TicketId = ticketId,
                 Title = "Trạng thái ticket đã thay đổi",
@@ -147,10 +171,9 @@ public class TicketController(
             };
             await _notificationHub.Clients
                 .Group($"user-{notifyUserId.Value}")
-                .SendAsync(SignalRMessageConstant.TicketNotification, notificationPayload);
+            */
         }
 
-        var response = ResponseMapper.MapToTicketResponse(ticket);
         return Ok(ApiResponse<TicketResponse>.OkResponse(response));
     }
 
@@ -162,13 +185,13 @@ public class TicketController(
         [FromBody] CompleteTicketRequest request)
     {
         var staffId = _userContext.GetCurrentAuthenticatedUserId();
-        var (ticket, notifyUserId) = await _serviceProviders.TicketService.HandleCompleteTicket(
+        var ticket = await _serviceProviders.TicketService.HandleCompleteTicket(
             staffId, ticketId, request.Status);
 
-        if (notifyUserId.HasValue)
+        var ticketRealtimeResponse = ResponseMapper.MapToTicketResponse(ticket);
         {
             var statusLabel = request.Status == TicketStatus.Resolved ? "đã được giải quyết" : "đã được đóng";
-            var notificationPayload = new
+            /*
             {
                 TicketId = ticketId,
                 Title = "Ticket của bạn đã được xử lý",
@@ -176,7 +199,14 @@ public class TicketController(
             };
             await _notificationHub.Clients
                 .Group($"user-{notifyUserId.Value}")
-                .SendAsync(SignalRMessageConstant.TicketNotification, notificationPayload);
+            */
+        }
+
+        if (ticketRealtimeResponse.UserId.HasValue)
+        {
+            await _ticketHub.Clients
+                .Group($"user-{ticketRealtimeResponse.UserId.Value}")
+                .SendAsync(SignalRMessageConstant.TicketUpdated, ticketRealtimeResponse);
         }
 
         var response = ResponseMapper.MapToCompleteTicketResponse(ticket);
