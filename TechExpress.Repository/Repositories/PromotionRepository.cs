@@ -160,8 +160,10 @@ public class PromotionRepository
                 StartDate = p.StartDate,
                 EndDate = p.EndDate,
                 IsActive = p.IsActive,
+                IsStackable = p.IsStackable,
                 UsageCount = p.UsageCount,
                 MaxUsageCount = p.MaxUsageCount,
+                MaxUsagePerUser = p.MaxUsagePerUser,
             })
             .ToListAsync();
 
