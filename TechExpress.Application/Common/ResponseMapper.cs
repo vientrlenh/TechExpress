@@ -977,6 +977,7 @@ public class ResponseMapper
         };
     }
 
+// FROM MAIN BRANCH
     public static PromotionDetailResponse MapToPromotionDetailResponseFromPromotion(Promotion promotion)
     {
         var now = DateTimeOffset.Now;
@@ -1006,13 +1007,8 @@ public class ResponseMapper
             RequiredProductLogic = promotion.RequiredProductLogic,
             FreeItemPickCount = promotion.FreeItemPickCount,
             IsStackable = promotion.IsStackable,
-            UsageCount = promotion.UsageCount,
-
-           
+            UsageCount = promotion.UsageCount
         };
-
-
-
     }
 
     public static WarrantyCheckResponse MapToWarrantyCheckResponseFromResult(WarrantyCheckResult result)
@@ -1032,5 +1028,113 @@ public class ResponseMapper
             TicketId = result.TicketId,
             MessageId = result.MessageId
         };
+    }
+
+    // FROM FEATURE BRANCH (new additions)
+    public static TicketAttachmentResponse MapToTicketAttachmentResponse(TicketAttachment attachment)
+    {
+        return new TicketAttachmentResponse(
+            attachment.Id,
+            attachment.FileUrl,
+            attachment.UploadedAt
+        );
+    }
+
+    public static TicketMessageResponse MapToTicketMessageResponse(TicketMessage message)
+    {
+        return new TicketMessageResponse(
+            message.Id,
+            message.TicketId,
+            message.UserId,
+            message.Content,
+            message.IsStaffMessage,
+            message.Attachments.Select(MapToTicketAttachmentResponse).ToList(),
+            message.SentAt
+        );
+    }
+
+    public static TicketListItemResponse MapToTicketListItemResponse(Ticket ticket)
+    {
+        return new TicketListItemResponse(
+            ticket.Id,
+            ticket.UserId,
+            ticket.Title,
+            ticket.Description,
+            ticket.Status,
+            ticket.CreatedAt,
+            ticket.UpdatedAt
+        );
+    }
+
+    public static Pagination<TicketListItemResponse> MapToTicketListItemResponsePagination(Pagination<Ticket> pagination)
+    {
+        return new Pagination<TicketListItemResponse>
+        {
+            Items = pagination.Items.Select(MapToTicketListItemResponse).ToList(),
+            PageNumber = pagination.PageNumber,
+            PageSize = pagination.PageSize,
+            TotalCount = pagination.TotalCount
+        };
+    }
+
+    public static TicketResponse MapToTicketResponse(Ticket ticket)
+    {
+        var completedByName = ticket.CompletedBy is null
+            ? null
+            : ((ticket.CompletedBy.FirstName ?? "") + " " + (ticket.CompletedBy.LastName ?? "")).Trim();
+
+        return new TicketResponse(
+            ticket.Id,
+            ticket.UserId,
+            ticket.FullName,
+            ticket.Phone,
+            ticket.Title,
+            ticket.Description,
+            ticket.Type,
+            ticket.Status,
+            ticket.Priority,
+            ticket.CustomPCId,
+            ticket.CustomPC is null ? null : MapToCustomPCResponseFromCustomPC(ticket.CustomPC),
+            ticket.Messages.Select(MapToTicketMessageResponse).ToList(),
+            ticket.CompletedByUserId,
+            string.IsNullOrWhiteSpace(completedByName) ? null : completedByName,
+            ticket.ResolvedAt,
+            ticket.ClosedAt,
+            ticket.CreatedAt,
+            ticket.UpdatedAt
+        );
+    }
+
+    public static CompleteTicketResponse MapToCompleteTicketResponse(Ticket ticket)
+    {
+        var completedByName = ticket.CompletedBy is null
+            ? null
+            : ((ticket.CompletedBy.FirstName ?? "") + " " + (ticket.CompletedBy.LastName ?? "")).Trim();
+
+        return new CompleteTicketResponse(
+            ticket.Id,
+            ticket.Title,
+            ticket.Status,
+            ticket.CompletedByUserId,
+            string.IsNullOrWhiteSpace(completedByName) ? null : completedByName,
+            ticket.ResolvedAt,
+            ticket.ClosedAt,
+            ticket.UpdatedAt
+        );
+    }
+
+    public static NotificationResponse MapToNotificationResponse(Notification notification)
+    {
+        return new NotificationResponse(
+            notification.Id,
+            notification.UserId,
+            notification.Type.ToString(),
+            notification.Title,
+            notification.Message,
+            notification.ReferenceId,
+            notification.ReferenceType?.ToString(),
+            notification.IsRead,
+            notification.CreatedAt
+        );
     }
 }

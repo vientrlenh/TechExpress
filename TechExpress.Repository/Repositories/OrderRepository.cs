@@ -92,6 +92,20 @@ namespace TechExpress.Repository.Repositories
                 .ExecuteUpdateAsync(x => x.SetProperty(o => o.Status, OrderStatus.Expired));
         }
 
+        public Task<int> AutoCompleteDeliveredOrdersAsync(DateTimeOffset cutoff)
+        {
+            return _context.Orders
+                .Where(o =>
+                    (o.Status == OrderStatus.Delivered || o.Status == OrderStatus.PickedUp) &&
+                    o.DeliveredAt.HasValue &&
+                    o.DeliveredAt.Value <= cutoff)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(o => o.ReceivedAt, DateTimeOffset.Now)
+                    .SetProperty(o => o.Status, o => o.PaidType == PaidType.Installment
+                        ? OrderStatus.Installing
+                        : OrderStatus.Completed));
+        }
+
         public Task<int> DeleteExpiredOrdersOlderThanAsync(DateTimeOffset cutoff)
         {
             return _context.Orders

@@ -33,6 +33,7 @@ namespace TechExpress.Service
         public PromotionService PromotionService { get; }
         public CustomPCService CustomPCService { get; }
         public ChatService ChatService { get; }
+        public TicketService TicketService { get; }
 
         public WarrantySupportService WarrantySupportService { get; }
 
@@ -56,6 +57,7 @@ namespace TechExpress.Service
             CustomPCService = new CustomPCService(unitOfWork);
             OrderService = new OrderService(unitOfWork, userContext, PromotionService);
             ChatService = new ChatService(unitOfWork, chatAiService);
+            TicketService = new TicketService(unitOfWork);
             WarrantySupportService = new WarrantySupportService(unitOfWork, userContext);
         }
     }
