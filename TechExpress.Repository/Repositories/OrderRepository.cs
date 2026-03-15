@@ -47,7 +47,6 @@ namespace TechExpress.Repository.Repositories
             return await _context.Orders
                 .AsTracking()
                 .Include(o => o.Items)
-                .AsSplitQuery()
                 .FirstOrDefaultAsync(o => o.Id == orderId);
         }
 

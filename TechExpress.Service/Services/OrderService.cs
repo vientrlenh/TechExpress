@@ -612,8 +612,7 @@ namespace TechExpress.Service.Services
                     }
 
                     // Hoàn lại 90% số tiền đã thanh toán
-                    var payments = await _unitOfWork.PaymentRepository.GetByOrderIdAsync(orderId);
-                    var successSum = payments.Where(p => p.Status == PaymentStatus.Success).Sum(p => p.Amount);
+                    var successSum = await _unitOfWork.PaymentRepository.SumSuccessAmountByOrderIdAsync(orderId);
 
                     if (successSum > 0)
                     {
