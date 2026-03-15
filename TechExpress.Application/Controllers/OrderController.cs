@@ -312,10 +312,6 @@ namespace TechExpress.Application.Controllers
 
         /// <summary>
         /// Cập nhật trạng thái đơn hàng theo luồng nghiệp vụ.
-        /// Luồng Shipping: Confirmed → Processing → Shipping → Delivered → Completed/Installing
-        /// Luồng PickUp: Confirmed → Processing → ReadyForPickup → PickedUp → Completed/Installing
-        /// Với đơn có tài khoản, khách có thể xác nhận Completed/Installing thủ công.
-        /// Nếu khách không xác nhận, worker nền sẽ tự động hoàn tất sau 3 ngày kể từ Delivered/PickedUp.
         /// </summary>
         [HttpPut("{orderId:guid}/status")]
         [Authorize(Roles = "Admin,Staff,Customer")]
@@ -336,7 +332,6 @@ namespace TechExpress.Application.Controllers
 
         /// <summary>
         /// Hủy đơn hàng. Chỉ có thể hủy trước trạng thái Processing.
-        /// Hoàn lại 90% số tiền đã thanh toán.
         /// </summary>
         [HttpPut("{orderId:guid}/cancel")]
         [Authorize(Roles = "Admin,Staff,Customer")]
