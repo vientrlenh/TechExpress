@@ -51,7 +51,7 @@ namespace TechExpress.Service.Services
                 if (string.IsNullOrWhiteSpace(trackingPhone))
                     throw new BadRequestException("Số điện thoại liên lạc là bắt buộc.");
 
-                using var transaction = await _unitOfWork.BeginTransactionAsync();
+                await using var transaction = await _unitOfWork.BeginTransactionAsync();
                 try
                 {
                     var orderId = Guid.NewGuid();
@@ -156,7 +156,7 @@ namespace TechExpress.Service.Services
                 if (!selectedItems.Any())
                     throw new BadRequestException("Vui lòng chọn ít nhất một sản phẩm.");
 
-                using var transaction = await _unitOfWork.BeginTransactionAsync();
+                await using var transaction = await _unitOfWork.BeginTransactionAsync();
                 try
                 {
                     var finalFullName = !string.IsNullOrWhiteSpace(receiverFullName) ? receiverFullName : $"{user.FirstName} {user.LastName}".Trim();
@@ -535,51 +535,50 @@ namespace TechExpress.Service.Services
                 order.Status = order.PaidType == PaidType.Installment
                     ? OrderStatus.Installing
                     : OrderStatus.Completed;
-
-                await _unitOfWork.SaveChangesAsync();
-                return order;
             }
-
-            ValidateStatusTransition(order, newStatus);
-
-            // === Processing → Shipping: gán thông tin vận chuyển ===
-            if (order.Status == OrderStatus.Processing && newStatus == OrderStatus.Shipping)
+            else
             {
-                bool hasSelfDelivery = deliveredById.HasValue;
-                bool hasThirdParty = !string.IsNullOrWhiteSpace(courierService);
+                ValidateStatusTransition(order, newStatus);
 
-                if (!hasSelfDelivery && !hasThirdParty)
-                    throw new BadRequestException("Cần chỉ định nhân viên tự vận chuyển (DeliveredById) hoặc dịch vụ vận chuyển bên thứ 3 (CourierService).");
-
-                if (hasSelfDelivery && hasThirdParty)
-                    throw new BadRequestException("Chỉ được chọn một trong hai: nhân viên tự vận chuyển hoặc dịch vụ vận chuyển bên thứ 3.");
-
-                order.DeliveredById = deliveredById;
-                order.CourierService = courierService;
-                order.CourierTrackingCode = courierTrackingCode;
-            }
-
-            // === Shipping → Delivered: kiểm tra quyền vận chuyển ===
-            if (order.Status == OrderStatus.Shipping && newStatus == OrderStatus.Delivered)
-            {
-                // Nếu là tự vận chuyển (có DeliveredById): chỉ nhân viên được phân công hoặc Admin mới được cập nhật
-                if (order.DeliveredById.HasValue
-                    && order.DeliveredById.Value != currentUserId
-                    && currentUserRole != UserRole.Admin)
+                // === Processing → Shipping: gán thông tin vận chuyển ===
+                if (order.Status == OrderStatus.Processing && newStatus == OrderStatus.Shipping)
                 {
-                    throw new ForbiddenException("Chỉ nhân viên được phân công mới có thể cập nhật trạng thái giao hàng này.");
+                    bool hasSelfDelivery = deliveredById.HasValue;
+                    bool hasThirdParty = !string.IsNullOrWhiteSpace(courierService);
+
+                    if (!hasSelfDelivery && !hasThirdParty)
+                        throw new BadRequestException("Cần chỉ định nhân viên tự vận chuyển (DeliveredById) hoặc dịch vụ vận chuyển bên thứ 3 (CourierService).");
+
+                    if (hasSelfDelivery && hasThirdParty)
+                        throw new BadRequestException("Chỉ được chọn một trong hai: nhân viên tự vận chuyển hoặc dịch vụ vận chuyển bên thứ 3.");
+
+                    order.DeliveredById = deliveredById;
+                    order.CourierService = courierService;
+                    order.CourierTrackingCode = courierTrackingCode;
                 }
 
-                order.DeliveredAt = DateTimeOffset.Now;
-            }
+                // === Shipping → Delivered: kiểm tra quyền vận chuyển ===
+                if (order.Status == OrderStatus.Shipping && newStatus == OrderStatus.Delivered)
+                {
+                    // Nếu là tự vận chuyển (có DeliveredById): chỉ nhân viên được phân công hoặc Admin mới được cập nhật
+                    if (order.DeliveredById.HasValue
+                        && order.DeliveredById.Value != currentUserId
+                        && currentUserRole != UserRole.Admin)
+                    {
+                        throw new ForbiddenException("Chỉ nhân viên được phân công mới có thể cập nhật trạng thái giao hàng này.");
+                    }
 
-            // === ReadyForPickup → PickedUp: khách đã đến lấy, bắt đầu đếm ngược 3 ngày ===
-            if (order.Status == OrderStatus.ReadyForPickup && newStatus == OrderStatus.PickedUp)
-            {
-                order.DeliveredAt = DateTimeOffset.Now;
-            }
+                    order.DeliveredAt = DateTimeOffset.Now;
+                }
 
-            order.Status = newStatus;
+                // === ReadyForPickup → PickedUp: khách đã đến lấy, bắt đầu đếm ngược 3 ngày ===
+                if (order.Status == OrderStatus.ReadyForPickup && newStatus == OrderStatus.PickedUp)
+                {
+                    order.DeliveredAt = DateTimeOffset.Now;
+                }
+
+                order.Status = newStatus;
+            }
 
             await _unitOfWork.SaveChangesAsync();
 
@@ -596,7 +595,7 @@ namespace TechExpress.Service.Services
 
             return await strategy.ExecuteAsync(async () =>
             {
-                using var transaction = await _unitOfWork.BeginTransactionAsync();
+                await using var transaction = await _unitOfWork.BeginTransactionAsync();
                 try
                 {
                     var order = await _unitOfWork.OrderRepository.FindByIdIncludeDetailsWithTrackingAsync(orderId)
