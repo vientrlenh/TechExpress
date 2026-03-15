@@ -603,6 +603,7 @@ public class ResponseMapper
             ShippingAddress = order.ShippingAddress,
             TrackingPhone = order.TrackingPhone,
             Notes = order.Notes,
+            CreatedByStaffId = order.CreatedByStaffId,
             ReceiverIdentityCard = order.ReceiverIdentityCard,
             InstallmentDurationMonth = order.InstallmentDurationMonth,
 
