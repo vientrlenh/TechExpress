@@ -87,28 +87,43 @@ public class PromotionRepository
 
     // TechExpress.Repository/Repositories/PromotionRepository.cs
 
-    public async Task<(List<Promotion> Promotions, int TotalCount)> FindPromotionsPagedAsync(
-        string? search,
-        bool? status,
-        DateTimeOffset? fromDate,
-        DateTimeOffset? toDate,
-        string sortBy,
-        bool isDescending,
-        int page,
-        int pageSize)
+    // 1. Dành cho Admin
+    public async Task<(List<Promotion> Promotions, int TotalCount)> FindPromotionsPagedAdminAsync(
+        string? search, bool? status, DateTimeOffset? fromDate, DateTimeOffset? toDate,
+        string sortBy, bool isDescending, int page, int pageSize)
+    {
+        return await CoreFindPromotionsPagedAsync(search, status, fromDate, toDate, sortBy, isDescending, page, pageSize, isCustomer: false);
+    }
+
+    // 2. Dành cho Customer
+    public async Task<(List<Promotion> Promotions, int TotalCount)> FindPromotionsPagedCustomerAsync(
+        string? search, DateTimeOffset? fromDate, DateTimeOffset? toDate,
+        string sortBy, bool isDescending, int page, int pageSize)
+    {
+        return await CoreFindPromotionsPagedAsync(search, true, fromDate, toDate, sortBy, isDescending, page, pageSize, isCustomer: true);
+    }
+
+    // 3. HÀM DÙNG CHUNG (PRIVATE)
+    private async Task<(List<Promotion> Promotions, int TotalCount)> CoreFindPromotionsPagedAsync(
+    string? search, bool? status, DateTimeOffset? fromDate, DateTimeOffset? toDate,
+    string sortBy, bool isDescending, int page, int pageSize, bool isCustomer)
     {
         var query = _context.Promotions.AsNoTracking().AsQueryable();
         var now = DateTimeOffset.Now;
 
-        // 1. Search theo Name hoặc Code
+        // 1. Search logic
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = search.Trim();
             query = query.Where(p => p.Name.Contains(s) || (p.Code != null && p.Code.Contains(s)));
         }
 
-        // 2. Filter theo IsActive
-        if (status.HasValue)
+        // 2. Status & Logic Active
+        if (isCustomer)
+        {
+            query = query.Where(p => p.IsActive == true);
+        }
+        else if (status.HasValue)
         {
             query = query.Where(p => p.IsActive == status.Value);
         }
@@ -117,16 +132,40 @@ public class PromotionRepository
         if (fromDate.HasValue) query = query.Where(p => p.StartDate >= fromDate.Value);
         if (toDate.HasValue) query = query.Where(p => p.EndDate <= toDate.Value);
 
-        // 4. Sorting (Chỉ cho phép Name và Code)
+        // 4. Sorting logic
         query = sortBy.ToLower() switch
         {
             "name" => isDescending ? query.OrderByDescending(p => p.Name) : query.OrderBy(p => p.Name),
             "code" => isDescending ? query.OrderByDescending(p => p.Code) : query.OrderBy(p => p.Code),
-            _ => query.OrderByDescending(p => p.CreatedAt) // Mặc định vẫn nên có Sort theo ngày tạo
+            _ => query.OrderByDescending(p => p.CreatedAt)
         };
 
         var totalCount = await query.CountAsync();
-        var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+
+        // 5. Tối ưu: Chỉ lấy các cột cần thiết
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(p => new Promotion
+            {
+                Id = p.Id,
+                Name = p.Name,
+                Code = p.Code,
+                Description = p.Description,
+                Type = p.Type,
+                Scope = p.Scope,
+                DiscountValue = p.DiscountValue,
+                MaxDiscountValue = p.MaxDiscountValue,
+                MinOrderValue = p.MinOrderValue,
+                StartDate = p.StartDate,
+                EndDate = p.EndDate,
+                IsActive = p.IsActive,
+                IsStackable = p.IsStackable,
+                UsageCount = p.UsageCount,
+                MaxUsageCount = p.MaxUsageCount,
+                MaxUsagePerUser = p.MaxUsagePerUser,
+            })
+            .ToListAsync();
 
         return (items, totalCount);
     }
@@ -164,6 +203,13 @@ public class PromotionRepository
         return await _context.Promotions
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == id);
+    }
+
+    public async Task<Promotion?> FindByPromtionCodeAsync(string promotionCode)
+    {
+        return await _context.Promotions
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Code == promotionCode);
     }
 
 
