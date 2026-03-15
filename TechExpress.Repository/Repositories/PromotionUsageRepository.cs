@@ -26,11 +26,11 @@ public class PromotionUsageRepository
     }
 
     // Bổ sung phương thức AddAsync để lưu lịch sử sử dụng khuyến mãi
-    public async Task AddAsync(PromotionUsage usage)
+    public async Task AddRangeAsync(IEnumerable<PromotionUsage> usages)
     {
-        await _context.PromotionUsages.AddAsync(usage);
+        await _context.PromotionUsages.AddRangeAsync(usages);
     }
-  
+
     public async Task<List<PromotionUsage>> GetByOrderIdIncludePromotionAsync(Guid orderId)
     {
         return await _context.PromotionUsages
@@ -48,5 +48,33 @@ public class PromotionUsageRepository
                 o.OrderDate <= expiration &&
                 !_context.Payments.Any(pay => pay.OrderId == o.Id && pay.Status == PaymentStatus.Success)))
             .ExecuteDeleteAsync();
+    }
+
+    // == Đếm số lần sử dụng của một người dùng cho nhiều khuyến mãi ==
+    public async Task<Dictionary<Guid, int>> CountByPromotionIdsAndUserIdAsync(List<Guid> promoIds, Guid userId)
+    {
+        return await _context.PromotionUsages
+            .Where(u => promoIds.Contains(u.PromotionId) && u.UserId == userId)
+            .GroupBy(u => u.PromotionId)
+            .Select(g => new
+            {
+                PromotionId = g.Key,
+                Count = g.Count()
+            })
+            .ToDictionaryAsync(x => x.PromotionId, x => x.Count);
+    }
+
+    //== Đếm số lần sử dụng của một người dùng cho nhiều khuyến mãi dựa trên số điện thoại ==
+    public async Task<Dictionary<Guid, int>> CountByPromotionIdsAndPhoneAsync(List<Guid> promoIds, string phone)
+    {
+        return await _context.PromotionUsages
+            .Where(u => promoIds.Contains(u.PromotionId) && u.Phone == phone)
+            .GroupBy(u => u.PromotionId)
+            .Select(g => new
+            {
+                PromotionId = g.Key,
+                Count = g.Count()
+            })
+            .ToDictionaryAsync(x => x.PromotionId, x => x.Count);
     }
 }

@@ -625,7 +625,10 @@ public class PromotionService
 
     // ===================== List Promotion ==================================
     // TechExpress.Service/Services/PromotionService.cs
-
+    // =================================== DÀNH CHO ADMIN ===================================
+    /// <summary>
+    /// Lấy danh sách khuyến mãi cho Admin, có thể lọc theo trạng thái (Active/Inactive/All)
+    /// </summary>
     public async Task<Pagination<Promotion>> GetPromotionsPagedAsync(
         string? search,
         bool? status,
@@ -636,8 +639,35 @@ public class PromotionService
         int page,
         int pageSize)
     {
-        var (promotions, totalCount) = await _unitOfWork.PromotionRepository.FindPromotionsPagedAsync(
+        // Gọi hàm Repo dành riêng cho Admin
+        var (promotions, totalCount) = await _unitOfWork.PromotionRepository.FindPromotionsPagedAdminAsync(
             search, status, fromDate, toDate, sortBy, isDescending, page, pageSize);
+
+        return new Pagination<Promotion>
+        {
+            Items = promotions,
+            PageNumber = page,
+            PageSize = pageSize,
+            TotalCount = totalCount
+        };
+    }
+
+    // ============================== DÀNH CHO CUSTOMER / GUEST ==============================
+    /// <summary>
+    /// Lấy danh sách khuyến mãi cho khách hàng, ép cứng chỉ lấy những mã đang hoạt động và còn hạn
+    /// </summary>
+    public async Task<Pagination<Promotion>> GetPromotionsPagedForCustomerGuestAsync(
+        string? search,
+        DateTimeOffset? fromDate,
+        DateTimeOffset? toDate,
+        string sortBy,
+        bool isDescending,
+        int page,
+        int pageSize)
+    {
+        // Gọi hàm Repo dành riêng cho Customer (Tui đã bỏ tham số status ở đây vì khách ko có quyền chọn)
+        var (promotions, totalCount) = await _unitOfWork.PromotionRepository.FindPromotionsPagedCustomerAsync(
+            search, fromDate, toDate, sortBy, isDescending, page, pageSize);
 
         return new Pagination<Promotion>
         {
@@ -660,6 +690,50 @@ public class PromotionService
         await _unitOfWork.SaveChangesAsync();
         var disabledPromotion = await _unitOfWork.PromotionRepository.FindByIdIncludeRequiredProductsIncludeFreeProductsIncludeAppliedProductsWithSplitQueryAsync(promotionId) ?? throw new NotFoundException($"Không tìm thấy mã khuyến mãi: {promotionId}");
         return disabledPromotion;
+    }
+
+    public async Task HandleDeletePromotion(Guid promotionId)
+    {
+        var promotion = await _unitOfWork.PromotionRepository.FindByIdWithTrackingAsync(promotionId)
+            ?? throw new NotFoundException($"Không tìm thấy khuyến mãi: {promotionId}");
+
+        bool hasUsage = await _unitOfWork.PromotionRepository.HasAnyUsageAsync(promotionId);
+
+        if (hasUsage)
+        {
+            if (!promotion.IsActive)
+            {
+                throw new BadRequestException("Khuyến mãi đã bị ngưng hoạt động.");
+            }
+
+            promotion.IsActive = false;
+            promotion.UpdatedAt = DateTimeOffset.Now;
+            await _unitOfWork.SaveChangesAsync();
+            return;
+        }
+
+        int affected = await _unitOfWork.PromotionRepository.HardDeleteByIdIfUnusedAsync(promotionId);
+        if (affected == 0)
+        {
+            throw new BadRequestException("Không thể xóa khuyến mãi.");
+        }
+    }
+
+
+    public async Task<Promotion> HandleGetPromotionDetail(Guid promotionId)
+    {
+        var promotion = await _unitOfWork.PromotionRepository
+            .FindByIdAsync(promotionId)
+            ?? throw new NotFoundException($"Không tìm thấy khuyến mãi: {promotionId}");
+
+        return promotion;
+    }
+
+    public async Task<Promotion> HandleGetPromotionCodeDetail(string promotionCode)
+    {
+        return await _unitOfWork.PromotionRepository
+            .FindByPromtionCodeAsync(promotionCode)
+            ?? throw new NotFoundException($"Không tìm thấy khuyến mãi với mã: {promotionCode}");
     }
 
 

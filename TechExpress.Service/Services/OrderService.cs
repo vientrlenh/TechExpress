@@ -58,66 +58,13 @@ namespace TechExpress.Service.Services
                     var orderItems = new List<OrderItem>();
                     var checkoutCommands = new List<CheckoutItemCommand>();
                     decimal subTotal = 0;
-
-                    foreach (var item in items)
-                    {
-                        var product = await _unitOfWork.ProductRepository.FindByIdWithNoTrackingAsync(item.ProductId)
-                            ?? throw new NotFoundException($"Sản phẩm không tồn tại.");
-
-                        if (product.Status != ProductStatus.Available)
-                            throw new BadRequestException($"Sản phẩm '{product.Name}' hiện không khả dụng.");
-
-                        var affectedRows = await _unitOfWork.ProductRepository.DecrementStockAtomicAsync(item.ProductId, item.Quantity);
-                        if (affectedRows == 0)
-                            throw new BadRequestException($"Sản phẩm '{product.Name}' không đủ tồn kho.");
-
-                        subTotal += product.Price * item.Quantity;
-                        orderItems.Add(new OrderItem { OrderId = orderId, ProductId = product.Id, Quantity = item.Quantity, UnitPrice = product.Price });
-
-                        checkoutCommands.Add(new CheckoutItemCommand
-                        {
-                            ProductId = product.Id,
-                            Quantity = item.Quantity,
-                            UnitPrice = product.Price,
-                            CategoryId = product.CategoryId,
-                            BrandId = product.BrandId
-                        });
-                    }
-
-                    // Tính KM (mã có thể null hoặc rỗng)
-                    var codesToProcess = promotionCodes ?? new List<string>();
-                    var promoResult = await _promotionService.CalculatePromotionAsync(codesToProcess, checkoutCommands, subTotal, null, trackingPhone);
-
-                    await ProcessPromotionUsages(orderId, null, trackingPhone, receiverFullName, promoResult, orderItems, chosenFreeProductIds);
-
-                    ValidateOrderRequirements(deliveryType, shippingAddress, null, paidType, receiverIdentityCard, installmentDurationMonth);
-
-                    var order = CreateOrderObject(orderId, null, deliveryType, subTotal, promoResult.TotalDiscountAmount, receiverEmail, receiverFullName,
-                                                shippingAddress, trackingPhone, paidType, receiverIdentityCard,
-                                                installmentDurationMonth, notes, orderItems);
-
-                    await _unitOfWork.OrderRepository.AddOrderAsync(order);
-
-                    if (paidType == PaidType.Installment)
-                    {
-                        await CreateInstallmentRecords(order, installmentDurationMonth!.Value);
-                    }
-
-                    await _unitOfWork.SaveChangesAsync();
-                    await transaction.CommitAsync();
-
-                    // TRUY VẤN LẠI DỮ LIỆU ĐỂ TRẢ VỀ RESPONSE ĐẦY ĐỦ
-                    var finalOrder = await GetOrderDetailsAsync(orderId);
-                    var installmentList = await _unitOfWork.InstallmentRepository.GetByOrderIdAsync(orderId);
-                    var usageList = await _unitOfWork.PromotionUsageRepository.GetByOrderIdIncludePromotionAsync(orderId);
-
-                    return (finalOrder, installmentList, usageList);
-                }
-                catch (Exception)
-                {
-                    await transaction.RollbackAsync();
-                    throw;
-                }
+                // Sử dụng Hàm Helper Dùng Chung
+                return await ExecuteCoreCheckoutInTransactionAsync(
+                    userId: null,
+                    rawItems: items,
+                    promotionCodes, chosenFreeProductIds, deliveryType, receiverEmail, receiverFullName,
+                    shippingAddress, trackingPhone, paidType, receiverIdentityCard, installmentDurationMonth, notes
+                );
             });
         }
 
@@ -143,142 +90,460 @@ namespace TechExpress.Service.Services
             return await strategy.ExecuteAsync(async () =>
             {
                 var authenticatedUserId = _userContext.GetCurrentAuthenticatedUserId();
+
                 if (authenticatedUserId != userId)
                     throw new UnauthorizedAccessException("Bạn không có quyền thực hiện hành động này.");
 
-                var user = await _unitOfWork.UserRepository.FindUserByIdAsync(userId)
+                var user = await _unitOfWork.UserRepository.FindUserByIdWithTrackingAsync(userId)
                     ?? throw new NotFoundException("Người dùng không tồn tại.");
 
-                var cart = await _unitOfWork.CartRepository.FindCartByUserIdIncludeItemsWithTrackingAsync(userId)
+                var cart = await _unitOfWork.CartRepository
+                    .FindCartByUserIdIncludeItemsWithTrackingAsync(userId)
                     ?? throw new BadRequestException("Giỏ hàng của bạn đang trống.");
 
-                var selectedItems = cart.Items.Where(ci => selectedCartItemIds.Contains(ci.Id)).ToList();
+                var selectedItems = cart.Items
+                    .Where(ci => selectedCartItemIds.Contains(ci.Id))
+                    .ToList();
+
                 if (!selectedItems.Any())
                     throw new BadRequestException("Vui lòng chọn ít nhất một sản phẩm.");
 
-                await using var transaction = await _unitOfWork.BeginTransactionAsync();
-                try
-                {
-                    var finalFullName = !string.IsNullOrWhiteSpace(receiverFullName) ? receiverFullName : $"{user.FirstName} {user.LastName}".Trim();
-                    var finalEmail = !string.IsNullOrWhiteSpace(receiverEmail) ? receiverEmail : user.Email;
-                    var finalAddress = !string.IsNullOrWhiteSpace(shippingAddress) ? shippingAddress : user.Address;
+                var finalFullName = !string.IsNullOrWhiteSpace(receiverFullName) ? receiverFullName : $"{user.FirstName} {user.LastName}".Trim();
+                var finalEmail = !string.IsNullOrWhiteSpace(receiverEmail) ? receiverEmail : user.Email;
+                var finalAddress = !string.IsNullOrWhiteSpace(shippingAddress) ? shippingAddress : user.Address;
 
-                    string finalPhone;
-                    if (string.IsNullOrWhiteSpace(user.Phone))
+                // --- Logic xử lý số điện thoại ---
+                string finalPhone;
+                if (string.IsNullOrWhiteSpace(user.Phone))
+                {
+                    if (string.IsNullOrWhiteSpace(trackingPhone))
+                        throw new BadRequestException("Số điện thoại liên lạc là bắt buộc.");
+
+                    user.Phone = trackingPhone;
+                    finalPhone = trackingPhone;
+                }
+                else
+                {
+                    if (!string.IsNullOrWhiteSpace(trackingPhone) && user.Phone != trackingPhone)
+                        throw new BadRequestException("Số điện thoại không khớp.");
+
+                    finalPhone = user.Phone;
+                }
+
+                // Chuyển CartItem thành dạng List raw
+                var rawItems = selectedItems.Select(ci => (ci.ProductId, ci.Quantity)).ToList();
+
+                // GỌI HÀM HELPER VÀ DÙNG onBeforeSaveAsync ĐỂ ĐẢM BẢO ATOMIC (CÙNG 1 TRANSACTION)
+                return await ExecuteCoreCheckoutInTransactionAsync(
+                    userId, rawItems, promotionCodes, chosenFreeProductIds, deliveryType, finalEmail, finalFullName,
+                    finalAddress, finalPhone, paidType, receiverIdentityCard, installmentDurationMonth, notes,
+                    onBeforeSaveAsync: async () =>
                     {
-                        if (string.IsNullOrWhiteSpace(trackingPhone)) throw new BadRequestException("Số điện thoại liên lạc là bắt buộc.");
-                        user.Phone = trackingPhone;
-                        finalPhone = trackingPhone;
+                        // Đoạn code này sẽ được Helper gọi ngay trước khi nó SaveChanges() và Commit()
+                        foreach (var item in selectedItems)
+                        {
+                            _unitOfWork.CartItemRepository.RemoveCartItem(item);
+                        }
+                        await Task.CompletedTask;
+                    }
+                );
+            }); // Kết thúc strategy.ExecuteAsync
+        }
+        // ============================== CUSTOM PC CHECKOUT (DÙNG CHUNG CHO CẢ GUEST VÀ MEMBER) ===============================
+        public async Task<(Order order, List<Installment> installments, List<PromotionUsage> usages)> HandleCustomPCCheckoutAsync(
+            Guid? userId, // ĐỔI THÀNH Guid? ĐỂ NHẬN GUEST
+            string? sessionId,
+            Guid customPCId,
+            List<string>? promotionCodes,
+            List<Guid>? chosenFreeProductIds,
+            DeliveryType deliveryType,
+            string? receiverEmail,
+            string? receiverFullName,
+            string? shippingAddress,
+            string? trackingPhone,
+            PaidType paidType,
+            string? receiverIdentityCard,
+            int? installmentDurationMonth,
+            string? notes)
+        {
+            var strategy = _unitOfWork.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
+            {
+                var customPC = await _unitOfWork.CustomPCRepository.FindByIdIncludeItemsAsync(customPCId)
+                    ?? throw new NotFoundException("Không tìm thấy cấu hình PC này.");
+
+                bool isOwner = false;
+
+                // ================== LOGIC KIỂM TRA QUYỀN RẼ NHÁNH ==================
+                if (userId.HasValue)
+                {
+                    // TRƯỜNG HỢP 1: NGƯỜI DÙNG ĐÃ ĐĂNG NHẬP
+                    if (customPC.UserId.HasValue)
+                    {
+                        isOwner = (customPC.UserId.Value == userId.Value);
                     }
                     else
                     {
-                        if (!string.IsNullOrWhiteSpace(trackingPhone) && user.Phone != trackingPhone)
-                            throw new BadRequestException("Số điện thoại không khớp.");
-                        finalPhone = user.Phone;
+                        // PC tạo lúc chưa đăng nhập (Session), giờ đăng nhập rồi thanh toán
+                        isOwner = !string.IsNullOrWhiteSpace(sessionId) && customPC.SessionId == sessionId;
                     }
-
-                    ValidateOrderRequirements(deliveryType, shippingAddress, user.Address, paidType, receiverIdentityCard, installmentDurationMonth);
-
-                    var orderId = Guid.NewGuid();
-                    var orderItems = new List<OrderItem>();
-                    var checkoutCommands = new List<CheckoutItemCommand>();
-                    decimal subTotal = 0;
-
-                    foreach (var cartItem in selectedItems)
-                    {
-                        var product = await _unitOfWork.ProductRepository.FindByIdWithNoTrackingAsync(cartItem.ProductId)
-                            ?? throw new NotFoundException($"Sản phẩm không tồn tại.");
-
-                        var affectedRows = await _unitOfWork.ProductRepository.DecrementStockAtomicAsync(cartItem.ProductId, cartItem.Quantity);
-                        if (affectedRows == 0)
-                            throw new BadRequestException($"Sản phẩm '{product.Name}' vừa hết hàng.");
-
-                        subTotal += product.Price * cartItem.Quantity;
-                        orderItems.Add(new OrderItem { OrderId = orderId, ProductId = product.Id, Quantity = cartItem.Quantity, UnitPrice = product.Price });
-
-                        checkoutCommands.Add(new CheckoutItemCommand
-                        {
-                            ProductId = product.Id,
-                            Quantity = cartItem.Quantity,
-                            UnitPrice = product.Price,
-                            CategoryId = product.CategoryId,
-                            BrandId = product.BrandId
-                        });
-                    }
-
-                    var codesToProcess = promotionCodes ?? new List<string>();
-                    var promoResult = await _promotionService.CalculatePromotionAsync(codesToProcess, checkoutCommands, subTotal, userId, finalPhone);
-
-                    await ProcessPromotionUsages(orderId, userId, finalPhone, finalFullName, promoResult, orderItems, chosenFreeProductIds);
-
-                    var order = CreateOrderObject(orderId, userId, deliveryType, subTotal, promoResult.TotalDiscountAmount, finalEmail, finalFullName,
-                                                finalAddress, finalPhone, paidType, receiverIdentityCard,
-                                                installmentDurationMonth, notes, orderItems);
-
-                    await _unitOfWork.OrderRepository.AddOrderAsync(order);
-
-                    if (paidType == PaidType.Installment)
-                    {
-                        await CreateInstallmentRecords(order, installmentDurationMonth!.Value);
-                    }
-
-                    foreach (var item in selectedItems)
-                        _unitOfWork.CartItemRepository.RemoveCartItem(item);
-
-                    await _unitOfWork.SaveChangesAsync();
-                    await transaction.CommitAsync();
-
-                    // TRUY VẤN LẠI DỮ LIỆU ĐỂ TRẢ VỀ RESPONSE ĐẦY ĐỦ
-                    var finalOrder = await GetOrderDetailsAsync(orderId);
-                    var installmentList = await _unitOfWork.InstallmentRepository.GetByOrderIdAsync(orderId);
-                    var usageList = await _unitOfWork.PromotionUsageRepository.GetByOrderIdIncludePromotionAsync(orderId);
-
-                    return (finalOrder, installmentList, usageList);
                 }
-                catch (Exception)
+                else
                 {
-                    await transaction.RollbackAsync();
-                    throw;
+                    // TRƯỜNG HỢP 2: KHÁCH VÃNG LAI (GUEST) - KHÔNG ĐĂNG NHẬP
+                    if (customPC.UserId.HasValue)
+                    {
+                        // Nếu PC này đã có chủ (có UserId), Guest không được phép thanh toán
+                        throw new ForbiddenException("Cấu hình PC này thuộc về tài khoản thành viên. Vui lòng đăng nhập để thanh toán.");
+                    }
+
+                    isOwner = !string.IsNullOrWhiteSpace(sessionId) && customPC.SessionId == sessionId;
                 }
+
+                if (!isOwner)
+                {
+                    throw new ForbiddenException("Bạn không có quyền thanh toán cấu hình PC này.");
+                }
+                // ====================================================================
+
+                if (customPC.Items == null || !customPC.Items.Any())
+                    throw new BadRequestException("Cấu hình PC này chưa có linh kiện nào.");
+
+                // ================== XỬ LÝ THÔNG TIN GIAO HÀNG ==================
+                User? user = null;
+                if (userId.HasValue)
+                {
+                    user = await _unitOfWork.UserRepository.FindUserByIdWithTrackingAsync(userId.Value)
+                        ?? throw new NotFoundException("Người dùng không tồn tại.");
+                }
+
+                var finalFullName = !string.IsNullOrWhiteSpace(receiverFullName)
+                    ? receiverFullName
+                    : (user != null ? $"{user.FirstName} {user.LastName}".Trim() : null);
+
+                if (string.IsNullOrWhiteSpace(finalFullName))
+                    throw new BadRequestException("Họ tên người nhận là bắt buộc.");
+
+                var finalEmail = !string.IsNullOrWhiteSpace(receiverEmail) ? receiverEmail : user?.Email;
+                var finalAddress = !string.IsNullOrWhiteSpace(shippingAddress) ? shippingAddress : user?.Address;
+
+                string finalPhone;
+                if (user != null)
+                {
+                    // Logic check số điện thoại cho Member
+                    if (string.IsNullOrWhiteSpace(user.Phone) && string.IsNullOrWhiteSpace(trackingPhone))
+                        throw new BadRequestException("Số điện thoại liên lạc là bắt buộc.");
+
+                    if (!string.IsNullOrWhiteSpace(user.Phone) && !string.IsNullOrWhiteSpace(trackingPhone) && user.Phone != trackingPhone)
+                        throw new BadRequestException("Số điện thoại không khớp với hồ sơ.");
+
+                    finalPhone = string.IsNullOrWhiteSpace(user.Phone) ? trackingPhone! : user.Phone;
+                    user.Phone = finalPhone;
+                }
+                else
+                {
+                    // Logic check số điện thoại cho Guest
+                    if (string.IsNullOrWhiteSpace(trackingPhone))
+                        throw new BadRequestException("Số điện thoại liên lạc là bắt buộc.");
+
+                    finalPhone = trackingPhone;
+                }
+
+                var rawItems = customPC.Items.Select(ci => (ci.ProductId, ci.Quantity)).ToList();
+
+                // Sử dụng Hàm Helper Dùng Chung
+                return await ExecuteCoreCheckoutInTransactionAsync(
+                    userId: userId, // Vẫn truyền thẳng userId (có thể là Guid hoặc null)
+                    rawItems: rawItems,
+                    promotionCodes, chosenFreeProductIds, deliveryType, finalEmail, finalFullName,
+                    finalAddress, finalPhone, paidType, receiverIdentityCard, installmentDurationMonth, notes
+                );
             });
         }
 
-        // ============================== PRIVATE HELPERS ===============================
-
-        private async Task ProcessPromotionUsages(Guid orderId, Guid? userId, string phone, string fullName,
-    PromotionCalculationResult result, List<OrderItem> orderItems, List<Guid>? chosenFreeProductIds)
+        //================================ CUSTOMPC CHECKOUT CHO STAFF TẠO ORDER =============================
+        public async Task<(Order order, List<Installment> installments, List<PromotionUsage> usages)> HandleCustomPCStaffCheckoutAsync(
+            Guid staffId, // NHẬN ID CỦA NHÂN VIÊN TỪ CONTROLLER
+            Guid customPCId,
+            List<string>? promotionCodes,
+            List<Guid>? chosenFreeProductIds,
+            DeliveryType deliveryType,
+            string? receiverEmail,
+            string? receiverFullName,
+            string? shippingAddress,
+            string? trackingPhone,
+            PaidType paidType,
+            string? receiverIdentityCard,
+            int? installmentDurationMonth,
+            string? notes)
         {
-            // 1. XỬ LÝ CÁC KHUYẾN MÃI ĐÃ ÁP DỤNG (Giảm giá hoặc Quà tặng)
+            var strategy = _unitOfWork.CreateExecutionStrategy();
+
+            return await strategy.ExecuteAsync(async () =>
+            {
+                // Tìm cấu hình CustomPC cần thanh toán
+                var customPC = await _unitOfWork.CustomPCRepository.FindByIdIncludeItemsAsync(customPCId)
+                    ?? throw new NotFoundException("Không tìm thấy cấu hình PC này.");
+
+                // LOGIC KIỂM TRA QUYỀN DÀNH RIÊNG CHO STAFF
+                // Staff chỉ được phép thao tác nếu khách hàng đã bật cờ IsStaffAccessible
+                if (!customPC.IsStaffAccessible)
+                {
+                    throw new BadRequestException("Khách hàng chưa cấp quyền (IsStaffAccessible) cho nhân viên truy cập cấu hình PC này.");
+                }
+
+                if (customPC.Items == null || !customPC.Items.Any())
+                    throw new BadRequestException("Cấu hình PC này chưa có linh kiện nào.");
+
+                // Tìm thông tin KHÁCH HÀNG (chủ thực sự của cấu hình PC)
+                User? customer = null;
+                if (customPC.UserId.HasValue)
+                {
+                    customer = await _unitOfWork.UserRepository.FindUserByIdWithTrackingAsync(customPC.UserId.Value);
+                }
+                // Xử lý thông tin người nhận (Ưu tiên dữ liệu Request -> Dữ liệu Khách hàng -> Mặc định)
+                var finalFullName = !string.IsNullOrWhiteSpace(receiverFullName)
+                    ? receiverFullName
+                    : $"{customer?.FirstName} {customer?.LastName}".Trim();
+
+                if (string.IsNullOrWhiteSpace(finalFullName))
+                    finalFullName = "Khách hàng";
+
+                var finalEmail = !string.IsNullOrWhiteSpace(receiverEmail) ? receiverEmail : customer?.Email;
+                var finalAddress = !string.IsNullOrWhiteSpace(shippingAddress) ? shippingAddress : customer?.Address;
+
+                string finalPhone;
+                if (customer != null)
+                {
+                    // Trường hợp PC này của Khách đã có tài khoản
+                    if (string.IsNullOrWhiteSpace(customer.Phone) && string.IsNullOrWhiteSpace(trackingPhone))
+                        throw new BadRequestException("Số điện thoại liên lạc là bắt buộc.");
+
+                    if (!string.IsNullOrWhiteSpace(customer.Phone) && !string.IsNullOrWhiteSpace(trackingPhone) && customer.Phone != trackingPhone)
+                        throw new BadRequestException("Số điện thoại không khớp với hồ sơ khách hàng.");
+
+                    finalPhone = string.IsNullOrWhiteSpace(customer.Phone) ? trackingPhone! : customer.Phone;
+
+                    customer.Phone = finalPhone;
+                }
+                else
+                {
+                    // Trường hợp PC này của Khách Vãng lai (Guest)
+                    if (string.IsNullOrWhiteSpace(trackingPhone))
+                        throw new BadRequestException("Số điện thoại liên lạc là bắt buộc.");
+
+                    finalPhone = trackingPhone;
+                }
+
+                var rawItems = customPC.Items.Select(ci => (ci.ProductId, ci.Quantity)).ToList();
+
+                // TẠO ĐƠN HÀNG (SỬ DỤNG HELPER CHUNG)
+                // QUAN TRỌNG: Ghi nhận đơn hàng cho Khách VÀ gán ID Staff tạo đơn
+                return await ExecuteCoreCheckoutInTransactionAsync(
+                    userId: customPC.UserId, // Chủ sở hữu Đơn hàng là Khách
+                    rawItems: rawItems,
+                    promotionCodes, chosenFreeProductIds, deliveryType, finalEmail, finalFullName,
+                    finalAddress, finalPhone, paidType, receiverIdentityCard, installmentDurationMonth, notes,
+                    createdByStaffId: staffId // Ghi nhận ID Nhân viên vào cột CreatedByStaffId của đơn hàng
+                );
+            });
+        }
+
+        // ============================== CORE CHECKOUT LOGIC HELPER ===============================
+        /// <summary>
+        /// Hàm đóng gói xử lý Transaction chung cho tất cả các luồng Checkout (Guest, Member, CustomPC).
+        /// </summary>
+        private async Task<(Order order, List<Installment> installments, List<PromotionUsage> usages)> ExecuteCoreCheckoutInTransactionAsync(
+            Guid? userId,
+            List<(Guid ProductId, int Quantity)> rawItems,
+            List<string>? promotionCodes,
+            List<Guid>? chosenFreeProductIds,
+            DeliveryType deliveryType,
+            string? receiverEmail,
+            string receiverFullName,
+            string? shippingAddress,
+            string trackingPhone,
+            PaidType paidType,
+            string? receiverIdentityCard,
+            int? installmentDurationMonth,
+            string? notes,
+            Func<Task>? onBeforeSaveAsync = null, // <-- 1. THÊM LẠI THAM SỐ NÀY VÀO ĐÂY
+            Guid? createdByStaffId = null) // Bổ sung tham số lưu lại người tạo đơn (nếu là Staff)
+        {
+            ValidateOrderRequirements(deliveryType, shippingAddress, null, paidType, receiverIdentityCard, installmentDurationMonth);
+
+            await using var transaction = await _unitOfWork.BeginTransactionAsync();
+
+            try
+            {
+                var orderId = Guid.NewGuid();
+                var orderItems = new List<OrderItem>();
+                var checkoutCommands = new List<CheckoutItemCommand>();
+                decimal subTotal = 0;
+
+                // ===== GROUP ITEMS ĐỂ TRÁNH DUPLICATE PRODUCT =====
+                var groupedItems = rawItems
+                    .GroupBy(x => x.ProductId)
+                    .Select(g => new { ProductId = g.Key, Quantity = g.Sum(x => x.Quantity) })
+                    .ToList();
+
+                var productIds = groupedItems.Select(i => i.ProductId).Distinct().ToList();
+
+                // Tối ưu danh sách request trừ kho
+                var requestProducts = groupedItems.Select(i => (i.ProductId, i.Quantity)).ToList();
+
+                var products = await _unitOfWork.ProductRepository.FindByIdsAndAvailableAsync(productIds);
+
+                if (products.Count != productIds.Count)
+                    throw new NotFoundException("Một số sản phẩm không tồn tại hoặc không còn kinh doanh.");
+
+                var productDict = products.ToDictionary(p => p.Id);
+
+                // ================== CẬP NHẬT: ĐƯA TRỪ TỒN KHO BATCH RA NGOÀI VÒNG LẶP ==================
+                var decrementResults = await _unitOfWork.ProductRepository.DecrementStockBatchAsync(requestProducts);
+                var failedIds = decrementResults.Where(r => r.IsUpdated == 0).Select(r => r.ProductId).ToList();
+
+                if (failedIds.Count > 0)
+                {
+                    var failedName = productDict[failedIds[0]].Name;
+                    throw new BadRequestException($"Sản phẩm '{failedName}' hiện không đủ tồn kho");
+                }
+
+                foreach (var item in groupedItems)
+                {
+                    var product = productDict[item.ProductId];
+
+                    subTotal += product.Price * item.Quantity;
+
+                    orderItems.Add(new OrderItem
+                    {
+                        OrderId = orderId,
+                        ProductId = product.Id,
+                        Quantity = item.Quantity,
+                        UnitPrice = product.Price,
+                    });
+
+                    checkoutCommands.Add(new CheckoutItemCommand
+                    {
+                        ProductId = product.Id,
+                        Quantity = item.Quantity,
+                        UnitPrice = product.Price,
+                        CategoryId = product.CategoryId,
+                        BrandId = product.BrandId
+                    });
+                }
+
+                // Tính toán Promotion
+                var codesToProcess = promotionCodes ?? new List<string>();
+
+                var promoResult = await _promotionService.CalculatePromotionAsync(
+                    codesToProcess, checkoutCommands, subTotal, userId, trackingPhone);
+
+                await ProcessPromotionUsages(
+                    orderId, userId, trackingPhone, receiverFullName, promoResult, orderItems, chosenFreeProductIds);
+
+                // TẠO ĐƠN HÀNG VÀ GẮN CỜ NHÂN VIÊN
+                var order = CreateOrderObject(
+                    orderId, userId, deliveryType, subTotal, promoResult.TotalDiscountAmount,
+                    receiverEmail, receiverFullName, shippingAddress, trackingPhone, paidType,
+                    receiverIdentityCard, installmentDurationMonth, notes, orderItems,
+                    createdByStaffId // Truyền ID nhân viên vào Helper tạo Object
+                );
+
+                await _unitOfWork.OrderRepository.AddOrderAsync(order);
+
+                // Tối ưu Query: Không lấy lại Installments từ Database
+                var installmentList = new List<Installment>();
+                if (paidType == PaidType.Installment)
+                {
+                    installmentList = await CreateInstallmentRecords(order, installmentDurationMonth!.Value);
+                }
+
+
+                if (onBeforeSaveAsync != null)
+                {
+                    await onBeforeSaveAsync();
+                }
+
+                // Lưu thay đổi và commit
+                await _unitOfWork.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                var finalOrder = await GetOrderDetailsAsync(orderId);
+                var usageList = await _unitOfWork.PromotionUsageRepository.GetByOrderIdIncludePromotionAsync(orderId);
+
+                return (finalOrder, installmentList, usageList);
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+
+        // ============================== PRIVATE HELPERS ===============================
+        private async Task ProcessPromotionUsages(
+            Guid orderId,
+            Guid? userId,
+            string phone,
+            string fullName,
+            PromotionCalculationResult result,
+            List<OrderItem> orderItems,
+            List<Guid>? chosenFreeProductIds)
+        {
+            // ===== LOAD TẤT CẢ PROMOTION 1 LẦN (TRÁNH N+1) =====
+            var promoIds = result.AppliedPromotions
+                .Select(p => p.PromotionId)
+                .Distinct()
+                .ToList();
+
+            var promotions = await _unitOfWork.PromotionRepository
+                .FindByIdsIncludeAppliedProductsAsync(promoIds);
+
+            var promoDict = promotions.ToDictionary(p => p.Id);
+
+            // ===== LOAD USAGE COUNT 1 LẦN =====
+            Dictionary<Guid, int> usageDict;
+
+            if (userId.HasValue)
+            {
+                usageDict = await _unitOfWork.PromotionUsageRepository
+                    .CountByPromotionIdsAndUserIdAsync(promoIds, userId.Value);
+            }
+            else
+            {
+                usageDict = await _unitOfWork.PromotionUsageRepository
+                    .CountByPromotionIdsAndPhoneAsync(promoIds, phone);
+            }
+
+            // ===== TẠO LIST USAGES (BATCH INSERT) =====
+            var usageList = new List<PromotionUsage>();
+
             foreach (var applied in result.AppliedPromotions)
             {
-                // --- KIỂM TRA GIỚI HẠN DÙNG TRÊN MỖI USER (Usage Limit Per User) ---
-                var promo = await _unitOfWork.PromotionRepository.FindByIdIncludeAppliedProductsAsync(applied.PromotionId)
-                    ?? throw new NotFoundException($"Không tìm thấy thông tin khuyến mãi '{applied.PromotionCode}'.");
+                if (!promoDict.TryGetValue(applied.PromotionId, out var promo))
+                    throw new NotFoundException($"Không tìm thấy khuyến mãi '{applied.PromotionCode}'.");
 
+                // ===== CHECK MAX USAGE PER USER =====
                 if (promo.MaxUsagePerUser.HasValue)
                 {
-                    // Đếm số lần User (hoặc SĐT) này đã dùng mã này trong quá khứ
-                    int userUsageCount = userId.HasValue
-                        ? await _unitOfWork.PromotionUsageRepository.CountByPromotionAndUserIdAsync(applied.PromotionId, userId.Value)
-                        : await _unitOfWork.PromotionUsageRepository.CountByPromotionAndPhoneAsync(applied.PromotionId, phone);
+                    usageDict.TryGetValue(applied.PromotionId, out var usageCount);
 
-                    if (userUsageCount >= promo.MaxUsagePerUser.Value)
-                    {
-                        throw new BadRequestException($"Bạn đã hết lượt sử dụng mã khuyến mãi '{applied.PromotionCode}'.");
-                    }
+                    if (usageCount >= promo.MaxUsagePerUser.Value)
+                        throw new BadRequestException($"Bạn đã hết lượt dùng mã '{applied.PromotionCode}'.");
                 }
 
-                // --- TĂNG LƯỢT DÙNG TỔNG QUÁT (Atomic Update) ---
-                // Sử dụng ExecuteUpdate trực tiếp trong Database để tránh Race Condition
-                var affectedRows = await _unitOfWork.PromotionRepository.IncrementUsageCountIfMaxUsageNotExceed(applied.PromotionId);
+                // ===== ATOMIC SYSTEM USAGE COUNT =====
+                var affectedRows = await _unitOfWork.PromotionRepository
+                    .IncrementUsageCountIfMaxUsageNotExceed(applied.PromotionId);
 
                 if (affectedRows == 0)
-                {
-                    throw new BadRequestException($"Khuyến mãi '{applied.PromotionCode}' đã đạt giới hạn sử dụng tối đa của hệ thống.");
-                }
+                    throw new BadRequestException($"Khuyến mãi '{applied.PromotionCode}' đã đạt giới hạn hệ thống.");
 
-                // --- LƯU LỊCH SỬ SỬ DỤNG (PromotionUsage) ---
-                var usage = new PromotionUsage
+                // ===== CREATE USAGE =====
+                usageList.Add(new PromotionUsage
                 {
                     PromotionId = applied.PromotionId,
                     UserId = userId,
@@ -286,56 +551,54 @@ namespace TechExpress.Service.Services
                     FullName = fullName,
                     Phone = phone,
                     DiscountAmount = applied.DiscountAmount
-                };
-                await _unitOfWork.PromotionUsageRepository.AddAsync(usage);
+                });
             }
 
-            // 2. XỬ LÝ CÁC SẢN PHẨM TẶNG KÈM (Free Items)
+            // ===== INSERT ALL USAGES 1 LẦN =====
+            if (usageList.Any())
+                await _unitOfWork.PromotionUsageRepository.AddRangeAsync(usageList);
+
+            // ===== HANDLE FREE ITEMS =====
             foreach (var freeItem in result.TotalFreeItems)
             {
                 bool shouldAdd = false;
 
-                // Nếu chương trình yêu cầu khách chọn quà tặng cụ thể (ví dụ: Chọn 1 trong 3)
                 if (chosenFreeProductIds != null && chosenFreeProductIds.Any())
                 {
                     if (chosenFreeProductIds.Contains(freeItem.ProductId))
-                    {
                         shouldAdd = true;
-                    }
                 }
                 else
                 {
-                    // Nếu KM là quà tặng cố định (Auto-apply)
                     shouldAdd = true;
                 }
 
                 if (shouldAdd)
                 {
-                    // --- TRỪ KHO SẢN PHẨM TẶNG (Atomic Update) ---
-                    // Rất quan trọng: Sản phẩm tặng cũng cần được kiểm tra tồn kho
-                    var affectedGiftStock = await _unitOfWork.ProductRepository.DecrementStockAtomicAsync(freeItem.ProductId, freeItem.Quantity);
+                    var affectedGiftStock = await _unitOfWork.ProductRepository
+                        .DecrementStockAtomicAsync(freeItem.ProductId, freeItem.Quantity);
 
                     if (affectedGiftStock == 0)
-                    {
-                        throw new BadRequestException($"Sản phẩm quà tặng '{freeItem.ProductId}' vừa hết hàng. Vui lòng chọn món quà khác hoặc gỡ mã khuyến mãi.");
-                    }
+                        throw new BadRequestException("Quà tặng vừa hết hàng.");
 
-                    // Thêm món quà vào đơn hàng với đơn giá là 0đ
                     orderItems.Add(new OrderItem
                     {
                         OrderId = orderId,
                         ProductId = freeItem.ProductId,
                         Quantity = freeItem.Quantity,
-                        UnitPrice = 0 // Đơn giá hàng tặng luôn là 0
+                        UnitPrice = 0
                     });
                 }
             }
         }
 
+
+        // Tạo đối tượng Order từ các tham số đã chuẩn bị
         private Order CreateOrderObject(Guid id, Guid? userId, DeliveryType deliveryType, decimal subTotal, decimal discountAmount,
                                       string? email, string name, string? address, string phone,
                                       PaidType paidType, string? idCard, int? duration, string? notes,
-                                      List<OrderItem> items)
+                                      List<OrderItem> items,
+                                      Guid? createdByStaffId = null) // Bổ sung cờ Nhân viên
         {
             decimal shippingCost = (deliveryType == DeliveryType.Shipping ? 30000 : 0);
             decimal taxableAmount = Math.Max(0, subTotal - discountAmount);
@@ -344,7 +607,8 @@ namespace TechExpress.Service.Services
             return new Order
             {
                 Id = id,
-                UserId = userId,
+                UserId = userId, // Đơn hàng sẽ thuộc về khách
+                CreatedByStaffId = createdByStaffId, // Lưu lại lịch sử nhân viên nào thao tác tạo giúp
                 DeliveryType = deliveryType,
                 SubTotal = subTotal,
                 ShippingCost = shippingCost,
@@ -368,18 +632,26 @@ namespace TechExpress.Service.Services
         private async Task<List<Installment>> CreateInstallmentRecords(Order order, int duration)
         {
             var installments = new List<Installment>();
+
             decimal totalPrice = order.TotalPrice;
             decimal firstMonthAmount = Math.Round(totalPrice * 0.20m, 0);
             decimal remainingTotal = totalPrice - firstMonthAmount;
             decimal monthlyAmountForRest = Math.Round(remainingTotal / (duration - 1), 0);
+
             decimal allocatedTotal = 0;
 
             for (int i = 1; i <= duration; i++)
             {
-                decimal currentAmount = (i == 1) ? firstMonthAmount : (i == duration ? totalPrice - allocatedTotal : monthlyAmountForRest);
+                decimal currentAmount =
+                    (i == 1)
+                        ? firstMonthAmount
+                        : (i == duration
+                            ? totalPrice - allocatedTotal
+                            : monthlyAmountForRest);
+
                 allocatedTotal += currentAmount;
 
-                var installment = new Installment
+                installments.Add(new Installment
                 {
                     Id = Guid.NewGuid(),
                     OrderId = order.Id,
@@ -387,10 +659,12 @@ namespace TechExpress.Service.Services
                     Amount = currentAmount,
                     Status = InstallmentStatus.Pending,
                     DueDate = DateTimeOffset.Now.AddMonths(i)
-                };
-                await _unitOfWork.InstallmentRepository.AddAsync(installment);
-                installments.Add(installment);
+                });
             }
+
+            // ===== INSERT BATCH =====
+            await _unitOfWork.InstallmentRepository.AddRangeAsync(installments);
+
             return installments;
         }
 
@@ -408,7 +682,6 @@ namespace TechExpress.Service.Services
             }
             else if (duration.HasValue) throw new BadRequestException("Không chọn kỳ hạn cho trả thẳng.");
         }
-
 
         // ============================== LIST ORDERS ===============================
         public async Task<Pagination<Order>> HandleGetOrderListWithPaginationAsync(
