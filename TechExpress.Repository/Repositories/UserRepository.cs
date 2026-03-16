@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.OutputCaching;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -166,6 +166,21 @@ namespace TechExpress.Repository.Repositories
         public async Task<int> CountCustomerUsersAsync()
         {
             return await _context.Users.Where(u => u.Role == UserRole.Customer).CountAsync();
+        }
+
+        public async Task<List<User>> FindAllCustomersAsync()
+        {
+            return await _context.Users
+                .Where(u => u.Role == UserRole.Customer)
+                .OrderByDescending(c => c.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<List<User>> FindAdminUsersAsync()
+        {
+            return await _context.Users
+                .Where(u => u.Role == UserRole.Admin && u.Status == UserStatus.Active)
+                .ToListAsync();
         }
     }
 }

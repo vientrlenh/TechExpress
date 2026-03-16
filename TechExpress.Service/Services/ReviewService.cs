@@ -17,11 +17,13 @@ namespace TechExpress.Service.Services
     {
         private readonly UnitOfWork _unitOfWork;
         private readonly UserContext _userContext;
+        private readonly NotificationHelper _notificationHelper;
 
-        public ReviewService(UnitOfWork unitOfWork, UserContext userContext)
+        public ReviewService(UnitOfWork unitOfWork, UserContext userContext, NotificationHelper notificationHelper)
         {
             _unitOfWork = unitOfWork;
             _userContext = userContext;
+            _notificationHelper = notificationHelper;
         }
 
         // =========================
@@ -125,6 +127,22 @@ namespace TechExpress.Service.Services
 
             await _unitOfWork.ReviewRepository.AddAsync(review);
             await _unitOfWork.SaveChangesAsync();
+
+            // Tạo notification cho tất cả admin users khi có review mới
+            var admins = await _unitOfWork.UserRepository.FindAdminUsersAsync();
+            if (admins.Any())
+            {
+                foreach (var admin in admins)
+                {
+                    await _notificationHelper.CreateNewReviewNotificationAsync(
+                        admin.Id,
+                        productId,
+                        (await _unitOfWork.ProductRepository.FindByIdAsync(productId))?.Name ?? "Sản phẩm",
+                        resolvedFullName ?? "Khách vãng lai"
+                    );
+                }
+                await _unitOfWork.SaveChangesAsync();
+            }
 
             return review;
         }

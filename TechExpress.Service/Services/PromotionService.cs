@@ -12,10 +12,12 @@ namespace TechExpress.Service.Services;
 public class PromotionService
 {
     private readonly UnitOfWork _unitOfWork;
+    private readonly NotificationHelper _notificationHelper;
 
-    public PromotionService(UnitOfWork unitOfWork)
+    public PromotionService(UnitOfWork unitOfWork, NotificationHelper notificationHelper)
     {
         _unitOfWork = unitOfWork;
+        _notificationHelper = notificationHelper;
     }
 
     public async Task<Promotion> HandleCreatePromotion(
@@ -73,6 +75,12 @@ public class PromotionService
 
         await _unitOfWork.PromotionRepository.AddAsync(promotion);
         await _unitOfWork.SaveChangesAsync();
+
+        // Gửi thông báo khuyến mãi cho tất cả khách hàng
+        await _notificationHelper.CreatePromotionNotificationForAllCustomersAsync(
+            promotion.Id,
+            promotion.Code ?? string.Empty,
+            promotion.Name);
 
         Promotion newPromotion = await _unitOfWork.PromotionRepository.FindByIdIncludeRequiredProductsIncludeFreeProductsIncludeAppliedProductsWithSplitQueryAsync(promotion.Id) ?? throw new NotFoundException($"Không tìm thấy khuyến mãi {promotion.Id}");
         return newPromotion;

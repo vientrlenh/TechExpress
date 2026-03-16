@@ -20,12 +20,14 @@ namespace TechExpress.Service.Services
         private readonly UnitOfWork _unitOfWork;
         private readonly UserContext _userContext;
         private readonly PromotionService _promotionService;
+        private readonly NotificationHelper _notificationHelper;
 
-        public OrderService(UnitOfWork unitOfWork, UserContext userContext, PromotionService promotionService)
+        public OrderService(UnitOfWork unitOfWork, UserContext userContext, PromotionService promotionService, NotificationHelper notificationHelper)
         {
             _unitOfWork = unitOfWork;
             _userContext = userContext;
             _promotionService = promotionService;
+            _notificationHelper = notificationHelper;
         }
 
         // ============================== GUEST CHECKOUT ===============================
@@ -96,10 +98,18 @@ namespace TechExpress.Service.Services
                         throw new BadRequestException($"Sản phẩm ${failedName} hiện không đủ tồn kho");
                     }
 
+
                     foreach (var item in groupedItems)
                     {
                         if (!productDict.TryGetValue(item.ProductId, out var product))
                             throw new NotFoundException($"Sản phẩm không tồn tại.");
+
+                        // Kiểm tra nếu stock = 0 thì gửi notification cho admin
+                        var updatedProduct = await _unitOfWork.ProductRepository.FindByIdAsync(item.ProductId);
+                        if (updatedProduct != null && updatedProduct.Stock == 0)
+                        {
+                            await _notificationHelper.CreateStockAlertNotificationAsync(item.ProductId, updatedProduct.Name);
+                        }
 
                         subTotal += product.Price * item.Quantity;
 
@@ -314,6 +324,13 @@ namespace TechExpress.Service.Services
 
                         if (affectedRows == 0)
                             throw new BadRequestException($"Sản phẩm '{product.Name}' vừa hết hàng.");
+
+                        // Kiểm tra nếu stock = 0 thì gửi notification cho admin
+                        var updatedProduct = await _unitOfWork.ProductRepository.FindByIdAsync(cartItem.ProductId);
+                        if (updatedProduct != null && updatedProduct.Stock == 0)
+                        {
+                            await _notificationHelper.CreateStockAlertNotificationAsync(cartItem.ProductId, updatedProduct.Name);
+                        }
 
                         subTotal += product.Price * cartItem.Quantity;
 
@@ -709,6 +726,13 @@ namespace TechExpress.Service.Services
 
             await _unitOfWork.SaveChangesAsync();
 
+            // Tạo notification khi order status thay đổi
+            if (order.UserId.HasValue)
+            {
+                await _notificationHelper.CreateOrderNotificationAsync(order.UserId.Value, order.Id, order.Status);
+                await _unitOfWork.SaveChangesAsync();
+            }
+
             return order;
         }
 
@@ -762,6 +786,14 @@ namespace TechExpress.Service.Services
                     trackedOrder.Status = OrderStatus.Canceled;
 
                     await _unitOfWork.SaveChangesAsync();
+
+                    // Tạo notification khi order bị hủy
+                    if (trackedOrder.UserId.HasValue)
+                    {
+                        await _notificationHelper.CreateOrderNotificationAsync(trackedOrder.UserId.Value, orderId, OrderStatus.Canceled);
+                        await _unitOfWork.SaveChangesAsync();
+                    }
+
                     await transaction.CommitAsync();
 
                     return trackedOrder;

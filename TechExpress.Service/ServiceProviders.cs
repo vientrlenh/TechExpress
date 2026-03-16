@@ -33,27 +33,32 @@ namespace TechExpress.Service
         public PromotionService PromotionService { get; }
         public CustomPCService CustomPCService { get; }
         public ChatService ChatService { get; }
+        public NotificationService NotificationService { get; }
+        public UnitOfWork UnitOfWork { get; }
+        public NotificationHelper NotificationHelper { get; }
 
-
-        public ServiceProviders(UnitOfWork unitOfWork, PayOsClient payOsClient, RedisUtils redisUtils, SmtpEmailSender emailSender, JwtUtils jwtUtils, UserContext userContext, OtpUtils otpUtils, GoogleAuthUtils googleAuthUtils, IConnectionMultiplexer redis, ChatAiService chatAiService)
+        public ServiceProviders(UnitOfWork unitOfWork, PayOsClient payOsClient, RedisUtils redisUtils, SmtpEmailSender emailSender, JwtUtils jwtUtils, UserContext userContext, OtpUtils otpUtils, GoogleAuthUtils googleAuthUtils, IConnectionMultiplexer redis, ChatAiService chatAiService, NotificationHelper notificationHelper)
         {
+            UnitOfWork = unitOfWork;
+            NotificationHelper = notificationHelper;
             AuthService = new AuthService(unitOfWork, jwtUtils, userContext, otpUtils, emailSender, googleAuthUtils);
             UserService = new UserService(unitOfWork, userContext, redis);
-            ProductService = new ProductService(unitOfWork);
+            ProductService = new ProductService(unitOfWork, NotificationHelper);
             PCComponentCompatibilityService = new PCComponentCompatibilityService(unitOfWork);
             CategoryService = new CategoryService(unitOfWork);
             SpecDefinitionService = new SpecDefinitionService(unitOfWork);
             BrandService = new BrandService(unitOfWork);
             CartService = new CartService(unitOfWork);
-            PaymentService = new PaymentService(unitOfWork, redisUtils, payOsClient);
+            PaymentService = new PaymentService(unitOfWork, redisUtils, payOsClient, NotificationHelper);
             InstallmentService = new InstallmentService(unitOfWork);
             ComputerCompatibilityService = new ComputerCompatibilityService(unitOfWork);
             ProductPCService = new ProductPCService(unitOfWork, ProductService, ComputerCompatibilityService);
-            ReviewService = new ReviewService(unitOfWork, userContext);
-            PromotionService = new PromotionService(unitOfWork);
+            ReviewService = new ReviewService(unitOfWork, userContext, NotificationHelper);
+            PromotionService = new PromotionService(unitOfWork, NotificationHelper);
             CustomPCService = new CustomPCService(unitOfWork);
-            OrderService = new OrderService(unitOfWork, userContext, PromotionService);
+            OrderService = new OrderService(unitOfWork, userContext, PromotionService, NotificationHelper);
             ChatService = new ChatService(unitOfWork, chatAiService);
+            NotificationService = new NotificationService(unitOfWork);
         }
     }
 }

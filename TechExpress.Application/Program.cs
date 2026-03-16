@@ -106,6 +106,7 @@ builder.Services.AddScoped<UnitOfWork>();
 builder.Services.AddScoped<SmtpEmailSender>();
 builder.Services.AddScoped<PayOsClient>();
 builder.Services.AddScoped<GoogleAuthUtils>();
+builder.Services.AddScoped<NotificationHelper>();
 
 
 
@@ -310,5 +311,6 @@ using (var scope = app.Services.CreateScope())
 
 app.MapHub<CartHub>("/cartHub");
 app.MapHub<ChatHub>("/chatHub");
+app.MapHub<NotificationHub>("/notificationHub");
 
 app.Run();
