@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using System.Runtime.InteropServices;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
@@ -375,7 +376,6 @@ namespace TechExpress.Application.Controllers
         }
 
 
-
         /// <summary>
         /// Lấy chi tiết đơn hàng: đầy đủ thuộc tính Order
         /// </summary>
@@ -392,27 +392,65 @@ namespace TechExpress.Application.Controllers
             return Ok(ApiResponse<OrderDetailResponse>.OkResponse(response));
         }
 
-        /// <summary>
-        /// Cập nhật trạng thái đơn hàng theo luồng nghiệp vụ.
-        /// Luồng Shipping: Confirmed → Processing → Shipping → Delivered → Completed/Installing
-        /// Luồng PickUp: Confirmed → Processing → ReadyForPickup → PickedUp → Completed/Installing
-        /// </summary>
-        [HttpPut("{orderId:guid}/status")]
-        [Authorize(Roles = "Admin,Staff,Customer")]
-        [ProducesResponseType(typeof(ApiResponse<OrderResponse>), StatusCodes.Status200OK)]
-        [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status400BadRequest)]
-        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> UpdateOrderStatus(
-            [FromRoute] Guid orderId,
-            [FromBody] UpdateOrderStatusRequest request)
-        {
-            var order = await _serviceProvider.OrderService
-                    .HandleUpdateOrderStatusAsync(orderId, request.Status, request.DeliveredById, request.CourierService, request.CourierTrackingCode);
 
-            var response = ResponseMapper.MapToOrderResponseFromOrder(order);
-            return Ok(ApiResponse<OrderResponse>.OkResponse(response));
+        [HttpGet("{orderId}/process")]
+        [Authorize(Roles = "Admin, Staff")]
+        public async Task<IActionResult> ProcessOrder([FromRoute] Guid orderId)
+        {
+            var (order, installments, payments) = await _serviceProvider.OrderService.HandleProcessOrder(orderId);
+            var response = ResponseMapper.MapToOrderDetailResponseFromOrder(order, installments, payments);
+            return Ok(ApiResponse<OrderDetailResponse>.OkResponse(response));
         }
+
+        [HttpGet("{orderId}/deliver")]
+        [Authorize(Roles = "Staff")]
+        public async Task<IActionResult> DeliverOrder([FromRoute] Guid orderId, [FromBody] DeliverOrderInformationRequest request)
+        {
+            var staffId = _userContext.GetCurrentAuthenticatedUserId();
+            var (order, installments, payments) = await _serviceProvider.OrderService.HandleDeliverOrder(orderId, staffId, request.CourierService, request.CourierTrackingCode, request.IsSelfDeliver);
+            var response = ResponseMapper.MapToOrderDetailResponseFromOrder(order, installments, payments);
+            return Ok(ApiResponse<OrderDetailResponse>.OkResponse(response));
+        }
+
+        [HttpGet("{orderId}/delivered")]
+        [Authorize(Roles = "Staff")]
+        public async Task<IActionResult> CompleteDeliverOrder([FromRoute] Guid orderId)
+        {
+            var staffId = _userContext.GetCurrentAuthenticatedUserId();
+            var (order, installments, payments) = await _serviceProvider.OrderService.HandleCompleteDeliverOrder(orderId, staffId);
+            var response = ResponseMapper.MapToOrderDetailResponseFromOrder(order, installments, payments);
+            return Ok(ApiResponse<OrderDetailResponse>.OkResponse(response));
+        }
+
+        [HttpGet("{orderId}/ready-to-pickup")]
+        [Authorize(Roles = "Admin, Staff")]
+        public async Task<IActionResult> MarkOrderAsReadyForPickUp([FromRoute] Guid orderId)
+        {
+            var (order, installments, payments) = await _serviceProvider.OrderService.HandleMarkOrderAsReadyForPickUp(orderId);
+            var response = ResponseMapper.MapToOrderDetailResponseFromOrder(order, installments, payments);
+            return Ok(ApiResponse<OrderDetailResponse>.OkResponse(response));
+        }
+
+        [HttpGet("{orderId}/picked-up")]
+        [Authorize(Roles = "Admin, Staff")]
+        public async Task<IActionResult> CompletePickUpOrder([FromRoute] Guid orderId)
+        {
+            var (order, installments, payments) = await _serviceProvider.OrderService.HandleCompletePickUpOrder(orderId);
+            var response = ResponseMapper.MapToOrderDetailResponseFromOrder(order, installments, payments);
+            return Ok(ApiResponse<OrderDetailResponse>.OkResponse(response));
+        }
+
+        
+        [HttpGet("{orderId}/completed")]
+        [Authorize]
+        public async Task<IActionResult> CompleteOrder([FromRoute] Guid orderId)
+        {
+            var userId = _userContext.GetCurrentAuthenticatedUserId();
+            var (order, installments, payments) = await _serviceProvider.OrderService.HandleCompleteOrder(orderId, userId);
+            var response = ResponseMapper.MapToOrderDetailResponseFromOrder(order, installments, payments);
+            return Ok(ApiResponse<OrderDetailResponse>.OkResponse(response));
+        }
+
 
         /// <summary>
         /// Hủy đơn hàng. Chỉ có thể hủy trước trạng thái Processing.

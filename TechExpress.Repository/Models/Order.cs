@@ -48,8 +48,6 @@ public class Order
 
     public string? CourierTrackingCode { get; set; }
 
-    public DateTimeOffset? DeliveredAt { get; set; }
-
     public DateTimeOffset? ReceivedAt { get; set; }
 
     public required OrderStatus Status { get; set; }

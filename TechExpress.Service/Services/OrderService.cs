@@ -756,93 +756,151 @@ namespace TechExpress.Service.Services
 
         public async Task<Order> GetOrderDetailsAsync(Guid orderId)
         {
-            var order = await _unitOfWork.OrderRepository.GetOrderByIdAsync(orderId)
+            var order = await _unitOfWork.OrderRepository.FindByIdIncludeItemsThenIncludeProductWithSplitQueryAsync(orderId)
                 ?? throw new NotFoundException("Không tìm thấy đơn hàng này.");
-
             return order;
         }
 
-        // ============================== UPDATE ORDER STATUS ===============================
-
-        /// <summary>
-        /// Cập nhật trạng thái đơn hàng theo luồng nghiệp vụ.
-        /// - Processing → Shipping: bắt buộc cung cấp DeliveredById (tự vận chuyển) HOẶC CourierService (bên thứ 3).
-        /// - Shipping → Delivered: nếu tự vận chuyển, chỉ nhân viên được phân công (hoặc Admin) mới được cập nhật.
-        /// - Delivered → Completed/Installing: set ReceivedAt = now (bảo hành bắt đầu).
-        /// </summary>
-        public async Task<Order> HandleUpdateOrderStatusAsync(
-            Guid orderId,
-            OrderStatus newStatus,
-            Guid? deliveredById = null,
-            string? courierService = null,
-            string? courierTrackingCode = null)
+        public async Task<(Order, List<Installment>, List<Payment>)> HandleProcessOrder(Guid orderId)
         {
-            var order = await _unitOfWork.OrderRepository.FindByIdWithTrackingAsync(orderId)
-                ?? throw new NotFoundException("Không tìm thấy đơn hàng.");
-
-            ValidateStatusTransition(order, newStatus);
-
-            var currentUserId = _userContext.GetCurrentAuthenticatedUserId();
-            var currentUserRole = _userContext.GetCurrentUserRole();
-
-            // === Processing → Shipping: gán thông tin vận chuyển ===
-            if (order.Status == OrderStatus.Processing && newStatus == OrderStatus.Shipping)
+            var order = await _unitOfWork.OrderRepository.FindByIdWithTrackingAsync(orderId) ?? throw new NotFoundException($"Không tìm thấy đơn hàng {orderId}");
+            if (order.Status is not OrderStatus.Confirmed)
             {
-                bool hasSelfDelivery = deliveredById.HasValue;
-                bool hasThirdParty = !string.IsNullOrWhiteSpace(courierService);
+                throw new BadRequestException("Trạng thái của đơn hàng hiện tại không hợp lệ để thực hiện đóng gói");
+            }
+            order.Status = OrderStatus.Processing;
+            await _unitOfWork.SaveChangesAsync();
 
-                if (!hasSelfDelivery && !hasThirdParty)
-                    throw new BadRequestException("Cần chỉ định nhân viên tự vận chuyển (DeliveredById) hoặc dịch vụ vận chuyển bên thứ 3 (CourierService).");
+            var (updatedOrder, installments, payments) = await HandleGetOrderDetailAsync(orderId);
+            return (updatedOrder, installments, payments);
+        }
 
-                if (hasSelfDelivery && hasThirdParty)
-                    throw new BadRequestException("Chỉ được chọn một trong hai: nhân viên tự vận chuyển hoặc dịch vụ vận chuyển bên thứ 3.");
-
-                order.DeliveredById = deliveredById;
+        public async Task<(Order, List<Installment>, List<Payment>)> HandleDeliverOrder(Guid orderId, Guid staffId, string? courierService, string? courierTrackingCode, bool isSelfDeliver)
+        {
+            var order = await _unitOfWork.OrderRepository.FindByIdWithTrackingAsync(orderId) ?? throw new NotFoundException("Không tìm thấy đơn hàng");
+            if (order.DeliveryType is not DeliveryType.Shipping)
+            {
+                throw new BadRequestException("Đơn hàng không phải thuộc loại vận chuyển");
+            }
+            if (order.Status is not OrderStatus.Processing)
+            {
+                throw new BadRequestException("Trạng thái của đơn hàng hiện tại không hợp lệ để thực hiện vận chuyển");
+            }
+            if (!isSelfDeliver)
+            {
+                if (courierService is null || courierTrackingCode is null)
+                {
+                    throw new BadRequestException("Đơn hàng bắt buộc nhập thông tin của bên vận chuyển");
+                }
                 order.CourierService = courierService;
                 order.CourierTrackingCode = courierTrackingCode;
             }
-
-            // === Shipping → Delivered: kiểm tra quyền vận chuyển ===
-            if (order.Status == OrderStatus.Shipping && newStatus == OrderStatus.Delivered)
+            else
             {
-                // Nếu là tự vận chuyển (có DeliveredById): chỉ nhân viên được phân công hoặc Admin mới được cập nhật
-                if (order.DeliveredById.HasValue
-                    && order.DeliveredById.Value != currentUserId
-                    && currentUserRole != UserRole.Admin)
+                order.DeliveredById = staffId;
+            }
+            order.Status = OrderStatus.Shipping;
+            await _unitOfWork.SaveChangesAsync();
+            var (updatedOrder, installments, payments) = await HandleGetOrderDetailAsync(orderId);
+            return (updatedOrder, installments, payments);
+        }
+
+        
+        public async Task<(Order, List<Installment>, List<Payment>)> HandleCompleteDeliverOrder(Guid orderId, Guid staffId)
+        {
+            var order = await _unitOfWork.OrderRepository.FindByIdWithTrackingAsync(orderId) ?? throw new NotFoundException("Không tìm thấy đơn hàng");
+            if (order.DeliveryType is not DeliveryType.Shipping)
+            {
+                throw new BadRequestException("Đơn hàng không phải thuộc loại vận chuyển");
+            }
+            if (order.Status is not OrderStatus.Shipping)
+            {
+                throw new BadRequestException("Trạng thái của đơn hàng hiện tại không hợp lệ để thực hiện vận chuyển");
+            }
+            if (order.DeliveredById is not null && order.DeliveredById != staffId)
+            {
+                throw new ForbiddenException("Bạn không có quyền thực hiện hoàn thành vận chuyển đơn hàng này");
+            }
+            order.Status = OrderStatus.Delivered;
+            order.ReceivedAt = DateTimeOffset.Now;
+            await _unitOfWork.SaveChangesAsync();
+            var (updatedOrder, installments, payments) = await HandleGetOrderDetailAsync(orderId);
+            return (updatedOrder, installments, payments);
+        }
+
+
+        public async Task<(Order, List<Installment>, List<Payment>)> HandleMarkOrderAsReadyForPickUp(Guid orderId)
+        {
+            var order = await _unitOfWork.OrderRepository.FindByIdWithTrackingAsync(orderId) ?? throw new NotFoundException("Không tìm thấy đơn hàng");
+            if (order.DeliveryType is not DeliveryType.PickUp)
+            {
+                throw new BadRequestException("Đơn hàng không phải thuộc loại nhận trực tiếp tại quầy");
+            }
+            if (order.Status is not OrderStatus.Processing)
+            {
+                throw new BadRequestException("Đơn hàng hiện tại không ở trạng thái để thực hiện việc chuyển đổi trạng thái sang chuẩn bị nhận tại quầy");
+            }
+            order.Status = OrderStatus.ReadyForPickup;
+            await _unitOfWork.SaveChangesAsync();
+            var (updatedOrder, installments, payments) = await HandleGetOrderDetailAsync(orderId);
+            return (updatedOrder, installments, payments);
+        }
+
+
+        public async Task<(Order, List<Installment>, List<Payment>)> HandleCompletePickUpOrder(Guid orderId)
+        {
+            var order = await _unitOfWork.OrderRepository.FindByIdWithTrackingAsync(orderId) ?? throw new NotFoundException("Không tìm thấy đơn hàng");
+            if (order.DeliveryType is not DeliveryType.PickUp)
+            {
+                throw new BadRequestException("Đơn hàng không phải thuộc loại nhận trực tiếp tại quầy");
+            }
+            if (order.Status is not OrderStatus.ReadyForPickup)
+            {
+                throw new BadRequestException("Đơn hàng hiện tại không ở trạng thái để thực hiện việc chuyển đổi trạng thái sang đã nhận tại quầy");
+            }
+            order.Status = OrderStatus.PickedUp;
+            order.ReceivedAt = DateTimeOffset.Now;
+            await _unitOfWork.SaveChangesAsync();
+            var (updatedOrder, installments, payments) = await HandleGetOrderDetailAsync(orderId);
+            return (updatedOrder, installments, payments);
+        }
+
+
+        public async Task<(Order, List<Installment>, List<Payment>)> HandleCompleteOrder(Guid orderId, Guid userId)
+        {
+            var order = await _unitOfWork.OrderRepository.FindByIdWithTrackingAsync(orderId) ?? throw new NotFoundException("Không tìm thấy đơn hàng");
+            if (order.Status is not OrderStatus.Delivered && order.Status is not OrderStatus.PickedUp)
+            {
+                throw new BadRequestException("Đơn hàng hiện tại chưa thể hoàn thành");
+            }
+            var user = await _unitOfWork.UserRepository.FindUserByIdAsync(userId) ?? throw new NotFoundException("Không tìm thấy người dùng đang đăng nhập");
+            if (order.DeliveryType is DeliveryType.Shipping)
+            {
+                if (order.UserId is not null)
                 {
-                    throw new ForbiddenException("Chỉ nhân viên được phân công mới có thể cập nhật trạng thái giao hàng này.");
+                    if (order.UserId != userId) throw new ForbiddenException("Bạn không có quyền thực hiện hoàn thành đơn hàng này");
                 }
-
-                order.DeliveredAt = DateTimeOffset.Now;
-            }
-
-            // === ReadyForPickup → PickedUp: khách đã đến lấy, bắt đầu đếm ngược 3 ngày ===
-            if (order.Status == OrderStatus.ReadyForPickup && newStatus == OrderStatus.PickedUp)
-            {
-                order.DeliveredAt = DateTimeOffset.Now;
-            }
-
-            // === Delivered/PickedUp → Completed/Installing: set ReceivedAt (bảo hành bắt đầu) ===
-            if ((order.Status == OrderStatus.Delivered || order.Status == OrderStatus.PickedUp)
-                && (newStatus == OrderStatus.Completed || newStatus == OrderStatus.Installing))
-            {
-                order.ReceivedAt = DateTimeOffset.Now;
-            }
-
-            if (newStatus == OrderStatus.Completed || newStatus == OrderStatus.Installing)
-            {
-                order.Status = order.PaidType == PaidType.Installment
-                    ? OrderStatus.Installing
-                    : OrderStatus.Completed;
+                else
+                {
+                    if (user.IsCustomerUser()) throw new ForbiddenException("Chỉ có quản trị viên hoặc nhân viên mới có thể hoàn thành đơn hàng này");
+                }
             }
             else
             {
-                order.Status = newStatus;
+                if (order.UserId is not null)
+                {
+                    if (user.IsCustomerUser() && order.UserId != userId) throw new ForbiddenException("Bạn không có quyền thực hiện hoàn thành trên đơn hàng này");
+                }
+                else
+                {
+                    if (user.IsCustomerUser()) throw new ForbiddenException("Chỉ có quản trị viên hoặc nhân viên mới có thể hoàn thành đơn hàng này");
+                }
+
             }
-
+            order.Status = OrderStatus.Completed;
             await _unitOfWork.SaveChangesAsync();
-
-            return order;
+            var (updatedOrder, installments, payments) = await HandleGetOrderDetailAsync(orderId);
+            return (updatedOrder, installments, payments);
         }
 
         /// <summary>
@@ -855,7 +913,7 @@ namespace TechExpress.Service.Services
 
             return await strategy.ExecuteAsync(async () =>
             {
-                using var transaction = await _unitOfWork.BeginTransactionAsync();
+                await using var transaction = await _unitOfWork.BeginTransactionAsync();
                 try
                 {
                     var order = await _unitOfWork.OrderRepository.FindByIdIncludeDetailsAsync(orderId)
@@ -907,43 +965,5 @@ namespace TechExpress.Service.Services
             });
         }
 
-        /// <summary>
-        /// Kiểm tra chuyển trạng thái hợp lệ theo luồng nghiệp vụ.
-        /// </summary>
-        private void ValidateStatusTransition(Order order, OrderStatus newStatus)
-        {
-            var currentStatus = order.Status;
-
-            bool isValid = (currentStatus, newStatus, order.DeliveryType) switch
-            {
-                // Confirmed → Processing (nhân viên đóng gói)
-                (OrderStatus.Confirmed, OrderStatus.Processing, _) => true,
-
-                // === SHIPPING FLOW ===
-                // Processing → Shipping (nhân viên giao hàng tiếp nhận)
-                (OrderStatus.Processing, OrderStatus.Shipping, DeliveryType.Shipping) => true,
-                // Shipping → Delivered (giao hàng thành công)
-                (OrderStatus.Shipping, OrderStatus.Delivered, DeliveryType.Shipping) => true,
-                // Delivered → Completed/Installing (khách hàng xác nhận)
-                (OrderStatus.Delivered, OrderStatus.Completed, DeliveryType.Shipping) => true,
-                (OrderStatus.Delivered, OrderStatus.Installing, DeliveryType.Shipping) => true,
-
-                // === PICKUP FLOW ===
-                // Processing → ReadyForPickup (đơn hàng sẵn sàng)
-                (OrderStatus.Processing, OrderStatus.ReadyForPickup, DeliveryType.PickUp) => true,
-                // ReadyForPickup → PickedUp (khách đến nhận)
-                (OrderStatus.ReadyForPickup, OrderStatus.PickedUp, DeliveryType.PickUp) => true,
-                // PickedUp → Completed/Installing (nhân viên xác nhận hoàn thành)
-                (OrderStatus.PickedUp, OrderStatus.Completed, DeliveryType.PickUp) => true,
-                (OrderStatus.PickedUp, OrderStatus.Installing, DeliveryType.PickUp) => true,
-
-                _ => false
-            };
-
-            if (!isValid)
-                throw new BadRequestException(
-                    $"Không thể chuyển trạng thái từ '{currentStatus}' sang '{newStatus}' " +
-                    $"cho đơn hàng loại '{order.DeliveryType}'.");
-        }
     }
 }

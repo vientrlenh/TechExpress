@@ -28,11 +28,12 @@ namespace TechExpress.Repository.Repositories
             return await _context.Tickets
                 .AsNoTracking()
                 .Include(t => t.OrderItem)
-                    .ThenInclude(oi => oi.Order)
+                    .ThenInclude(oi => oi!.Order)
                 .Include(t => t.OrderItem)
-                    .ThenInclude(oi => oi.Product)
+                    .ThenInclude(oi => oi!.Product)
                 .FirstOrDefaultAsync(t => t.Id == ticketId);
         }
+
     public async Task<Ticket?> FindByIdIncludeMessagesWithAttachmentsAsync(Guid id)
     {
         return await _context.Tickets

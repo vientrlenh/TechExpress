@@ -33,8 +33,12 @@ public class ChangePromotionStatusWorker : BackgroundService
                 {
                     var now = DateTimeOffset.Now;
                     var startAndEndPromotions = await unitOfWork.PromotionRepository.FindAllStartAndEndPromotionsWithTrackingAsync(now);
+
                     var startPromotions = startAndEndPromotions.Where(p => p.StartDate <= now && p.EndDate > now && !p.IsActive).ToList();
+                    var startPromotionCount = startPromotions.Count;
+
                     var endPromotions = startAndEndPromotions.Where(p => p.EndDate < now && p.IsActive).ToList();
+                    var endPromotionCount = endPromotions.Count;
 
                     foreach (var start in startPromotions)
                     {
@@ -47,6 +51,14 @@ public class ChangePromotionStatusWorker : BackgroundService
                         end.UpdatedAt = DateTimeOffset.Now;
                     }
                     await unitOfWork.SaveChangesAsync();
+                    if (startPromotionCount > 0)
+                    {
+                        _logger.LogInformation("Change promotion status worker has enabled {Count} promotion(s)", startPromotionCount);
+                    }
+                    if (endPromotionCount > 0)
+                    {
+                        _logger.LogInformation("Change promotion status worker has disabled {Count} promotion(s)", endPromotionCount);
+                    }
                 });
             }
             catch (Exception ex)
