@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -51,13 +51,6 @@ namespace TechExpress.Service.Services
                 if (string.IsNullOrWhiteSpace(trackingPhone))
                     throw new BadRequestException("Số điện thoại liên lạc là bắt buộc.");
 
-                await using var transaction = await _unitOfWork.BeginTransactionAsync();
-                try
-                {
-                    var orderId = Guid.NewGuid();
-                    var orderItems = new List<OrderItem>();
-                    var checkoutCommands = new List<CheckoutItemCommand>();
-                    decimal subTotal = 0;
                 // Sử dụng Hàm Helper Dùng Chung
                 return await ExecuteCoreCheckoutInTransactionAsync(
                     userId: null,
@@ -302,6 +295,7 @@ namespace TechExpress.Service.Services
                 {
                     customer = await _unitOfWork.UserRepository.FindUserByIdWithTrackingAsync(customPC.UserId.Value);
                 }
+
                 // Xử lý thông tin người nhận (Ưu tiên dữ liệu Request -> Dữ liệu Khách hàng -> Mặc định)
                 var finalFullName = !string.IsNullOrWhiteSpace(receiverFullName)
                     ? receiverFullName
