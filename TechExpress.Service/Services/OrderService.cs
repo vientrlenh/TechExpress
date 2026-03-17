@@ -830,15 +830,6 @@ namespace TechExpress.Service.Services
             return (updatedOrder, installments, payments);
         }
 
-            // Tạo notification khi order status thay đổi
-            if (order.UserId.HasValue)
-            {
-                await _notificationHelper.CreateOrderNotificationAsync(order.UserId.Value, order.Id, order.Status);
-                await _unitOfWork.SaveChangesAsync();
-            }
-
-            return order;
-
         public async Task<(Order, List<Installment>, List<Payment>)> HandleMarkOrderAsReadyForPickUp(Guid orderId)
         {
             var order = await _unitOfWork.OrderRepository.FindByIdWithTrackingAsync(orderId) ?? throw new NotFoundException("Không tìm thấy đơn hàng");

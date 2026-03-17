@@ -1002,7 +1002,7 @@ public class ResponseMapper
             .Select(MapToNotificationResponseFromNotification)
             .ToList();
     }
-}
+
 // FROM MAIN BRANCH
     public static PromotionDetailResponse MapToPromotionDetailResponseFromPromotion(Promotion promotion)
     {
@@ -1146,21 +1146,6 @@ public class ResponseMapper
             ticket.ResolvedAt,
             ticket.ClosedAt,
             ticket.UpdatedAt
-        );
-    }
-
-    public static NotificationResponse MapToNotificationResponse(Notification notification)
-    {
-        return new NotificationResponse(
-            notification.Id,
-            notification.UserId,
-            notification.Type.ToString(),
-            notification.Title,
-            notification.Message,
-            notification.ReferenceId,
-            notification.ReferenceType?.ToString(),
-            notification.IsRead,
-            notification.CreatedAt
         );
     }
 }

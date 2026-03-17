@@ -46,7 +46,7 @@ namespace TechExpress.Service
             NotificationHelper = notificationHelper;
             AuthService = new AuthService(unitOfWork, jwtUtils, userContext, otpUtils, emailSender, googleAuthUtils);
             UserService = new UserService(unitOfWork, userContext, redis);
-            ProductService = new ProductService(unitOfWork, NotificationHelper);
+            ProductService = new ProductService(unitOfWork);
             PCComponentCompatibilityService = new PCComponentCompatibilityService(unitOfWork);
             CategoryService = new CategoryService(unitOfWork);
             SpecDefinitionService = new SpecDefinitionService(unitOfWork);

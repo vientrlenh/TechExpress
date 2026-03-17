@@ -60,14 +60,3 @@ public record CompleteTicketResponse(
     DateTimeOffset UpdatedAt
 );
 
-public record NotificationResponse(
-    long Id,
-    Guid UserId,
-    string Type,
-    string Title,
-    string Message,
-    Guid? ReferenceId,
-    string? ReferenceType,
-    bool IsRead,
-    DateTimeOffset CreatedAt
-);
