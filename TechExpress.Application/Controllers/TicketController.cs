@@ -5,6 +5,7 @@ using TechExpress.Application.Common;
 using TechExpress.Application.Dtos.Requests;
 using TechExpress.Application.Dtos.Responses;
 using TechExpress.Repository.Enums;
+using TechExpress.Repository.Models;
 using TechExpress.Service;
 using TechExpress.Service.Constants;
 using TechExpress.Service.Contexts;
@@ -15,7 +16,6 @@ namespace TechExpress.Application.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
-[Authorize]
 public class TicketController(
     ServiceProviders serviceProviders,
     UserContext userContext,
@@ -25,41 +25,41 @@ public class TicketController(
     private readonly UserContext _userContext = userContext;
     private readonly IHubContext<TicketHub> _ticketHub = ticketHub;
 
-    // ── POST /api/tickets/custom-pc-build  (guest + logged-in) ──────────
-    [AllowAnonymous]
-    [HttpPost("custom-pc-build")]
-    public async Task<IActionResult> CreateCustomPCBuildTicket([FromBody] CreateCustomPCBuildTicketRequest request)
-    {
-        var userIdStr = _userContext.GetCurrentAuthenticatedUserIdIfExist();
-        var ticket = await _serviceProviders.TicketService.HandleCreateCustomPCBuildTicket(
-            userIdStr,
-            request.FullName?.Trim(),
-            request.Phone?.Trim(),
-            request.Title.Trim(),
-            request.Message.Trim(),
-            request.CustomPCId,
-            request.Attachments
-        );
-        var response = ResponseMapper.MapToTicketResponse(ticket);
-        await _ticketHub.Clients.Group("staff")
-            .SendAsync(SignalRMessageConstant.TicketUpdated, response);
-        return CreatedAtAction(nameof(CreateCustomPCBuildTicket), ApiResponse<TicketResponse>.CreatedResponse(response));
-    }
 
-    // ── POST /api/tickets  (customer only) ───────────────────────────────
-    [HttpPost("customer/Auto-fill-information")]
-    [Authorize(Roles = "Customer")]
+    [HttpPost]
     public async Task<IActionResult> CreateTicket([FromBody] CreateTicketRequest request)
     {
-        var userId = _userContext.GetCurrentAuthenticatedUserId();
-        var ticket = await _serviceProviders.TicketService.HandleCreateTicket(
-            userId,
-            request.Title.Trim(),
-            request.Message.Trim(),
-            request.Type,
-            request.CustomPCId,
-            request.Attachments
-        );
+        var userIdStr = _userContext.GetCurrentAuthenticatedUserIdIfExist();
+        Ticket ticket;
+        if (userIdStr is not null)
+        {
+            var userId = Guid.Parse(userIdStr);
+            ticket = await _serviceProviders.TicketService.HandleCreateTicketForAuthenticatedUser(
+                userId,
+                request.Title.Trim(),
+                request.Description.Trim(),
+                request.Message.Trim(),
+                request.Type,
+                request.CustomPCId,
+                request.OrderId,
+                request.OrderItemId,
+                request.Attachments
+            );
+        } else
+        {
+            ticket = await _serviceProviders.TicketService.HandleCreateTicketForUnauthenticatedUser(
+                request.FullName,
+                request.Phone,
+                request.Title.Trim(),
+                request.Description.Trim(),
+                request.Message.Trim(),
+                request.Type,
+                request.CustomPCId, 
+                request.OrderId, 
+                request.OrderItemId,
+                request.Attachments
+            );
+        }
         var response = ResponseMapper.MapToTicketResponse(ticket);
         await _ticketHub.Clients.Group("staff")
             .SendAsync(SignalRMessageConstant.TicketUpdated, response);

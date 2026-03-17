@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using TechExpress.Repository;
 using TechExpress.Repository.CustomExceptions;
 using TechExpress.Repository.Enums;
@@ -83,16 +84,22 @@ public class TicketService(UnitOfWork unitOfWork)
     }
 
     // ── Customer: create general support ticket (authenticated) ──────────
-    public async Task<Ticket> HandleCreateTicket(
+    public async Task<Ticket> HandleCreateTicketForAuthenticatedUser(
         Guid userId,
         string title,
+        string description,
         string message,
         TicketType type,
         Guid? customPCId,
-        List<string>? attachmentUrls)
+        Guid? orderId,
+        long? orderItemId,
+        List<string> attachmentUrls)
     {
+        
         var user = await _unitOfWork.UserRepository.FindUserByIdAsync(userId)
             ?? throw new NotFoundException($"Không tìm thấy người dùng: {userId}");
+        
+        
 
         if (customPCId.HasValue)
         {
@@ -135,6 +142,23 @@ public class TicketService(UnitOfWork unitOfWork)
 
         return await _unitOfWork.TicketRepository.FindByIdIncludeMessagesWithAttachmentsAsync(ticket.Id)
             ?? throw new NotFoundException($"Không tìm thấy ticket: {ticket.Id}");
+    }
+
+
+    public async Task<Ticket> HandleCreateTicketForUnauthenticatedUser(
+        string? fullName,
+        string? phone,
+        string title,
+        string description,
+        string message,
+        TicketType type,
+        Guid? customPCId,
+        Guid? orderId,
+        long? orderItem,
+        List<string> attachments
+    )
+    {
+        return null;
     }
 
     // ── Public: paginated list of tickets ──────────────────────────────────
