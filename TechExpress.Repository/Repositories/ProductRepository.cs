@@ -507,6 +507,41 @@ namespace TechExpress.Repository.Repositories
                 tvp.Rows.Add(product.Item1, product.Item2);
             }
 
+            var param = new SqlParameter("@Destock", SqlDbType.Structured)
+            {
+                TypeName = "dbo.OrderItemType",
+                Value = tvp
+            };
+
+            return await _context.Database.SqlQueryRaw<RestockProductResult>("""
+                DECLARE @Updated TABLE (ProductId UNIQUEIDENTIFIER, Quantity INT, NewStock INT);
+
+                UPDATE p
+                SET p.stock = p.stock - d.Quantity 
+                OUTPUT d.ProductId, d.Quantity, inserted.stock 
+                INTO @Updated(ProductId, Quantity, NewStock) 
+                From Products p 
+                INNER JOIN @Destock d ON p.id = d.ProductId
+                WHERE p.stock - d.Quantity >= 0; 
+
+                SELECT d.ProductId, d.Quantity AS RequestedQuantity, u.NewStock, 
+                CASE WHEN u.ProductId IS NOT NULL THEN 1 ELSE 0 END AS IsUpdated 
+                FROM @Destock d 
+                LEFT JOIN @Updated u ON d.ProductId = u.ProductId;
+            """, param).ToListAsync();
+        }
+
+        public async Task<List<RestockProductResult>> IncrementStockBatchAsync(List<(Guid, int)> requestProducts)
+        {
+            var tvp = new DataTable();
+            tvp.Columns.Add("ProductId", typeof(Guid));
+            tvp.Columns.Add("Quantity", typeof(int));
+
+            foreach (var product in requestProducts)
+            {
+                tvp.Rows.Add(product.Item1, product.Item2);
+            }
+
             var param = new SqlParameter("@Restock", SqlDbType.Structured)
             {
                 TypeName = "dbo.OrderItemType",
@@ -517,17 +552,15 @@ namespace TechExpress.Repository.Repositories
                 DECLARE @Updated TABLE (ProductId UNIQUEIDENTIFIER, Quantity INT, NewStock INT);
 
                 UPDATE p
-                SET p.stock = p.stock - r.Quantity 
+                SET p.stock = p.stock + r.Quantity 
                 OUTPUT r.ProductId, r.Quantity, inserted.stock 
-                INTO @Updated(ProductId, Quantity, NewStock) 
-                From Products p 
-                INNER JOIN @Restock r ON p.id = r.ProductId
-                WHERE p.stock - r.Quantity >= 0; 
+                INTO @Updated (ProductId, Quantity, NewStock) 
+                FROM Products p 
+                INNER JOIN @Restock r ON p.id = r.ProductId;
 
                 SELECT r.ProductId, r.Quantity AS RequestedQuantity, u.NewStock, 
                 CASE WHEN u.ProductId IS NOT NULL THEN 1 ELSE 0 END AS IsUpdated 
-                FROM @Restock r 
-                LEFT JOIN @Updated u ON r.ProductId = u.ProductId;
+                FROM @Restock r LEFT JOIN @Updated u ON r.ProductId = u.ProductId;
             """, param).ToListAsync();
         }
     }

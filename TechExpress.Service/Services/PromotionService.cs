@@ -694,6 +694,7 @@ public class PromotionService
             throw new BadRequestException($"Khuyến mãi đã ở trạng thái được tắt, không thể tiếp tục thực hiện hành động này");
         }
         promotion.IsActive = false;
+        promotion.EndDate = DateTimeOffset.Now;
         promotion.UpdatedAt = DateTimeOffset.Now;
         await _unitOfWork.SaveChangesAsync();
         var disabledPromotion = await _unitOfWork.PromotionRepository.FindByIdIncludeRequiredProductsIncludeFreeProductsIncludeAppliedProductsWithSplitQueryAsync(promotionId) ?? throw new NotFoundException($"Không tìm thấy mã khuyến mãi: {promotionId}");
