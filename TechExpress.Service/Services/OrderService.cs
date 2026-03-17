@@ -114,7 +114,7 @@ namespace TechExpress.Service.Services
                     if (string.IsNullOrWhiteSpace(trackingPhone))
                         throw new BadRequestException("Số điện thoại liên lạc là bắt buộc.");
 
-                    user.Phone = trackingPhone;
+                    //user.Phone = trackingPhone;
                     finalPhone = trackingPhone;
                 }
                 else
@@ -234,7 +234,7 @@ namespace TechExpress.Service.Services
                         throw new BadRequestException("Số điện thoại không khớp với hồ sơ.");
 
                     finalPhone = string.IsNullOrWhiteSpace(user.Phone) ? trackingPhone! : user.Phone;
-                    user.Phone = finalPhone;
+                    //user.Phone = finalPhone;
                 }
                 else
                 {
@@ -321,7 +321,7 @@ namespace TechExpress.Service.Services
 
                     finalPhone = string.IsNullOrWhiteSpace(customer.Phone) ? trackingPhone! : customer.Phone;
 
-                    customer.Phone = finalPhone;
+                    //customer.Phone = finalPhone;
                 }
                 else
                 {
