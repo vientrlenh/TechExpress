@@ -977,6 +977,32 @@ public class ResponseMapper
         };
     }
 
+    // =======================
+    // Notification
+    // =======================
+
+    public static NotificationResponse MapToNotificationResponseFromNotification(Notification notification)
+    {
+        return new NotificationResponse(
+            notification.Id,
+            notification.Title,
+            notification.Message,
+            notification.Type,
+            notification.ReferenceId,
+            notification.ReferenceType,
+            notification.IsRead,
+            notification.ReadAt,
+            notification.CreatedAt
+        );
+    }
+
+    public static List<NotificationResponse> MapToNotificationResponseListFromNotificationList(List<Notification> notifications)
+    {
+        return notifications
+            .Select(MapToNotificationResponseFromNotification)
+            .ToList();
+    }
+}
 // FROM MAIN BRANCH
     public static PromotionDetailResponse MapToPromotionDetailResponseFromPromotion(Promotion promotion)
     {

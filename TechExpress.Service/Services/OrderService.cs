@@ -20,12 +20,14 @@ namespace TechExpress.Service.Services
         private readonly UnitOfWork _unitOfWork;
         private readonly UserContext _userContext;
         private readonly PromotionService _promotionService;
+        private readonly NotificationHelper _notificationHelper;
 
-        public OrderService(UnitOfWork unitOfWork, UserContext userContext, PromotionService promotionService)
+        public OrderService(UnitOfWork unitOfWork, UserContext userContext, PromotionService promotionService, NotificationHelper notificationHelper)
         {
             _unitOfWork = unitOfWork;
             _userContext = userContext;
             _promotionService = promotionService;
+            _notificationHelper = notificationHelper;
         }
 
         // ============================== GUEST CHECKOUT ===============================
@@ -828,6 +830,14 @@ namespace TechExpress.Service.Services
             return (updatedOrder, installments, payments);
         }
 
+            // Tạo notification khi order status thay đổi
+            if (order.UserId.HasValue)
+            {
+                await _notificationHelper.CreateOrderNotificationAsync(order.UserId.Value, order.Id, order.Status);
+                await _unitOfWork.SaveChangesAsync();
+            }
+
+            return order;
 
         public async Task<(Order, List<Installment>, List<Payment>)> HandleMarkOrderAsReadyForPickUp(Guid orderId)
         {
@@ -953,6 +963,14 @@ namespace TechExpress.Service.Services
                     trackedOrder.Status = OrderStatus.Canceled;
 
                     await _unitOfWork.SaveChangesAsync();
+
+                    // Tạo notification khi order bị hủy
+                    if (trackedOrder.UserId.HasValue)
+                    {
+                        await _notificationHelper.CreateOrderNotificationAsync(trackedOrder.UserId.Value, orderId, OrderStatus.Canceled);
+                        await _unitOfWork.SaveChangesAsync();
+                    }
+
                     await transaction.CommitAsync();
 
                     return trackedOrder;

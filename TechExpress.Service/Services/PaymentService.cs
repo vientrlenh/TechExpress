@@ -22,6 +22,7 @@ namespace TechExpress.Service.Services
         private readonly UnitOfWork _unitOfWork;
         private readonly RedisUtils _redisUtils;
         private readonly PayOsClient _payOs;
+        private readonly NotificationHelper _notificationHelper;
 
         private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
 
@@ -34,11 +35,12 @@ namespace TechExpress.Service.Services
         private const string PayOsIndexOrder = "payos:idx:order:";       // payos:idx:order:{orderId} -> sessionId
         private const string PayOsIndexInstallment = "payos:idx:ins:";   // payos:idx:ins:{installmentId} -> sessionId
 
-        public PaymentService(UnitOfWork unitOfWork, RedisUtils redisUtils, PayOsClient payOs)
+        public PaymentService(UnitOfWork unitOfWork, RedisUtils redisUtils, PayOsClient payOs, NotificationHelper notificationHelper)
         {
             _unitOfWork = unitOfWork;
             _redisUtils = redisUtils;
             _payOs = payOs;
+            _notificationHelper = notificationHelper;
         }
 
         public async Task<Order> HandleSetFullPaymentIntentAsync(
@@ -387,8 +389,26 @@ namespace TechExpress.Service.Services
                 }
 
                 // Cập nhật trạng thái đơn hàng (Pending -> Confirmed, Installing -> Completed nếu đã trả hết)
+                var order = await _unitOfWork.OrderRepository.FindByIdWithTrackingAsync(session.OrderId);
                 await UpdateOrderStatusAfterPaymentAsync(session.OrderId, ct);
                 await _unitOfWork.SaveChangesAsync();
+
+                // Tạo notification thanh toán thành công
+                if (order?.UserId.HasValue == true)
+                {
+                    await _notificationHelper.CreatePaymentNotificationAsync(order.UserId.Value, session.OrderId, PaymentStatus.Success);
+                    await _unitOfWork.SaveChangesAsync();
+                }
+            }
+            else
+            {
+                // Tạo notification thanh toán thất bại
+                var order = await _unitOfWork.OrderRepository.FindByIdWithTrackingAsync(session.OrderId);
+                if (order?.UserId.HasValue == true)
+                {
+                    await _notificationHelper.CreatePaymentNotificationAsync(order.UserId.Value, session.OrderId, PaymentStatus.Failed);
+                    await _unitOfWork.SaveChangesAsync();
+                }
             }
 
             // (optional) clear session luôn
