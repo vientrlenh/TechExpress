@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using TechExpress.Application.Common;
 using TechExpress.Application.Dtos.Requests;
 using TechExpress.Application.Dtos.Responses;
+using TechExpress.Application.DTOs.Responses;
 using TechExpress.Service;
 using TechExpress.Service.Contexts;
 using TechExpress.Service.Dtos;
@@ -126,40 +127,50 @@ namespace TechExpress.Application.Controllers
             return Ok(ApiResponse<Pagination<ProductListResponse>>.OkResponse(response));
         }
         /// <summary>
-        /// List tất cả promotion cho admin
+        /// List promotion dành cho Admin (Xem được tất cả trạng thái)
         /// </summary>
-        /// <param name="search"></param>
-        /// <param name="status"></param>
-        /// <param name="fromDate"></param>
-        /// <param name="toDate"></param>
-        /// <param name="sortBy"></param>
-        /// <param name="isDescending"></param>
-        /// <param name="page"></param>
-        /// <param name="pageSize"></param>
-        /// <returns></returns>
-
         [HttpGet("admin/all")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetAllPromotions(
+        public async Task<IActionResult> GetAllPromotionsForAdmin(
             [FromQuery] string? search,
-            //[FromQuery] string? status, // Nhận filter status
-            [FromQuery] bool? status, // Đổi tên và kiểu thành bool?
+            [FromQuery] bool? status, // Admin lọc true/false tùy ý
             [FromQuery] DateTimeOffset? fromDate,
             [FromQuery] DateTimeOffset? toDate,
-            [FromQuery] string sortBy = "Code or Name",
+            [FromQuery] string sortBy = "CreatedAt",
             [FromQuery] bool isDescending = true,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20)
         {
-            // 1. Service lấy Entity
             var entityPagination = await _serviceProvider.PromotionService.GetPromotionsPagedAsync(
                 search, status, fromDate, toDate, sortBy, isDescending, page, pageSize);
 
-            // 2. Map sang DTO để trả về attribute IsExpired và Status chuỗi
             var response = ResponseMapper.MapToPromotionListResponsePaginationFromPromotionPagination(entityPagination);
-
             return Ok(ApiResponse<Pagination<PromotionListResponse>>.OkResponse(response));
         }
+
+
+        /// <summary>
+        /// List promotion dành cho Khách hàng (Chỉ hiện mã đang active và còn hạn)
+        /// </summary>
+        [HttpGet("customer_guest/all")]
+        public async Task<IActionResult> GetAllPromotionsForCustomer(
+            [FromQuery] string? search,
+            [FromQuery] DateTimeOffset? fromDate,
+            [FromQuery] DateTimeOffset? toDate,
+            [FromQuery] string sortBy = "CreatedAt",
+            [FromQuery] bool isDescending = true,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20)
+        {
+            // Ở đây KHÔNG NHẬN tham số status từ client để đảm bảo bảo mật
+            var entityPagination = await _serviceProvider.PromotionService.GetPromotionsPagedForCustomerGuestAsync(
+                search, fromDate, toDate, sortBy, isDescending, page, pageSize);
+
+            var response = ResponseMapper.MapToPromotionListResponsePaginationFromPromotionPagination(entityPagination);
+            return Ok(ApiResponse<Pagination<PromotionListResponse>>.OkResponse(response));
+        }
+
+
 
         [HttpPost("disable")]
         [Authorize(Roles = "Admin")]
@@ -169,5 +180,40 @@ namespace TechExpress.Application.Controllers
             var response = ResponseMapper.MapToPromotionResponseFromPromotion(promotion);
             return Ok(ApiResponse<PromotionResponse>.OkResponse(response));
         }
+
+        [HttpDelete("{promotionId}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> DeletePromotion(Guid promotionId)
+        {
+            await _serviceProvider.PromotionService.HandleDeletePromotion(promotionId);
+            return Ok(ApiResponse<string>.OkResponse("Xóa khuyến mãi thành công."));
+        }
+
+
+        [HttpGet("{promotionId}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetPromotionDetail(Guid promotionId)
+        {
+            var promotion = await _serviceProvider.PromotionService.HandleGetPromotionDetail(promotionId);
+            var response = ResponseMapper.MapToPromotionDetailResponseFromPromotion(promotion);
+
+            return Ok(ApiResponse<PromotionDetailResponse>.OkResponse(response));
+        }
+
+        /// <summary>
+        /// cho guest hoặc customer lấy thông tin bằng promotion code
+        /// </summary>
+        /// <param name="promotionCode"></param>
+        /// <returns></returns>
+        [HttpGet("{promotionCode}/customer/guest")]
+        public async Task<IActionResult> GetPromotionDetailCode(string promotionCode)
+        {
+            var promotion = await _serviceProvider.PromotionService.HandleGetPromotionCodeDetail(promotionCode);
+            var response = ResponseMapper.MapToPromotionDetailResponseFromPromotion(promotion);
+
+            return Ok(ApiResponse<PromotionDetailResponse>.OkResponse(response));
+        }
+
+
     }
 }

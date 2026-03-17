@@ -174,13 +174,16 @@ namespace TechExpress.Repository.Repositories
         }
         
         // Quan trọng: Phải include cả Items và Product để lấy tên sản phẩm trong OrderItem
-        public async Task<Order?> GetOrderByIdAsync(Guid orderId)
+        public async Task<Order?> FindByIdIncludeItemsThenIncludeProductWithSplitQueryAsync(Guid orderId)
         {
             return await _context.Orders
                 .Include(o => o.Items)
                     .ThenInclude(i => i.Product)
+                .AsSplitQuery()
                 .FirstOrDefaultAsync(o => o.Id == orderId);
         }
+
+
 
         public async Task<(List<Order> Orders, int TotalCount)> FindCustomerOrdersPagedSortByOrderDateAsync(
             Guid customerId, int page, int pageSize, bool isDescending, string? search, OrderStatus? status)
@@ -222,6 +225,15 @@ namespace TechExpress.Repository.Repositories
             }
 
             return query;
+        }
+
+
+        public async Task<List<Order>> FindPickedUpOrDeliveredReachAutoCompletedTimeAsync(DateTimeOffset autoCompletedTime)
+        {
+            return await _context.Orders
+                .AsTracking()
+                .Where(o => (o.Status == OrderStatus.PickedUp || o.Status == OrderStatus.Delivered) && o.ReceivedAt.HasValue && o.ReceivedAt <= autoCompletedTime)
+                .ToListAsync(); 
         }
     }
 }

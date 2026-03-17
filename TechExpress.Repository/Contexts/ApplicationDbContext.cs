@@ -1436,6 +1436,10 @@ namespace TechExpress.Repository.Contexts
                 tk.Property(t => t.CustomPCId)
                     .HasColumnName("custom_pc_id");
 
+                tk.Property(t => t.Result)
+                    .HasColumnName("result")
+                    .HasMaxLength(2048);
+
                 tk.Property(t => t.OrderId)
                     .HasColumnName("order_id");
 
@@ -1444,6 +1448,9 @@ namespace TechExpress.Repository.Contexts
 
                 tk.Property(t => t.AssignedToUserId)
                     .HasColumnName("assigned_to_user_id");
+
+                tk.Property(t => t.CompletedByUserId)
+                    .HasColumnName("completed_by_user_id");
 
                 tk.Property(t => t.ResolvedAt)
                     .HasColumnName("resolved_at");
@@ -1470,6 +1477,9 @@ namespace TechExpress.Repository.Contexts
                 tk.HasIndex(t => t.AssignedToUserId)
                     .HasDatabaseName("idx_ticket_assigned");
 
+                tk.HasIndex(t => t.CompletedByUserId)
+                    .HasDatabaseName("idx_ticket_completed_by");
+
                 tk.HasIndex(t => t.CustomPCId)
                     .HasDatabaseName("idx_ticket_custom_pc");
 
@@ -1487,6 +1497,11 @@ namespace TechExpress.Repository.Contexts
                 tk.HasOne(t => t.AssignedTo)
                     .WithMany()
                     .HasForeignKey(t => t.AssignedToUserId)
+                    .OnDelete(DeleteBehavior.NoAction);
+
+                tk.HasOne(t => t.CompletedBy)
+                    .WithMany()
+                    .HasForeignKey(t => t.CompletedByUserId)
                     .OnDelete(DeleteBehavior.NoAction);
 
                 tk.HasOne(t => t.CustomPC)

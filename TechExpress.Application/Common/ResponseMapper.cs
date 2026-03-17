@@ -1,4 +1,5 @@
-﻿using Microsoft.Identity.Client;
+﻿using Microsoft.AspNetCore.Http.Features;
+using Microsoft.Identity.Client;
 using System;
 using TechExpress.Application.Controllers;
 using TechExpress.Application.Dtos.Responses;
@@ -602,6 +603,7 @@ public class ResponseMapper
             ShippingAddress = order.ShippingAddress,
             TrackingPhone = order.TrackingPhone,
             Notes = order.Notes,
+            CreatedByStaffId = order.CreatedByStaffId,
             ReceiverIdentityCard = order.ReceiverIdentityCard,
             InstallmentDurationMonth = order.InstallmentDurationMonth,
 
@@ -847,9 +849,13 @@ public class ResponseMapper
             p.Type.ToString(),
             p.Scope.ToString(),
             p.DiscountValue,
+            p.MaxDiscountValue,
+            p.MinOrderValue,
             p.UsageCount,
             p.MaxUsageCount,
+            p.MaxUsagePerUser,
             p.IsActive,
+            p.IsStackable,
             p.StartDate,
             p.EndDate,
             p.CreatedAt,
@@ -875,10 +881,12 @@ public class ResponseMapper
             item.Id, 
             item.CustomPCId, 
             item.ProductId, 
+            item.Product.CategoryId,
             item.Product.Name,
             item.Product.Price,
             item.Product.WarrantyMonth,
-            item.Quantity
+            item.Quantity,
+            item.Product.Images.Select(i => i.ImageUrl).FirstOrDefault()
         );
     }
 
@@ -993,5 +1001,166 @@ public class ResponseMapper
         return notifications
             .Select(MapToNotificationResponseFromNotification)
             .ToList();
+    }
+}
+// FROM MAIN BRANCH
+    public static PromotionDetailResponse MapToPromotionDetailResponseFromPromotion(Promotion promotion)
+    {
+        var now = DateTimeOffset.Now;
+
+        return new PromotionDetailResponse
+        {
+            Id = promotion.Id,
+            Name = promotion.Name,
+            Code = promotion.Code,
+            Description = promotion.Description,
+            DiscountType = promotion.Type,
+            DiscountValue = promotion.DiscountValue,
+            MaxDiscountValue = promotion.MaxDiscountValue,
+            StartDate = promotion.StartDate,
+            EndDate = promotion.EndDate,
+            UsageLimit = promotion.MaxUsageCount,
+            UsagePerUser = promotion.MaxUsagePerUser,
+            Status = promotion.IsActive,
+            IsExpired = promotion.EndDate <= now,
+            CreatedAt = promotion.CreatedAt,
+            UpdatedAt = promotion.UpdatedAt,
+            Scope = promotion.Scope,
+            MinOrderValue = promotion.MinOrderValue,
+            CategoryId = promotion.CategoryId,
+            BrandId = promotion.BrandId,
+            MinAppliedQuantity = promotion.MinAppliedQuantity,
+            RequiredProductLogic = promotion.RequiredProductLogic,
+            FreeItemPickCount = promotion.FreeItemPickCount,
+            IsStackable = promotion.IsStackable,
+            UsageCount = promotion.UsageCount
+        };
+    }
+
+    public static WarrantyCheckResponse MapToWarrantyCheckResponseFromResult(WarrantyCheckResult result)
+    {
+        return new WarrantyCheckResponse
+        {
+            OrderItemId = result.OrderItemId,
+            ProductName = result.ProductName,
+            ProductSku = result.ProductSku,
+            WarrantyStartDate = result.WarrantyStartDate,
+            WarrantyMonths = result.WarrantyMonths,
+            WarrantyExpiredAt = result.WarrantyExpiredAt,
+            CheckedAt = result.CheckedAt,
+            IsValid = result.IsValid,
+            RemainingDays = result.RemainingDays,
+            Message = result.Message,
+            TicketId = result.TicketId,
+            MessageId = result.MessageId
+        };
+    }
+
+    // FROM FEATURE BRANCH (new additions)
+    public static TicketAttachmentResponse MapToTicketAttachmentResponse(TicketAttachment attachment)
+    {
+        return new TicketAttachmentResponse(
+            attachment.Id,
+            attachment.FileUrl,
+            attachment.UploadedAt
+        );
+    }
+
+    public static TicketMessageResponse MapToTicketMessageResponse(TicketMessage message)
+    {
+        return new TicketMessageResponse(
+            message.Id,
+            message.TicketId,
+            message.UserId,
+            message.Content,
+            message.IsStaffMessage,
+            message.Attachments.Select(MapToTicketAttachmentResponse).ToList(),
+            message.SentAt
+        );
+    }
+
+    public static TicketListItemResponse MapToTicketListItemResponse(Ticket ticket)
+    {
+        return new TicketListItemResponse(
+            ticket.Id,
+            ticket.UserId,
+            ticket.Title,
+            ticket.Description,
+            ticket.Status,
+            ticket.CreatedAt,
+            ticket.UpdatedAt
+        );
+    }
+
+    public static Pagination<TicketListItemResponse> MapToTicketListItemResponsePagination(Pagination<Ticket> pagination)
+    {
+        return new Pagination<TicketListItemResponse>
+        {
+            Items = pagination.Items.Select(MapToTicketListItemResponse).ToList(),
+            PageNumber = pagination.PageNumber,
+            PageSize = pagination.PageSize,
+            TotalCount = pagination.TotalCount
+        };
+    }
+
+    public static TicketResponse MapToTicketResponse(Ticket ticket)
+    {
+        var completedByName = ticket.CompletedBy is null
+            ? null
+            : ((ticket.CompletedBy.FirstName ?? "") + " " + (ticket.CompletedBy.LastName ?? "")).Trim();
+
+        return new TicketResponse(
+            ticket.Id,
+            ticket.UserId,
+            ticket.FullName,
+            ticket.Phone,
+            ticket.Title,
+            ticket.Description,
+            ticket.Type,
+            ticket.Status,
+            ticket.Priority,
+            ticket.CustomPCId,
+            ticket.CustomPC is null ? null : MapToCustomPCResponseFromCustomPC(ticket.CustomPC),
+            ticket.Messages.Select(MapToTicketMessageResponse).ToList(),
+            ticket.CompletedByUserId,
+            string.IsNullOrWhiteSpace(completedByName) ? null : completedByName,
+            ticket.ResolvedAt,
+            ticket.ClosedAt,
+            ticket.CreatedAt,
+            ticket.UpdatedAt
+        );
+    }
+
+    public static CompleteTicketResponse MapToCompleteTicketResponse(Ticket ticket)
+    {
+        var completedByName = ticket.CompletedBy is null
+            ? null
+            : ((ticket.CompletedBy.FirstName ?? "") + " " + (ticket.CompletedBy.LastName ?? "")).Trim();
+
+        return new CompleteTicketResponse(
+            ticket.Id,
+            ticket.Title,
+            ticket.Status,
+            ticket.CompletedByUserId,
+            string.IsNullOrWhiteSpace(completedByName) ? null : completedByName,
+            ticket.ResolvedAt,
+            ticket.ClosedAt,
+            ticket.UpdatedAt
+        );
+    }
+
+    public static NotificationResponse MapToNotificationResponse(Notification notification)
+    {
+        return new NotificationResponse(
+            notification.Id,
+            notification.UserId,
+            notification.Type.ToString(),
+            notification.Title,
+            notification.Message,
+            notification.ReferenceId,
+            notification.ReferenceType?.ToString(),
+            notification.IsRead,
+            notification.CreatedAt
+        );
     }
 }
