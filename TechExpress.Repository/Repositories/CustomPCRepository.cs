@@ -24,6 +24,11 @@ public class CustomPCRepository
         return await _context.CustomPCs.Include(c => c.Items).FirstOrDefaultAsync(c => c.Id == id);
     }
 
+    public async Task<CustomPC?> FindByIdAsync(Guid id)
+    {
+        return await _context.CustomPCs.FirstOrDefaultAsync(c => c.Id == id);
+    }
+
     public async Task<CustomPC?> FindByIdIncludeItemsWithTrackingAsync(Guid id)
     {
         return await _context.CustomPCs.AsTracking().Include(c => c.Items).FirstOrDefaultAsync(c => c.Id == id);
@@ -67,6 +72,7 @@ public class CustomPCRepository
             .AsSplitQuery()
             .ToListAsync();
     }
+
 
     public async Task<CustomPC?> FindByIdWithTrackingAsync(Guid id)
     {

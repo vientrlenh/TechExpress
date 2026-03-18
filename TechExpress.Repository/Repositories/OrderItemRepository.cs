@@ -16,6 +16,13 @@ namespace TechExpress.Repository.Repositories
             _context = context;
         }
 
+        public async Task<OrderItem?> FindByIdIncludeOrderAsync(long orderItemId)
+        {
+            return await _context.OrderItems
+                .Include(oi => oi.Order)
+                .FirstOrDefaultAsync(oi => oi.Id == orderItemId);
+        }
+
         public async Task<OrderItem?> FindByIdAsync(long orderItemId)
         {
             return await _context.OrderItems
