@@ -402,7 +402,7 @@ namespace TechExpress.Application.Controllers
             return Ok(ApiResponse<OrderDetailResponse>.OkResponse(response));
         }
 
-        [HttpGet("{orderId}/deliver")]
+        [HttpPatch("{orderId}/deliver")]
         [Authorize(Roles = "Staff")]
         public async Task<IActionResult> DeliverOrder([FromRoute] Guid orderId, [FromBody] DeliverOrderInformationRequest request)
         {
